@@ -18,10 +18,6 @@ export function createElement(tag, attrs = {}) {
 
 
 
-//=======================
-//   2. Path-утилиты    
-//=======================
-
 // Парсит SVG path string в массив команд
 function parseSvgPath(pathString) {
   const commands = [];
@@ -93,7 +89,6 @@ export function resizePath(pathString, config = {}) {
   return stringifyPath(commands);
 }
 
-// Возвращает конфигурацию ресайза для типа блока
 export const PATH_RESIZE_CONFIGS = {
   'start-block': { hIndices: [0, 1] },
   'c-block': { hIndices: [2, 3, 8, 10], vIndices: [1, 3] },
@@ -108,25 +103,6 @@ export function getResizeConfig(blockType) {
 }
 
 
-
-//=======================
-//   3. Утилиты высокого уровня (для динамического ресайза)
-//=======================
-
-// Создаёт path-элемент с возможностью ресайза
-export function createResizablePath(blockType, initialPath, color) {
-  const pathEl = createElement('path', {
-    d: initialPath,
-    fill: color,
-    stroke: darkenColor(color),
-    'stroke-width': 2,
-    'stroke-linejoin': 'round'
-  });
-  pathEl.dataset.blockType = blockType;
-  return pathEl;
-}
-
-// Применяет ресайз к уже существующему path-элементу
 export function applyResizeToPathElement(pathEl, horizontal = 0, vertical = 0) {
   const blockType = pathEl.dataset.blockType;
   const config = getResizeConfig(blockType);

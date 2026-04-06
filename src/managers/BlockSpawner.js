@@ -1,8 +1,9 @@
-import { generateUUID } from '../utils/StringUtils.js';
+import { generateUUID } from '../utils/MathUtils.js';
+import * as SvgUtils from '../utils/SvgUtils.js';
 
 export class BlockSpawner {
-  constructor(blockSetup, grabManager, config = {}) {
-    this.blockSetup = blockSetup;
+  constructor(blockFactory, grabManager, config = {}) {
+    this.blockFactory = blockFactory;
     this.grabManager = grabManager;
     
     // Резолвим контейнеры из конфига или используем дефолтные селекторы
@@ -42,7 +43,7 @@ export class BlockSpawner {
       }
       
       // Обрабатываем только захват шаблона (не пустого места)
-      if (e.detail.target === 'template' && e.detail.blockUUID) {
+      if (e.detail.target === 'template' && e.detail.grabKey) {
         this.#onTemplateGrab(e.detail);
       }
     });
@@ -50,6 +51,7 @@ export class BlockSpawner {
     // Слушаем событие отпускания от GrabManager на ЛЮБОМ контейнере
     document.addEventListener('grab-end', (e) => {
       if (this.dragPreview && this.dragBlockId) {
+        console.log(e.detail)
         this.#onDragEnd(e.detail);
       }
     });
@@ -71,18 +73,17 @@ export class BlockSpawner {
   #onTemplateGrab(grabDetail) {
     // Находим шаблон напрямую по селектору (это <svg>)
     const template = this.containers.blockTemplates.querySelector(
-      `svg.block-template[data-block-id="${grabDetail.blockUUID}"]`
+      `svg.block-template[data-block-id="${grabDetail.grabKey}"]`
     );
     
     if (!template) {
-      console.warn('[BlockSpawner] Template SVG not found for blockId:', grabDetail.blockUUID);
+      console.warn('[BlockSpawner] Template SVG not found for blockId:', grabDetail.grabKey);
       return;
     }
 
     // Создаём <g> для перетаскивания
-    const previewGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const previewGroup = SvgUtils.createElement('g', {pointerEvents: "none"})
     previewGroup.classList.add('block-drag-preview');
-    previewGroup.setAttribute('pointer-events', 'none');
 
     // Клонируем ВСЁ содержимое шаблона (path, text)
     Array.from(template.children).forEach(child => {
@@ -99,7 +100,7 @@ export class BlockSpawner {
     
     // Сохраняем данные для перемещения
     this.dragPreview = previewGroup;
-    this.dragBlockId = grabDetail.blockUUID; // blockId шаблона
+    this.dragBlockId = grabDetail.grabKey; // blockId шаблона
     
     // Рассчитываем смещение относительно курсора (для плавного перемещения)
     const templateRect = template.getBoundingClientRect();
@@ -130,6 +131,7 @@ export class BlockSpawner {
 
   #onDragEnd(grabDetail) {
     // Определяем, отпустили ли над рабочей областью
+    console.log(grabDetail)
     const wsRect = this.containers.workspace.getBoundingClientRect();
     const isOverWorkspace = (
       grabDetail.clientX >= wsRect.left &&
@@ -137,17 +139,20 @@ export class BlockSpawner {
       grabDetail.clientY >= wsRect.top &&
       grabDetail.clientY <= wsRect.bottom
     );
-
+    // console.log([wsRect.left, wsRect.right, wsRect.top, wsRect.bottom])
+    // console.log(grabDetail.clientX, grabDetail.clientY)
+    // console.log(isOverWorkspace)
     if (isOverWorkspace && this.dragBlockId) {
+      console.log(1)
       // Рассчитываем финальную позицию относительно рабочей области
       const finalX = grabDetail.clientX - wsRect.left - this.dragOffset.x;
       const finalY = grabDetail.clientY - wsRect.top - this.dragOffset.y;
       
       // Создаём настоящий блок через фабрику
-      const realBlock = this.blockSetup.createWorkspaceBlock(
+      const realBlock = this.blockFactory.createWorkspaceBlock(
         this.dragBlockId,
         { 
-          blockUUID: generateUUID(), // Настоящий уникальный ID
+          grabKey: generateUUID(), // Настоящий уникальный ID
           x: finalX,
           y: finalY 
         }
@@ -160,7 +165,7 @@ export class BlockSpawner {
         this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
           detail: {
             block: realBlock,
-            blockUUID: realBlock.dataset.blockUUID,
+            grabKey: realBlock.dataset.grabKey,
             blockId: this.dragBlockId,
             x: finalX,
             y: finalY
