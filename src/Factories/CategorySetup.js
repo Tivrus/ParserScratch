@@ -1,4 +1,4 @@
-import * as CategoriesData from '../ScratchData/CategoriesData.js';
+import * as CategoriesData from '../data/CategoriesData.js';
 
 export class CategoryList {
   constructor({ categoriesContainerId = 'category-list', onCategoryChange } = {}) {
@@ -19,19 +19,19 @@ export class CategoryList {
   #renderCategories() {
     const seenIds = new Set();
     for (const category of this.categoriesArray) {
-      if (seenIds.has(category.id)) {
+      if (seenIds.has(category.key)) {
         console.error(
-          `[CategoryList] Duplicate category ID detected: "${category.id}". ` +
+          `[CategoryList] Duplicate category ID detected: "${category.key}". ` +
           `All category IDs must be unique. Rendering aborted.`
         );
         return;
-      }seenIds.add(category.id)}
+      }seenIds.add(category.key)}
 
     this.categoriesContainer.innerHTML = '';
     this.categoriesArray.forEach((category) => {
       const element = this.renderItem(category);
-      element.dataset.id = category.id;
-      element.addEventListener('click', () => this.selectCategory(category.id));
+      element.dataset.key = category.key;
+      element.addEventListener('click', () => this.selectCategory(category.key));
       this.categoriesContainer.appendChild(element);
     });
   }
@@ -47,7 +47,8 @@ export class CategoryList {
 
     const label = document.createElement('div');
     label.classList.add('category-label');
-    label.textContent = category.text || category.id;
+    label.classList.add('selectable');
+    label.textContent = category.text || category.key;
 
     wrapper.appendChild(colorBox);
     wrapper.appendChild(label);
@@ -56,12 +57,12 @@ export class CategoryList {
 
 
   #selectDefaultCategory() {
-    this.selectCategory(this.categoriesArray[0].id);
+    this.selectCategory(this.categoriesArray[0].key);
   }
 
 
   selectCategory(categoryId) {
-    const categoryExists = this.categoriesArray.some(cat => cat.id === categoryId);
+    const categoryExists = this.categoriesArray.some(cat => cat.key === categoryId);
     if (!categoryExists) {
       console.warn(`[CategoryList]: Category with ID "${categoryId}" not found.`);
       return;
@@ -69,7 +70,7 @@ export class CategoryList {
     if (this.activeCategory === categoryId) return;
     const prevActive = this.categoriesContainer.querySelector('.category-item--active');
     if (prevActive) prevActive.classList.remove('category-item--active');
-    const newActive = this.categoriesContainer.querySelector(`[data-id="${categoryId}"]`);
+    const newActive = this.categoriesContainer.querySelector(`[data-key="${categoryId}"]`);
     if (newActive) {
       newActive.classList.add('category-item--active');
       this.activeCategory = categoryId;

@@ -1,15 +1,14 @@
-// src/factories/BlockManager.js
-import { blocks_list } from '../ScratchData/BlocksData.js';
-import { categories_list } from '../ScratchData/CategoriesData.js';
-import * as SvgUtils from '../Factories/SvgUtils.js';
-import * as global from '../global.js';
+import { blocks_list } from '../data/BlocksData.js';
+import { categories_list } from '../data/CategoriesData.js';
+import * as SvgUtils from '../utils/SvgUtils.js';
+import { darkenColor } from '../utils/StringUtils.js';
+import * as Global from '../constans/Global.js';
 
-export class BlockManager {
-  // === Часть 1: Управление библиотекой (UI) ===
-  constructor(BlockLibraryContainerId='block-templates') {
-    this.BlockLibraryContainer = document.getElementById(BlockLibraryContainerId)
-    this.BlocksMap = new Map(blocks_list.map(block => [block.id, block]));
-    this.CategoriesMap = new Map(categories_list.map(cat => [cat.id, cat]));
+export class BlockSetup {
+  constructor(BlockLibraryContainerId = 'block-templates') {
+    this.BlockLibraryContainer = document.getElementById(BlockLibraryContainerId);
+    this.BlocksMap = new Map(blocks_list.map(block => [block.blockKey, block]));
+    this.CategoriesMap = new Map(categories_list.map(cat => [cat.key, cat]));
   }
 
   #clearBlockLibrary() {
@@ -19,20 +18,19 @@ export class BlockManager {
   loadBlocksForCategory(categoryId) {
     this.#clearBlockLibrary();
 
-    const category = categories_list.find(c => c.id === categoryId);
+    const category = categories_list.find(c => c.key === categoryId);
     if (!category) {
-      console.warn(`[BlockManager] Category "${categoryId}" not found.`);
+      console.warn(`[BlockSetup] Category "${categoryId}" not found.`);
       return;
     }
 
     const categoryBlocks = blocks_list.filter(b => b.category === categoryId);
     for (const block of categoryBlocks) {
-      const template = this.createTemplate(block.id);
+      const template = this.createTemplate(block.blockKey);
       if (template) this.BlockLibraryContainer.appendChild(template);
     }
   }
 
-  // === Часть 2: Фабрика блоков (рендеринг) ===
   getBlockConfig(blockId) {
     if (!blockId) return null;
     const config = this.BlocksMap.get(blockId);
@@ -40,61 +38,101 @@ export class BlockManager {
   }
 
   getCategoryColor(categoryId) {
-    if (typeof categoryId !== 'string') return global.DEFAULT_BLOCK_COLOR;
+    if (typeof categoryId !== 'string') return Global.DEFAULT_BLOCK_COLOR;
     const cat = this.CategoriesMap.get(categoryId);
-    return cat?.color || global.DEFAULT_BLOCK_COLOR;
+    return cat?.color || Global.DEFAULT_BLOCK_COLOR;
   }
 
+  // Создаём ЧИСТЫЙ <svg> с атрибутами для запрета выделения
   createTemplate(blockId) {
     const config = this.getBlockConfig(blockId);
     if (!config) return null;
 
-    const svgContent = this.#createSVGContent(config);
+    const svgContent = this.#createSVGContent(config);  
     if (!svgContent) return null;
 
     const { pathEl, labelEls, width, height, viewBox } = svgContent;
 
-    const template = document.createElement('div');
-    template.className = 'block-template';
-    template.dataset.blockId = config.id;
-    template.dataset.type = config.type;
-    template.dataset.category = config.category;
-    template.style.width = `${width}px`;
-    template.style.height = `${height}px`;
+    // Создаём <svg> напрямую как шаблон
+    const svgTemplate = SvgUtils.createElement('svg', { 
+      viewBox, 
+      width: String(width), 
+      height: String(height),
+      class: 'block-template' // класс для стилей
+    });
 
-    const svgEl = SvgUtils.createElement('svg', { viewBox, width: String(width), height: String(height) });
-    svgEl.setAttribute('class', 'block-svg');
-    svgEl.appendChild(pathEl);
-    labelEls.forEach(el => svgEl.appendChild(el));
-    template.appendChild(svgEl);
+    // Дата-атрибуты
+    svgTemplate.dataset.blockId = config.blockKey;
+    svgTemplate.dataset.type = config.type;
+    svgTemplate.dataset.category = config.category;
+    
+    // 🔒 ЗАПРЕЩАЕМ ВЫДЕЛЕНИЕ ТЕКСТА НА САМОМ ЭЛЕМЕНТЕ
+    svgTemplate.setAttribute('unselectable', 'on'); // IE/Edge
+    svgTemplate.style.userSelect = 'none';          // Standard
+    svgTemplate.style.webkitUserSelect = 'none';    // Chrome/Safari
+    svgTemplate.style.MozUserSelect = 'none';       // Firefox
+    svgTemplate.style.msUserSelect = 'none';        // IE10+/Edge
+    svgTemplate.style.cursor = 'grab';
 
-    return template;
+    // Добавляем содержимое
+    svgTemplate.appendChild(pathEl);
+    labelEls.forEach(el => {
+      // 🔒 ЗАПРЕЩАЕМ ВЫДЕЛЕНИЕ НА ТЕКСТОВЫХ ЭЛЕМЕНТАХ ВНУТРИ БЛОКА
+      el.setAttribute('user-select', 'none');
+      el.setAttribute('unselectable', 'on');
+      el.style.userSelect = 'none';
+      el.style.pointerEvents = 'none'; // текст не должен перехватывать события
+      svgTemplate.appendChild(el);
+    });
+
+    return svgTemplate;
   }
 
-  createWorkspaceBlock(blockId, { unicId, x = 0, y = 0 } = {}) {
+  createWorkspaceBlock(blockId, { blockUUID, x = 0, y = 0 } = {}) {
     const config = this.getBlockConfig(blockId);
     if (!config) return null;
+    
     const svgContent = this.#createSVGContent(config);
     if (!svgContent) return null;
+    
     const { pathEl, labelEls, width, height } = svgContent;
-    const group = SvgUtils.createElement('g', { transform: `translate(${x}, ${y})` });
-    group.className = 'workspace-block';
-    group.dataset.blockId = config.id;
+    
+    // Группа для позиционирования в рабочей области
+    const group = SvgUtils.createElement('g', { 
+      transform: `translate(${x}, ${y})`,
+      class: 'workspace-block'
+    });
+    
+    group.dataset.blockId = config.blockKey;
     group.dataset.type = config.type;
     group.dataset.category = config.category;
-    group.dataset.unicId = unicId;
+    group.dataset.blockUUID = blockUUID;
+
+    // 🔒 ЗАПРЕЩАЕМ ВЫДЕЛЕНИЕ НА ГРУППЕ
+    group.setAttribute('unselectable', 'on');
+    group.style.userSelect = 'none';
+    group.style.webkitUserSelect = 'none';
+    group.style.MozUserSelect = 'none';
+    group.style.msUserSelect = 'none';
 
     group.appendChild(pathEl);
-    labelEls.forEach(el => group.appendChild(el));
+    labelEls.forEach(el => {
+      el.setAttribute('user-select', 'none');
+      el.setAttribute('unselectable', 'on');
+      el.style.userSelect = 'none';
+      el.style.pointerEvents = 'none';
+      group.appendChild(el);
+    });
+    
     return group;
   }
 
   // === Приватный рендеринг ===
   #createSVGContent(blockConfig) {
     const { type, labels = [], size } = blockConfig;
-    const form = global.BLOCK_FORMS[type];
+    const form = Global.BLOCK_FORMS[type];
     if (!form) {
-      console.warn(`[BlockManager] Form for type "${type}" not defined.`);
+      console.warn(`[BlockSetup] Form for type "${type}" not defined.`);
       return null;
     }
 
@@ -120,7 +158,7 @@ export class BlockManager {
     }
 
     const fillColor = this.getCategoryColor(blockConfig.category);
-    const strokeColor = SvgUtils.darkenColor(fillColor);
+    const strokeColor = darkenColor(fillColor);
 
     const pathEl = SvgUtils.createElement('path', {
       d: pathData,
@@ -141,7 +179,7 @@ export class BlockManager {
         'dominant-baseline': 'middle',
         'text-anchor': 'start'
       });
-      textEl.textContent = label.text ?? ''
+      textEl.textContent = label.text ?? '';
       return textEl;
     });
 
@@ -149,4 +187,4 @@ export class BlockManager {
   }
 }
 
-export default BlockManager;
+export default BlockSetup;
