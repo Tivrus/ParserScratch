@@ -2,6 +2,7 @@ import { CategoryLogic, CategoryRenderer } from '../factories/CategoryFactory.js
 import { BlockLogic, BlockRenderer } from '../factories/BlockFactory.js';
 import { GrabManager } from '../managers/GrabManager.js';
 import { BlockSpawner } from '../managers/BlockSpawner.js';
+import { BlockWorkspaceDrag } from '../interactions/blocks/index.js';
 
 // DOM element ids (single source for selectors vs getElementById)
 const DOM_IDS = {
@@ -46,6 +47,13 @@ const categoryUI = new CategoryRenderer('category-list', (categoryId) => {
     ObjBlockRenderer.renderLibrary(prepareBlocksForCategory(categoryId));
   }
 });
+
+// --- Interactions ---
+const workspaceDrag = new BlockWorkspaceDrag(
+  document.getElementById('block-container'),
+  document.getElementById('workspace'),
+  grabManager
+);
 
 // --- Bootstrap ---
 const defaultCategory = categoriesArray[0]?.key;
