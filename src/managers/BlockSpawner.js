@@ -1,7 +1,7 @@
 import { generateUUID } from '../utils/MathUtils.js';
 import { logError } from '../constans/Global.js';
 import * as SvgUtils from '../utils/SvgUtils.js';
-import { Block } from '../core/Block.js';
+import { Block } from '../constans/Block.js';
 
 export class BlockSpawner {
 
