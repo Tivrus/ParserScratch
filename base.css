@@ -85,6 +85,10 @@ body {
     background: #54668b;
 }
 
+.category-item--invalid {
+    background: #6b1a1a;
+}
+
 
 #sidebar {
     width: 190px;

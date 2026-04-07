@@ -20,8 +20,7 @@ export class BlockLogic {
     const form = this.blockForms.get(config.type);
     if (!form) return null;
     let { path: pathData, width, height } = form;
-    let viewBox
-    const vb = [0,0, width, height]
+    const vb = [0, 0, width, height];
     // Расчет изменения размера блока
     if (Array.isArray(config.size) && config.size.length == 2) {
       const [sign, amountRaw] = config.size;
@@ -31,10 +30,12 @@ export class BlockLogic {
         const resizeConfig = SvgUtils.getResizeConfig(config.type);
         pathData = SvgUtils.resizePath(pathData, { horizontal: delta, ...resizeConfig });
         width += delta;
-        
-        if (vb.length === 4) { vb[2] += delta;const viewBox = vb.join(' '); }
+        if (vb.length === 4) {
+          vb[2] += delta;
+        }
       }
     }
+    const viewBox = vb.join(' ');
     const fillColor = this.categoriesMap.get(config.category)?.color || Global.DEFAULT_BLOCK_COLOR;
     return { ...config, pathData, width, height, viewBox, fillColor, strokeColor: darkenColor(fillColor) };
   }
@@ -119,7 +120,6 @@ export class BlockRenderer {
     group.dataset.blockId = data.blockKey;
     group.dataset.type = data.type;
     group.dataset.category = data.category;
-    
     return group;
   }
 }

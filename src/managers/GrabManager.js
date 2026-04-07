@@ -1,21 +1,22 @@
-import {generateUUID} from '../utils/MathUtils.js'
+import { generateUUID } from '../utils/MathUtils.js';
+import { logError,  MOVE_THRESHOLD} from '../constans/Global.js';
 
 export class GrabManager {
   constructor(containersConfig = {}) {
     this.state = {
       isGrabbed: false,
-      area: null,            // 'workspace' | 'block-templates' | 'drag-overlay' | 'other'
-      target: null,          // 'block' | 'template' | 'empty'
-      element: null,         // захваченный элемент или контейнер
+      area: null,    // 'workspace' | 'blockTemplates'
+      target: null,  // 'block' | 'template' | 'empty'
+      element: null,
       grabKey: null,
       start: { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 },
-      end: { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 }
+      end:   { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 }
     };
 
-    // Резолвим селекторы в элементы
+    this.moveThreshold = MOVE_THRESHOLD;
     this.containers = this.#resolveContainers(containersConfig);
     if (!this.containers.workspace) {
-      console.error('[GrabManager] Workspace container is required');
+      logError('Workspace container is required', { context: 'GrabManager' });
       return;
     }
 
@@ -31,14 +32,12 @@ export class GrabManager {
     };
 
     return {
-      workspace: resolve(config.workspace || '#workspace'),
-      blockTemplates: resolve(config.blockTemplates || '#block-templates'),
-      // dragOverlay: resolve(config.dragOverlay || '#drag-overlay')
+      workspace:      resolve(config.workspace),
+      blockTemplates: resolve(config.blockTemplates),
     };
   }
 
   #initListeners() {
-    // Слушаем mousedown на ВСЕХ контейнерах
     Object.entries(this.containers).forEach(([areaName, container]) => {
       if (!container) return;
       container.addEventListener('mousedown', (e) => {
@@ -47,54 +46,38 @@ export class GrabManager {
       });
     });
 
-    // Глобальные слушатели для отпускания
     document.addEventListener('mouseup', (e) => {
-      if (this.state.isGrabbed) {
-        this.#handleGrabEnd(e);
-      }
+      if (this.state.isGrabbed) this.#handleGrabEnd(e);
     });
 
     window.addEventListener('blur', () => {
-      if (this.state.isGrabbed) {
-        this.#handleGrabCancel('window blur');
-      }
+      if (this.state.isGrabbed) this.#handleGrabCancel();
     });
   }
 
-  #handleGrabStart(event, areaName, container) {
-    // Определяем тип цели
-    let target = 'empty';
-    let element = null;
-    let grabKey = null;
-    
+  // --- Grab lifecycle ---
+  #resolveGrabTarget(event, areaName, container) {
     if (areaName === 'workspace') {
       const block = event.target.closest('.workspace-block');
-      if (block) {
-        target = 'block';
-        element = block;
-        grabKey = block.UUID;
-      } else {
-        target = 'empty';
-        element = container;
-      }
-    } 
-    else if (areaName === 'blockTemplates') {
-        const template = event.target.closest('.block-template');
-        if (template) {
-            target = 'template';
-            element = template;
-            grabKey = template.dataset.blockId;
-        } else {
-            target = 'empty';
-            element = container;
-        }
+      return block
+        ? { target: 'block',    element: block,     grabKey: block.UUID }
+        : { target: 'empty',    element: container, grabKey: null };
     }
 
+    if (areaName === 'blockTemplates') {
+      const template = event.target.closest('.block-template');
+      return template
+        ? { target: 'template', element: template,  grabKey: template.dataset.blockId }
+        : { target: 'empty',    element: container, grabKey: null };
+    }
+
+    return { target: 'empty', element: container, grabKey: null };
+  }
+
+  #handleGrabStart(event, areaName, container) {
+    const { target, element, grabKey } = this.#resolveGrabTarget(event, areaName, container);
+
     const rect = container.getBoundingClientRect();
-    const localX = event.clientX - Math.round(rect.left);
-    const localY = event.clientY - rect.top;
-    const prevState = { ...this.state };
-    
     this.state = {
       isGrabbed: true,
       area: areaName,
@@ -102,8 +85,8 @@ export class GrabManager {
       element,
       grabKey,
       start: {
-        x: localX,
-        y: localY,
+        x: Math.round(event.clientX - rect.left),
+        y: Math.round(event.clientY - rect.top),
         clientX: event.clientX,
         clientY: event.clientY,
         timestamp: Date.now()
@@ -111,7 +94,6 @@ export class GrabManager {
       end: { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 }
     };
 
-    // Эмитим событие на соответствующем контейнере
     this.#emit(container, 'grab-start', {
       ...this.state.start,
       area: this.state.area,
@@ -124,29 +106,40 @@ export class GrabManager {
   }
 
   #handleGrabEnd(event) {
-    const container = this.#getContainerByArea(this.state.area);
-    if (!container) return;
-    
-    const rect = container.getBoundingClientRect();
-    const localX = event.clientX - rect.left;
-    const localY = event.clientY - rect.top;
+    const startArea = this.state.area;
+    const startContainer = this.#getContainerByArea(startArea);
+    if (!startContainer) return;
 
-    this.state.end = {
-      x: localX,
-      y: localY,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      timestamp: Date.now()
+    // Released outside all containers → keep start area as reference
+    const endArea = this.#getAreaByPoint(event.clientX, event.clientY) ?? startArea;
+    const areaChanged = endArea !== startArea;
+    const endContainer = areaChanged ? this.#getContainerByArea(endArea) : startContainer;
+
+    const startRect = startContainer.getBoundingClientRect();
+    const endRect = endContainer.getBoundingClientRect();
+
+    const endX = Math.round(event.clientX - endRect.left);
+    const endY = Math.round(event.clientY - endRect.top);
+
+    this.state.end = { 
+      x: endX,
+      y: endY, 
+      clientX: endX, 
+      clientY: endY, 
+      timestamp: Date.now() 
     };
 
-    const deltaX = this.state.end.x - this.state.start.x;
-    const deltaY = this.state.end.y - this.state.start.y;
+    const deltaX = event.clientX - startRect.left - this.state.start.x;
+    const deltaY = event.clientY - startRect.top - this.state.start.y;
     const duration = this.state.end.timestamp - this.state.start.timestamp;
-    const moved = Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3;
+    const moved = Math.abs(deltaX) > this.moveThreshold || Math.abs(deltaY) > this.moveThreshold;
 
-
-    this.#emit(container, 'grab-end', {
+    this.#emit(startContainer, 'grab-end', {
       ...this.state,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      endArea,
+      areaChanged,
       deltaX,
       deltaY,
       duration,
@@ -161,41 +154,38 @@ export class GrabManager {
     if (container) {
       this.#emit(container, 'grab-cancel', { ...this.state });
     }
-
     this.state.isGrabbed = false;
   }
 
+  // --- Helpers ---
+  #getAreaByPoint(clientX, clientY) {
+    for (const [areaName, container] of Object.entries(this.containers)) {
+      if (!container) continue;
+      const rect = container.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right &&
+          clientY >= rect.top && clientY <= rect.bottom) {
+        return areaName;
+      }
+    }
+    return null;
+  }
+
   #getContainerByArea(areaName) {
-    return this.containers[areaName] || this.containers.workspace;
+    return this.containers[areaName] ?? this.containers.workspace;
   }
 
   #emit(targetElement, eventName, detail) {
-    const event = new CustomEvent(eventName, {
+    targetElement.dispatchEvent(new CustomEvent(eventName, {
       detail,
       bubbles: true,
       cancelable: true
-    });
-    targetElement.dispatchEvent(event);
+    }));
   }
 
-  // Публичные методы для внешней проверки
-  isBlockGrabbed() {
-    return this.state.isGrabbed && this.state.target === 'block';
-  }
-
-  isTemplateGrabbed() {
-    return this.state.isGrabbed && this.state.target === 'template';
-  }
-
-  isGrabbedInWorkspace() {
-    return this.state.isGrabbed && this.state.area === 'workspace';
-  }
-
-  isGrabbedInTemplates() {
-    return this.state.isGrabbed && this.state.area === 'blockTemplates';
-  }
-
-  getCurrentState() {
-    return { ...this.state };
-  }
+  // --- Public API ---
+  isBlockGrabbed() { return this.state.isGrabbed && this.state.target === 'block'; }
+  isTemplateGrabbed() { return this.state.isGrabbed && this.state.target === 'template'; }
+  isGrabbedInWorkspace() { return this.state.isGrabbed && this.state.area === 'workspace'; }
+  isGrabbedInTemplates() { return this.state.isGrabbed && this.state.area === 'blockTemplates'; }
+  getCurrentState() { return { ...this.state }; }
 }

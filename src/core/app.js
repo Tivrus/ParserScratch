@@ -1,50 +1,65 @@
-import { CategoryLogic, CategoryRenderer } from '../factories/CategoryFactory.js';  
+import { CategoryLogic, CategoryRenderer } from '../factories/CategoryFactory.js';
 import { BlockLogic, BlockRenderer } from '../factories/BlockFactory.js';
 import { GrabManager } from '../managers/GrabManager.js';
 import { BlockSpawner } from '../managers/BlockSpawner.js';
 
-// 1. Инициализация логики
+// DOM element ids (single source for selectors vs getElementById)
+const DOM_IDS = {
+  workspace: 'workspace',
+  blockTemplates: 'block-templates',
+  dragOverlay: 'drag-overlay',
+};
+
+const q = (id) => `#${id}`;
+
+// --- Domain: categories + block definitions ---
 const ObjCategoryLogic = new CategoryLogic();
-const categoriesList = new Map(ObjCategoryLogic.categories.map(b => [b.key, b]));
-const ObjBlockLogic = new BlockLogic(categoriesList);
+const categoriesArray = ObjCategoryLogic.categoriesArray;
+const categoriesMap = ObjCategoryLogic.categoriesMap;
+const ObjBlockLogic = new BlockLogic(categoriesMap);
 
-// 2. Инициализация рендереров
-const ObjBlockRenderer = new BlockRenderer('block-templates');
-// 3. Инициализация менеджеров захвата и спавна
+// Library rows for one category key
+function prepareBlocksForCategory(categoryId) {
+  return ObjBlockLogic.getBlocksByCategory(categoryId)
+    .map(b => ObjBlockLogic.prepareBlockData(b.blockKey));
+}
+
+// --- UI: block templates panel ---
+const ObjBlockRenderer = new BlockRenderer(DOM_IDS.blockTemplates);
+
+// --- Drag: grab from library, spawn into workspace ---
 const grabManager = new GrabManager({
-  workspace: '#workspace',
-  blockTemplates: '#block-templates',
-  dragOverlay: '#drag-overlay'
+  workspace: q(DOM_IDS.workspace),
+  blockTemplates: q(DOM_IDS.blockTemplates),
 });
 
-// Пробрасываем ObjBlockRenderer как blockSetup для BlockSpawner
 const spawner = new BlockSpawner(ObjBlockRenderer, grabManager, {
-  blockTemplatesId: 'block-templates',
-  workspaceId: 'workspace',
-  dragOverlayId: 'drag-overlay'
+  blockTemplatesId: DOM_IDS.blockTemplates,
+  workspaceId: DOM_IDS.workspace,
+  dragOverlayId: DOM_IDS.dragOverlay,
 });
 
-// Подменяем метод создания в spawner, чтобы он использовал BlockLogic
+// Workspace blocks use BlockLogic to resolve id → prepared data before rendering
 ObjBlockRenderer.createWorkspaceBlockOriginal = ObjBlockRenderer.createWorkspaceBlock;
-ObjBlockRenderer.createWorkspaceBlock = (id, params) => ObjBlockRenderer.createWorkspaceBlockOriginal(id, params, ObjBlockLogic);
+ObjBlockRenderer.createWorkspaceBlock = (id, params) => {
+  const data = ObjBlockLogic.prepareBlockData(id);
+  if (!data) return null;
+  return ObjBlockRenderer.createWorkspaceBlockOriginal(data, params);
+};
 
+// --- UI: category rail; switches library + active state ---
 const categoryUI = new CategoryRenderer('category-list', (categoryId) => {
   if (ObjCategoryLogic.setActive(categoryId)) {
     categoryUI.updateActive(categoryId);
-    const prepared = ObjBlockLogic.getBlocksByCategory(categoryId)
-      .map(b => ObjBlockLogic.prepareBlockData(b.blockKey));
-    // console.log(prepared)
-    ObjBlockRenderer.renderLibrary(prepared);
+    ObjBlockRenderer.renderLibrary(prepareBlocksForCategory(categoryId));
   }
 });
 
-// 4. Start (When page loads)
-const defaultCategory = ObjCategoryLogic.categories[0]?.key;
+// --- Bootstrap ---
+const defaultCategory = categoriesArray[0]?.key;
 
-categoryUI.renderList(categoriesList, defaultCategory);
+categoryUI.renderList(categoriesArray, defaultCategory);
 if (defaultCategory) {
   ObjCategoryLogic.setActive(defaultCategory);
-  const startBlocks = ObjBlockLogic.getBlocksByCategory(defaultCategory)
-  .map(b => ObjBlockLogic.prepareBlockData(b.blockKey));
-  ObjBlockRenderer.renderLibrary(startBlocks);
+  ObjBlockRenderer.renderLibrary(prepareBlocksForCategory(defaultCategory));
 }

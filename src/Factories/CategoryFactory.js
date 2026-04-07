@@ -1,34 +1,79 @@
-import { categories_list } from '../data/CategoriesData.js';
+import { categories_array, categories_map } from '../data/CategoriesData.js';
 import { logError } from '../constans/Global.js';
 
 export class CategoryLogic {
   constructor() {
-    this.categories = this.#parseCategories();
+    this.categoriesArray = this.#parseCategories();
+    this.categoriesMap = categories_map
     this.activeCategoryId = null;
   }
 
-  #parseCategories() {
-    const raw = Array.isArray(categories_list) ? categories_list : [];
-    const seenIds = new Set();
-    return raw.filter(cat => {
-      if (!cat.key || seenIds.has(cat.key)) {
-        logError(`Duplicate or invalid category: ${cat.key}`, { context: 'CategoryLogic' });
-        return false;
+  #collectOriginalCategoryKeys(raw) {
+    const keys = new Set();
+    for (const cat of raw) {
+      if (cat?.key && cat.orig === true) {
+        keys.add(cat.key);
       }
-      seenIds.add(cat.key);
-      return true;
-    })
+    }
+    return keys;
+  }
+  #validateParsedCategory(cat, originalKeys, seenNonOriginalKeys) {
+    if (!cat?.key) {
+      return { isValid: false, errorReason: 'missing key' };
+    }
+    if (originalKeys.has(cat.key) && cat.orig === true) {
+      return { isValid: true, errorReason: null };
+    }
+    if (originalKeys.has(cat.key)) {
+      return { isValid: false, errorReason: 'duplicate of original' };
+    }
+    if (seenNonOriginalKeys.has(cat.key)) {
+      return { isValid: false, errorReason: 'duplicate' };
+    }
+    return { isValid: true, errorReason: null };
   }
 
+  #parseCategories() {
+    const raw = Array.isArray(categories_array) ? categories_array : [];
+    const originalKeys = this.#collectOriginalCategoryKeys(raw);
+    const seenNonOriginalKeys = new Set();
+    const result = [];
+    for (const cat of raw) {
+      const { isValid, errorReason } = this.#validateParsedCategory(
+        cat,
+        originalKeys,
+        seenNonOriginalKeys
+      );
+      if (!isValid) {
+        logError(`Invalid category (${errorReason}): ${cat.key}`, {
+          context: 'CategoryLogic',
+          category: cat
+        });
+      }
+      result.push({ ...cat, inc: !isValid });
+      if (cat?.key && !originalKeys.has(cat.key)) {
+        seenNonOriginalKeys.add(cat.key);
+      }
+    }
+    return result;
+  }
+
+
+
+
+
   setActive(id) {
-    const exists = this.categories.some(c => c.key === id);
-    if (exists) {
+    const cat = this.categoriesArray.find(c => c.key === id);
+    if (cat && !cat.inc) {
       this.activeCategoryId = id;
       return true;
     }
     return false;
   }
 }
+
+
+
 
 
 export class CategoryRenderer {
@@ -48,13 +93,17 @@ export class CategoryRenderer {
   
     #createItem(cat, isActive) {
       const wrapper = document.createElement('div');
-      wrapper.className = `category-item ${isActive ? 'category-item--active' : ''}`;
+      wrapper.className = [
+        'category-item',
+        isActive ? 'category-item--active' : '',
+        cat.inc ? 'category-item--invalid' : '',
+      ].filter(Boolean).join(' ');
       wrapper.dataset.key = cat.key;
       wrapper.innerHTML = `
         <div class="category-color" style="background-color: ${cat.color}"></div>
         <div class="category-label selectable">${cat.text}</div>
       `;
-      wrapper.addEventListener('click', () => this.onSelect(cat.key));
+      wrapper.addEventListener('click', () => { if (!cat.inc) this.onSelect(cat.key); });
       return wrapper;
     }
   

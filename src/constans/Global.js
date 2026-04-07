@@ -70,38 +70,42 @@ export const getBlockForm = (type) => BLOCK_FORMS.get(type) ||
       throwAfter: true 
     });
 
-// === ЦВЕТОВАЯ СХЕМА ===
-/** Стандартный цвет заливки блоков */
+// === COLOR SCHEME ===
+// Standard fill color of blocks
 export const DEFAULT_BLOCK_COLOR = '#4c97ff';
 
-/** Цвета ghost-блока для визуальной обратной связи при перетаскивании */
+// Colors of the ghost block for visual feedback when dragging
 export const GHOST_BLOCK = {
-  FILL_COLOR: '#808080',   // Цвет заливки
-  STROKE_COLOR: '#606060'  // Цвет обводки
+  FILL_COLOR: '#808080',   
+  STROKE_COLOR: '#606060'
 };
 
-// === ГЕОМЕТРИЯ БЛОКОВ ===
-/** Стандартная высота обычного блока */
+// === BLOCK GEOMETRY ===
+// Standard height of a regular block
 export const DEFAULT_BLOCK_HEIGHT = 56;
-/** Горизонтальное смещение для каждого уровня вложенности внутри c-block */
+// Horizontal offset for each level of nesting inside the c-block
 export const CBLOCK_NESTED_X_OFFSET = 16;
-/** Минимальное пустое пространство внутри c-block при отсутствии дочерних элементов */
+// Minimum empty space inside the c-block when there are no child elements
 export const C_BLOCK_EMPTY_INNER_SPACE = 24;
-// === ЗОНЫ КОННЕКТОРОВ ===
-/** Порог расстояния (в пикселях) для активации зоны подключения коннектора */
+
+// === CONNECTOR ZONES ===
+// Threshold distance (in pixels) for activating the connector zone
 export const CONNECTOR_THRESHOLD = 32;
-/** Уменьшенная зона активации для внешнего MIDDLE-коннектора у c-block с нижней цепью */
+// Reduced activation zone for the outer MIDDLE-connector of the c-block with the lower chain
 export const CBLOCK_MIDDLE_THRESHOLD = 28;
-/** Высота визуального сокета коннектора */
+// Height of the visual connector socket
 export const CONNECTOR_SOCKET_HEIGHT = 8;
-/** Смещения позиций коннекторов относительно блока */
+// Minimum delta to count as a drag rather than a click
+export const MOVE_THRESHOLD = 3; 
+
+// Offsets of connector positions relative to the block
 export const CONNECTOR_OFFSETS = {
-  TOP_Y: -(CONNECTOR_THRESHOLD / 2),       // Смещение по Y для верхнего коннектора
-  BOTTOM_Y: CONNECTOR_THRESHOLD / 2,       // Смещение по Y для нижнего коннектора
-  INNER_TOP_X: 16,                         // Смещение по X для внутреннего верхнего коннектора в c-block
-  INNER_TOP_Y: 48,                         // Позиция по Y для внутреннего верхнего коннектора от верха блока
-  CBLOCK_MIDDLE_ZONE_Y: 10                 // Доп. смещение зоны для MIDDLE коннектора у c-block
+  TOP_Y: -(CONNECTOR_THRESHOLD / 2),       
+  BOTTOM_Y: CONNECTOR_THRESHOLD / 2,       
+  INNER_TOP_X: 16,                         
+  INNER_TOP_Y: 48,                         
+  CBLOCK_MIDDLE_ZONE_Y: 10                 
 };
 
-// === SVG КОНСТАНТЫ ===
+// === SVG CONSTANTS ===
 export const SVG_NS = 'http://www.w3.org/2000/svg';
