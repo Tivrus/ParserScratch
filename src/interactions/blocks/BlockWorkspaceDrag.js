@@ -36,7 +36,10 @@ export class BlockWorkspaceDrag {
   // --- Drag lifecycle ---
 
   #onGrabStart(detail) {
-    const element = detail.element; // <g class="workspace-block">
+    const element = this.blockContainer.querySelector(
+      `[data-block-uuid="${detail.grabKey}"]`
+    );
+    if (!element) return;
 
     const { x: origX, y: origY } = this.#parseTranslate(element);
 
