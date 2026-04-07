@@ -33,19 +33,11 @@ const grabManager = new GrabManager({
   blockTemplates: q(DOM_IDS.blockTemplates),
 });
 
-const spawner = new BlockSpawner(ObjBlockRenderer, grabManager, {
+const spawner = new BlockSpawner(ObjBlockLogic, grabManager, {
   blockTemplatesId: DOM_IDS.blockTemplates,
   workspaceId: DOM_IDS.workspace,
   dragOverlayId: DOM_IDS.dragOverlay,
 });
-
-// Workspace blocks use BlockLogic to resolve id → prepared data before rendering
-ObjBlockRenderer.createWorkspaceBlockOriginal = ObjBlockRenderer.createWorkspaceBlock;
-ObjBlockRenderer.createWorkspaceBlock = (id, params) => {
-  const data = ObjBlockLogic.prepareBlockData(id);
-  if (!data) return null;
-  return ObjBlockRenderer.createWorkspaceBlockOriginal(data, params);
-};
 
 // --- UI: category rail; switches library + active state ---
 const categoryUI = new CategoryRenderer('category-list', (categoryId) => {

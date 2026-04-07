@@ -60,7 +60,7 @@ export class GrabManager {
     if (areaName === 'workspace') {
       const block = event.target.closest('.workspace-block');
       return block
-        ? { target: 'block',    element: block,     grabKey: block.UUID }
+        ? { target: 'block',    element: block,     grabKey: block.dataset.blockUUID }
         : { target: 'empty',    element: container, grabKey: null };
     }
 

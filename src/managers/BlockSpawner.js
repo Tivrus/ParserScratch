@@ -1,13 +1,14 @@
 import { generateUUID } from '../utils/MathUtils.js';
 import { logError } from '../constans/Global.js';
 import * as SvgUtils from '../utils/SvgUtils.js';
+import { Block } from '../core/Block.js';
 
 export class BlockSpawner {
 
   // --- Setup ---
-  constructor(blockFactory, grabManager, config = {}) {
-    this.blockFactory = blockFactory;
-    this.grabManager  = grabManager;
+  constructor(blockLogic, grabManager, config = {}) {
+    this.blockLogic  = blockLogic;
+    this.grabManager = grabManager;
 
     this.containers = {
       blockTemplates: this.#resolveElement(config.blockTemplatesId || '#block-templates'),
@@ -119,12 +120,13 @@ export class BlockSpawner {
   }
 
   #spawnBlock(blockId, x, y) {
-    const realBlock = this.blockFactory.createWorkspaceBlock(blockId, { blockUUID: generateUUID(), x, y });
-    if (!realBlock) return;
+    const data = this.blockLogic.prepareBlockData(blockId);
+    if (!data) return;
 
-    this.containers.blockContainer.appendChild(realBlock);
+    const block = new Block(data, { blockUUID: generateUUID(), x, y });
+    block.mount(this.containers.blockContainer);
     this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
-      detail: { block: realBlock, blockId, x, y },
+      detail: { block, blockId, x, y },
       bubbles: true
     }));
   }
