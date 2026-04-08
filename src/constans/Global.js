@@ -22,8 +22,22 @@ export function logError(message, options = {}) {
   }
 }
 
+// === SHRINK MS ===
+export const SHRINK_MS = 260;
 
-// === SVG forms ===
+// DOM element ids (single source for selectors vs getElementById)
+export const DOM_IDS = {
+  workspace: 'workspace',
+  blockTemplates: 'block-templates',
+  blockTemplatesGrab: 'blockTemplates',
+  sidebar: 'sidebar',
+  dragOverlay: 'drag-overlay',
+  trashCan: 'trash-can',
+  blockContainer: 'block-container',
+};
+
+
+// === SVG FORMS ===
 export const BLOCK_FORMS = [
     {
       type: 'start-block',
@@ -100,11 +114,19 @@ export const MOVE_THRESHOLD = 3;
 
 // Offsets of connector positions relative to the block
 export const CONNECTOR_OFFSETS = {
-  TOP_Y: -(CONNECTOR_THRESHOLD / 2),       
-  BOTTOM_Y: CONNECTOR_THRESHOLD / 2,       
+  TOP_Y: -(CONNECTOR_THRESHOLD),       
+  BOTTOM_Y: CONNECTOR_THRESHOLD+CONNECTOR_THRESHOLD/2,       
   INNER_TOP_X: 16,                         
   INNER_TOP_Y: 48,                         
   CBLOCK_MIDDLE_ZONE_Y: 10                 
+};
+
+export const CONNECTOR_ZONE_STYLE = {
+  fill:           'rgba(0, 255, 170, 0.15)',
+  stroke:         '#00ff00',
+  'stroke-width': '0.5',
+  'pointer-events': 'none',
+  rx: '2', ry: '2',
 };
 
 // === SVG CONSTANTS ===

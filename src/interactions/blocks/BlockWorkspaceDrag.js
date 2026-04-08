@@ -1,13 +1,23 @@
+import { logError } from '../../constans/Global.js';
+import { parseTranslateTransform } from '../../utils/SvgUtils.js';
+
 export class BlockWorkspaceDrag {
 
   // --- Setup ---
+  constructor(blockContainer, workspaceEl, dragOverlay, grabManager) {
+    this.blockContainer = blockContainer;
+    this.workspaceEl = workspaceEl;
+    this.dragOverlay = dragOverlay;
+    this.grabManager = grabManager;
 
-  constructor(blockContainer, workspaceEl, grabManager) {
-    this.blockContainer = blockContainer; // <svg id="block-container">
-    this.workspaceEl    = workspaceEl;    // <div id="workspace">
-    this.grabManager    = grabManager;
+    if (!this.dragOverlay) {
+      logError('dragOverlay is required for workspace drag', { context: 'BlockWorkspaceDrag' });
+      return;
+    }
 
-    this.dragging = null; // { element, origX, origY }
+    this.dragging = null; // { element, origX, origY, overlayStartX, overlayStartY, startClientX, startClientY }
+    /** When true, next grab-end is ignored (e.g. block deleted over trash / templates). */
+    this.skipGrabEndOnce = false;
 
     this.#initListeners();
   }
@@ -34,36 +44,48 @@ export class BlockWorkspaceDrag {
   }
 
   // --- Drag lifecycle ---
-
   #onGrabStart(detail) {
     const element = this.blockContainer.querySelector(
-      `[data-block-uuid="${detail.grabKey}"]`
+      `[data-block-u-u-i-d="${detail.grabKey}"]`
     );
     if (!element) return;
+    const { x: origX, y: origY } = parseTranslateTransform(element);
 
-    const { x: origX, y: origY } = this.#parseTranslate(element);
+    const c = this.blockContainer.getBoundingClientRect();
+    const o = this.dragOverlay.getBoundingClientRect();
+    const overlayStartX = origX + c.left - o.left;
+    const overlayStartY = origY + c.top - o.top;
 
     this.dragging = {
       element,
       origX,
       origY,
+      overlayStartX,
+      overlayStartY,
       startClientX: detail.clientX,
       startClientY: detail.clientY,
     };
 
     element.classList.add('workspace-block--dragging');
-    // Bring to front within the SVG layer
-    this.blockContainer.appendChild(element);
+    this.dragOverlay.appendChild(element);
+    element.setAttribute('transform', `translate(${overlayStartX}, ${overlayStartY})`);
   }
 
   #onMove(event) {
-    const { element, origX, origY, startClientX, startClientY } = this.dragging;
-    const x = origX + (event.clientX - startClientX);
-    const y = origY + (event.clientY - startClientY);
+    const { element, overlayStartX, overlayStartY, startClientX, startClientY } = this.dragging;
+    const x = overlayStartX + (event.clientX - startClientX);
+    const y = overlayStartY + (event.clientY - startClientY);
     element.setAttribute('transform', `translate(${x}, ${y})`);
   }
 
   #onGrabEnd(detail) {
+    if (this.skipGrabEndOnce) {
+      this.skipGrabEndOnce = false;
+      this.dragging.element.classList.remove('workspace-block--dragging');
+      this.dragging = null;
+      return;
+    }
+
     if (!detail.moved) {
       this.#applyPosition(this.dragging.origX, this.dragging.origY);
       return;
@@ -77,23 +99,22 @@ export class BlockWorkspaceDrag {
   }
 
   #cancel() {
+    this.skipGrabEndOnce = false;
     this.#applyPosition(this.dragging.origX, this.dragging.origY);
   }
 
-  // --- Helpers ---
+  /** Call from BlockDeletionManager before bubble-phase grab-end so drag state is cleared without moving the block. */
+  armSkipGrabEndOnce() {
+    this.skipGrabEndOnce = true;
+  }
 
+  // --- Helpers ---
   #applyPosition(x, y) {
-    this.dragging.element.setAttribute('transform', `translate(${x}, ${y})`);
-    this.dragging.element.classList.remove('workspace-block--dragging');
+    const el = this.dragging.element;
+    this.blockContainer.appendChild(el);
+    el.setAttribute('transform', `translate(${x}, ${y})`);
+    el.classList.remove('workspace-block--dragging');
     this.dragging = null;
   }
 
-  #parseTranslate(element) {
-    const match = (element.getAttribute('transform') || '').match(
-      /translate\(\s*([+-]?\d*\.?\d+)[,\s]+([+-]?\d*\.?\d+)\s*\)/
-    );
-    return match
-      ? { x: parseFloat(match[1]), y: parseFloat(match[2]) }
-      : { x: 0, y: 0 };
-  }
 }

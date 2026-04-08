@@ -2,14 +2,9 @@ import { CategoryLogic, CategoryRenderer } from '../factories/CategoryFactory.js
 import { BlockLogic, BlockRenderer } from '../factories/BlockFactory.js';
 import { GrabManager } from '../managers/GrabManager.js';
 import { BlockSpawner } from '../managers/BlockSpawner.js';
-import { BlockWorkspaceDrag } from '../interactions/blocks/index.js';
-
-// DOM element ids (single source for selectors vs getElementById)
-const DOM_IDS = {
-  workspace: 'workspace',
-  blockTemplates: 'block-templates',
-  dragOverlay: 'drag-overlay',
-};
+import { BlockDeletionManager } from '../managers/BlockDeletionManager.js';
+import { BlockWorkspaceDrag, enableConnectorDebug } from '../interactions/blocks/index.js';
+import { DOM_IDS } from '../constans/Global.js';
 
 const q = (id) => `#${id}`;
 
@@ -50,10 +45,28 @@ const categoryUI = new CategoryRenderer('category-list', (categoryId) => {
 
 // --- Interactions ---
 const workspaceDrag = new BlockWorkspaceDrag(
-  document.getElementById('block-container'),
-  document.getElementById('workspace'),
+  document.getElementById(DOM_IDS.blockContainer),
+  document.getElementById(DOM_IDS.workspace),
+  document.getElementById(DOM_IDS.dragOverlay),
   grabManager
 );
+
+new BlockDeletionManager({
+  blockRegistry: spawner.blockRegistry,
+  workspaceEl: document.getElementById(DOM_IDS.workspace),
+  trashCanId: DOM_IDS.trashCan,
+  sidebarId: DOM_IDS.sidebar,
+  workspaceDrag,
+});
+
+// Debug tools exposed to browser console
+window.enableConnectorDebug = () => {
+  window.disableConnectorDebug = enableConnectorDebug(
+    spawner.blockRegistry,
+    document.getElementById(DOM_IDS.blockContainer),
+    document.getElementById(DOM_IDS.dragOverlay)
+  );
+};
 
 // --- Bootstrap ---
 const defaultCategory = categoriesArray[0]?.key;

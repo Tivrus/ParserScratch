@@ -16,9 +16,17 @@ export function createElement(tag, attrs = {}) {
   return el;
 }
 
+// Parse translate transform from SVG element
+export function parseTranslateTransform(element) {
+  const match = (element.getAttribute('transform') || '').match(
+    /translate\(\s*([+-]?\d*\.?\d+)[,\s]+([+-]?\d*\.?\d+)\s*\)/
+  );
+  return match
+    ? { x: parseFloat(match[1]), y: parseFloat(match[2]) }
+    : { x: 0, y: 0 };
+}
 
-
-// Парсит SVG path string в массив команд
+// Parse SVG path string to array of commands
 function parseSvgPath(pathString) {
   const commands = [];
   const regex = /([a-zA-Z])([^a-zA-Z]*)/g;
@@ -35,7 +43,7 @@ function parseSvgPath(pathString) {
   return commands;
 }
 
-// Собирает команды обратно в строку
+// Stringify array of commands to SVG path string
 function stringifyPath(commands) {
   return commands
     .map(cmd => cmd.args.length === 0 
@@ -44,14 +52,14 @@ function stringifyPath(commands) {
     .join(' ');
 }
 
-// Находит все команды заданного типа (например, 'h', 'v')
+// Find all commands of given type (e.g. 'h', 'v')
 function findCommandsByType(commands, type) {
   return commands
     .map((cmd, index) => ({ index, cmd }))
     .filter(({ cmd }) => cmd.command.toLowerCase() === type.toLowerCase());
 }
 
-// Корректирует значение с сохранением знака (для ресайза)
+// Adjust value with sign preservation (for resize)
 function adjustValue(value, delta) {
   if (delta === 0) return value;
   const sign = Math.sign(value) || Math.sign(delta) || 1;
@@ -59,7 +67,7 @@ function adjustValue(value, delta) {
   return sign * magnitude;
 }
 
-// Изменяет длину горизонтальных/вертикальных сегментов пути
+// Change length of horizontal/vertical path segments
 export function resizePath(pathString, config = {}) {
   const { horizontal = 0, vertical = 0, hIndices = [], vIndices = [] } = config;
   if (horizontal === 0 && vertical === 0) return pathString;

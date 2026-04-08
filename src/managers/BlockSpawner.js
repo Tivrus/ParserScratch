@@ -2,6 +2,7 @@ import { generateUUID } from '../utils/MathUtils.js';
 import { logError } from '../constans/Global.js';
 import * as SvgUtils from '../utils/SvgUtils.js';
 import { Block } from '../constans/Block.js';
+import { ConnectorZone } from '../interactions/blocks/ConnectorZone.js';
 
 export class BlockSpawner {
 
@@ -16,6 +17,8 @@ export class BlockSpawner {
       blockContainer: this.#resolveElement(config.blockContainerId || '#block-container'),
       dragOverlay:    this.#resolveElement(config.dragOverlayId    || '#drag-overlay'),
     };
+
+    this.blockRegistry = new Map(); // UUID → Block, used by debug / interaction layers
 
     this.dragPreview = null;
     this.dragBlockId = null;
@@ -124,7 +127,11 @@ export class BlockSpawner {
     if (!data) return;
 
     const block = new Block(data, { blockUUID: generateUUID(), x, y });
+
+    // Zones are pure data — they live in the overlay, not inside the block's <g>
+    block.connectorZones = ConnectorZone.buildForBlock(data);
     block.mount(this.containers.blockContainer);
+    this.blockRegistry.set(block.blockUUID, block);
     this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
       detail: { block, blockId, x, y },
       bubbles: true

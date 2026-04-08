@@ -1,4 +1,3 @@
-import { generateUUID } from '../utils/MathUtils.js';
 import { logError,  MOVE_THRESHOLD} from '../constans/Global.js';
 
 export class GrabManager {
@@ -60,15 +59,15 @@ export class GrabManager {
     if (areaName === 'workspace') {
       const block = event.target.closest('.workspace-block');
       return block
-        ? { target: 'block',    element: block,     grabKey: block.dataset.blockUUID }
-        : { target: 'empty',    element: container, grabKey: null };
+        ? { target: 'block', element: block, grabKey: block.dataset.blockUUID }
+        : { target: 'empty', element: container, grabKey: null };
     }
 
     if (areaName === 'blockTemplates') {
       const template = event.target.closest('.block-template');
       return template
         ? { target: 'template', element: template,  grabKey: template.dataset.blockId }
-        : { target: 'empty',    element: container, grabKey: null };
+        : { target: 'empty', element: container, grabKey: null };
     }
 
     return { target: 'empty', element: container, grabKey: null };

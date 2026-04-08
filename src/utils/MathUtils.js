@@ -1,4 +1,4 @@
-// Затемняет переданный цвет
+// Darken passed color
 export function darkenColor(color, factor = 0.7) {
     if (!color || typeof color !== 'string') {
       return 'rgba(0,0,0,0.7)';}
@@ -12,7 +12,7 @@ export function darkenColor(color, factor = 0.7) {
     }
 
 
-// Генерирует уникальный UUID блока
+// Generate unique UUID for block
 export  function generateUUID() {
       const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/%+';
       const bytes = new Uint8Array(15);
