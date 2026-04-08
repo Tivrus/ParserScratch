@@ -127,15 +127,27 @@ export class BlockSpawner {
     if (!data) return;
 
     const block = new Block(data, { blockUUID: generateUUID(), x, y });
+    this.#mountRegisteredBlock(block, data, { emitSpawned: true, blockId });
+  }
 
-    // Zones are pure data — they live in the overlay, not inside the block's <g>
+  restoreWorkspaceBlock(opcode, blockUUID, x, y) {
+    const data = this.blockLogic.prepareBlockData(opcode);
+    if (!data) return null;
+    const block = new Block(data, { blockUUID, x, y });
+    this.#mountRegisteredBlock(block, data, { emitSpawned: false });
+    return block;
+  }
+
+  #mountRegisteredBlock(block, data, { emitSpawned, blockId = block.blockKey } = {}) {
     block.connectorZones = ConnectorZone.buildForBlock(data);
     block.mount(this.containers.blockContainer);
     this.blockRegistry.set(block.blockUUID, block);
-    this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
-      detail: { block, blockId, x, y },
-      bubbles: true
-    }));
+    if (emitSpawned) {
+      this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
+        detail: { block, blockId, x: block.x, y: block.y },
+        bubbles: true,
+      }));
+    }
   }
 
   #cleanupDragPreview() {

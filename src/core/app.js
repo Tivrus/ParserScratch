@@ -3,6 +3,10 @@ import { BlockLogic, BlockRenderer } from '../factories/BlockFactory.js';
 import { GrabManager } from '../managers/GrabManager.js';
 import { BlockSpawner } from '../managers/BlockSpawner.js';
 import { BlockDeletionManager } from '../managers/BlockDeletionManager.js';
+import {
+  attachWorkspacePersistence,
+  hydrateWorkspaceFromServer,
+} from '../managers/WorkspacePersistence.js';
 import { BlockWorkspaceDrag, enableConnectorDebug } from '../interactions/blocks/index.js';
 import { DOM_IDS } from '../constans/Global.js';
 
@@ -59,6 +63,9 @@ new BlockDeletionManager({
   workspaceDrag,
 });
 
+const workspaceEl = document.getElementById(DOM_IDS.workspace);
+attachWorkspacePersistence(workspaceEl, () => spawner.blockRegistry);
+
 // Debug tools exposed to browser console
 window.enableConnectorDebug = () => {
   window.disableConnectorDebug = enableConnectorDebug(
@@ -76,3 +83,5 @@ if (defaultCategory) {
   ObjCategoryLogic.setActive(defaultCategory);
   ObjBlockRenderer.renderLibrary(prepareBlocksForCategory(defaultCategory));
 }
+
+void hydrateWorkspaceFromServer(spawner);

@@ -111,10 +111,18 @@ export class BlockWorkspaceDrag {
   // --- Helpers ---
   #applyPosition(x, y) {
     const el = this.dragging.element;
+    const blockUUID = el.dataset.blockUUID;
     this.blockContainer.appendChild(el);
     el.setAttribute('transform', `translate(${x}, ${y})`);
     el.classList.remove('workspace-block--dragging');
     this.dragging = null;
+
+    this.workspaceEl.dispatchEvent(
+      new CustomEvent('block-moved', {
+        detail: { blockUUID, x, y },
+        bubbles: true,
+      })
+    );
   }
 
 }

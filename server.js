@@ -17,7 +17,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(__dirname));
 app.post('/api/save-workspace', async (req, res) => {
     try {
-        const workspaceData = req.body;
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const workspaceData = {
+            blocks: body.blocks && typeof body.blocks === 'object' ? body.blocks : {},
+        };
         const filePath = path.join(__dirname, 'workspace.json');
         await fs.writeFile(filePath, JSON.stringify(workspaceData, null, 2), 'utf-8');
         console.log('[Server] Workspace saved to workspace.json');
@@ -34,8 +37,10 @@ app.get('/api/load-workspace', async (req, res) => {
         
         try {
             const data = await fs.readFile(filePath, 'utf-8');
-            const workspaceData = JSON.parse(data);
-            
+            const parsed = JSON.parse(data);
+            const workspaceData = {
+                blocks: parsed.blocks && typeof parsed.blocks === 'object' ? parsed.blocks : {},
+            };
             console.log('[Server] Workspace loaded from workspace.json');
             res.json({ success: true, data: workspaceData });
         } catch (error) {
