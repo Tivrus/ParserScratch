@@ -1,11 +1,15 @@
 import {
   CONNECTOR_THRESHOLD,
   CONNECTOR_OFFSETS,
+  CONNECTOR_SOCKET_HEIGHT,
   DEFAULT_BLOCK_HEIGHT,
 } from '../../constans/Global.js';
+import {
+  getBoundingClientRectRounded,
+  clientPointToElementLocal,
+} from '../../utils/SvgUtils.js';
 
-// Pure data class — no DOM attachment.
-// Zones live in overlay space, not inside the block's <g>.
+// Connector hit bands in the block group's local coordinate system.
 export class ConnectorZone {
   constructor({ type, x, y, width, height }) {
     this.type = type;
@@ -15,7 +19,6 @@ export class ConnectorZone {
     this.height = height;
   }
 
-  /** Same space as block translate — add blockX/blockY for workspace/overlay positioning. */
   getAbsoluteRect(blockX, blockY) {
     return {
       x: blockX + this.x,
@@ -25,37 +28,71 @@ export class ConnectorZone {
     };
   }
 
-  static buildForBlock(data) {
+  static buildForBlock(data, blockElement) {
     switch (data.type) {
       case 'default-block':
-        return ConnectorZone.#stackZonesForWidth(data.width);
+        return ConnectorZone.#stackZonesForDefaultBlock(data, blockElement);
       default:
         return [];
     }
   }
 
-  // === STACK ZONES FOR WIDTH ===
-  static #stackZonesForWidth(blockWidth) {
-    const bandHeight = CONNECTOR_THRESHOLD;
-    const topBandY = CONNECTOR_OFFSETS.TOP_Y;
-    const bottomBandY = CONNECTOR_OFFSETS.BOTTOM_Y;
+  static #bboxFallback(data) {
+    return {
+      connectorX: 0,
+      width: data.width ?? 0,
+      topBaseY: 0,
+      bottomBaseY: DEFAULT_BLOCK_HEIGHT,
+    };
+  }
 
-    const top = new ConnectorZone({
-      type: 'top',
-      x: 0,
-      y: topBandY,
-      width: blockWidth,
-      height: bandHeight,
-    });
+  static #readLocalGeometry(data, blockElement) {
+    const fallback = ConnectorZone.#bboxFallback(data);
+    if (!blockElement || typeof blockElement.getBBox !== 'function') {
+      return fallback;
+    }
 
-    const bottom = new ConnectorZone({
-      type: 'bottom',
-      x: 0,
-      y: bottomBandY,
-      width: blockWidth,
-      height: bandHeight,
-    });
+    let b;
+    try {
+      b = blockElement.getBBox();
+    } catch {
+      return fallback;
+    }
+    if (b.width <= 0 || b.height <= 0) return fallback;
 
-    return [top, bottom];
+    const r = getBoundingClientRectRounded(blockElement);
+    const topLeft = clientPointToElementLocal(blockElement, r.left, r.top);
+    const topRight = clientPointToElementLocal(blockElement, r.right, r.top);
+    const bottomLeft = clientPointToElementLocal(blockElement, r.left, r.bottom);
+    const widthFromClient = Math.abs(topRight.x - topLeft.x);
+    return {
+      connectorX: topLeft.x,
+      width: widthFromClient > 0 ? widthFromClient : b.width,
+      topBaseY: topLeft.y - CONNECTOR_THRESHOLD,
+      bottomBaseY: bottomLeft.y,
+    };
+  }
+
+  // Stack connector zones for a default block.
+  static #stackZonesForDefaultBlock(data, blockElement) {
+    const { connectorX, width, topBaseY, bottomBaseY } =
+      ConnectorZone.#readLocalGeometry(data, blockElement);
+
+    return [
+      new ConnectorZone({
+        type: 'top',
+        x: connectorX,
+        y: topBaseY + CONNECTOR_OFFSETS.TOP_Y,
+        width,
+        height: CONNECTOR_THRESHOLD,
+      }),
+      new ConnectorZone({
+        type: 'bottom',
+        x: connectorX,
+        y: bottomBaseY - CONNECTOR_SOCKET_HEIGHT + CONNECTOR_OFFSETS.BOTTOM_Y,
+        width,
+        height: CONNECTOR_THRESHOLD,
+      }),
+    ];
   }
 }

@@ -97,9 +97,9 @@ export class BlockDeletionManager {
   async #removeBlock(block) {
     const el = block.element;
     try {
+      block.connectorZones = null;
       await shrinkBlockToCenter(el, SHRINK_MS);
     } finally {
-      block.connectorZones = null;
       this.blockRegistry.delete(block.blockUUID);
       el.remove();
       this.workspaceEl.dispatchEvent(

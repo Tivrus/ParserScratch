@@ -114,8 +114,8 @@ export const MOVE_THRESHOLD = 3;
 
 // Offsets of connector positions relative to the block
 export const CONNECTOR_OFFSETS = {
-  TOP_Y: -(CONNECTOR_THRESHOLD),       
-  BOTTOM_Y: CONNECTOR_THRESHOLD+CONNECTOR_THRESHOLD/2,       
+  TOP_Y: 0,       
+  BOTTOM_Y: 0,       
   INNER_TOP_X: 16,                         
   INNER_TOP_Y: 48,                         
   CBLOCK_MIDDLE_ZONE_Y: 10                 

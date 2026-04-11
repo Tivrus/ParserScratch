@@ -3,10 +3,7 @@ import { logError } from '../constans/Global.js';
 const SAVE_URL = '/api/save-workspace';
 const LOAD_URL = '/api/load-workspace';
 
-/**
- * Scratch-like workspace document: top-level map of block id → record.
- * @param {Map<string, import('../constans/Block.js').Block>} blockRegistry
- */
+// Serializes the workspace to a JSON object
 export function serializeWorkspace(blockRegistry) {
   const blocks = {};
   for (const block of blockRegistry.values()) {
@@ -24,23 +21,27 @@ export function serializeWorkspace(blockRegistry) {
   return { blocks };
 }
 
+// Saves the workspace to the server
 export async function saveWorkspaceToServer(blockRegistry) {
   try {
-    const body = serializeWorkspace(blockRegistry);
     const res = await fetch(SAVE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(serializeWorkspace(blockRegistry)),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.success === false) {
-      logError('saveWorkspaceToServer failed', { context: 'WorkspacePersistence', error: new Error(json.error || res.statusText) });
+      logError('saveWorkspaceToServer failed', {
+        context: 'WorkspacePersistence',
+        error: new Error(json.error || res.statusText),
+      });
     }
   } catch (e) {
     logError('saveWorkspaceToServer', { context: 'WorkspacePersistence', error: e });
   }
 }
 
+// Loads the workspace from the server
 export async function loadWorkspaceDocument() {
   try {
     const res = await fetch(LOAD_URL);
@@ -54,29 +55,19 @@ export async function loadWorkspaceDocument() {
   }
 }
 
-/**
- * @param {import('./BlockSpawner.js').BlockSpawner} spawner
- * @param {{ blocks?: Record<string, unknown> }} doc
- */
+// Applies the workspace document to the block registry
 export function applyWorkspaceDocument(spawner, doc) {
   const raw = doc?.blocks;
   if (!raw || typeof raw !== 'object') return;
 
   for (const [id, rec] of Object.entries(raw)) {
     if (!rec || typeof rec !== 'object') continue;
-    const opcode = rec.opcode;
-    if (typeof opcode !== 'string') continue;
-    const x = Number(rec.x) || 0;
-    const y = Number(rec.y) || 0;
-    spawner.restoreWorkspaceBlock(opcode, id, x, y);
+    if (typeof rec.opcode !== 'string') continue;
+    spawner.restoreWorkspaceBlock(rec.opcode, id, Number(rec.x) || 0, Number(rec.y) || 0);
   }
 }
 
-/**
- * Sync model position after drag and persist.
- * @param {HTMLElement} workspaceEl — #workspace
- * @param {() => Map<string, import('../constans/Block.js').Block>} getRegistry
- */
+// Attaches the workspace persistence to the workspace element
 export function attachWorkspacePersistence(workspaceEl, getRegistry) {
   if (!workspaceEl || typeof getRegistry !== 'function') return;
 
@@ -93,6 +84,5 @@ export function attachWorkspacePersistence(workspaceEl, getRegistry) {
 }
 
 export async function hydrateWorkspaceFromServer(spawner) {
-  const doc = await loadWorkspaceDocument();
-  applyWorkspaceDocument(spawner, doc);
+  applyWorkspaceDocument(spawner, await loadWorkspaceDocument());
 }

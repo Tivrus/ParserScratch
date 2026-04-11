@@ -37,6 +37,7 @@ const spawner = new BlockSpawner(ObjBlockLogic, grabManager, {
   blockTemplatesId: DOM_IDS.blockTemplates,
   workspaceId: DOM_IDS.workspace,
   dragOverlayId: DOM_IDS.dragOverlay,
+  blockContainerId: DOM_IDS.blockContainer,
 });
 
 // --- UI: category rail; switches library + active state ---

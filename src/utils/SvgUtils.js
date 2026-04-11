@@ -26,6 +26,40 @@ export function parseTranslateTransform(element) {
     : { x: 0, y: 0 };
 }
 
+// Rounded client rect (legacy helper for connector layout).
+export function getBoundingClientRectRounded(element) {
+  const rect = element.getBoundingClientRect();
+  const w = Math.floor(rect.width || 0);
+  const h = Math.floor(rect.height || 0);
+  const left = rect.left ?? 0;
+  const top = rect.top ?? 0;
+  return {
+    left,
+    top,
+    right: left + w,
+    bottom: top + h,
+    width: w,
+    height: h,
+  };
+}
+
+// Client (viewport) coordinates → this element's local user space (inverse of getScreenCTM).
+export function clientPointToElementLocal(element, clientX, clientY) {
+  const svg = element.ownerSVGElement;
+  if (!svg?.createSVGPoint || typeof element.getScreenCTM !== 'function') return null;
+  const m = element.getScreenCTM();
+  if (!m) return null;
+  try {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const local = pt.matrixTransform(m.inverse());
+    return { x: local.x, y: local.y };
+  } catch {
+    return null;
+  }
+}
+
 // Parse SVG path string to array of commands
 function parseSvgPath(pathString) {
   const commands = [];
