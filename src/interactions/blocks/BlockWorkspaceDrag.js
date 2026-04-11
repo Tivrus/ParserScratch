@@ -4,11 +4,13 @@ import { parseTranslateTransform } from '../../utils/SvgUtils.js';
 export class BlockWorkspaceDrag {
 
   // --- Setup ---
-  constructor(blockContainer, workspaceEl, dragOverlay, grabManager) {
+  constructor(blockContainer, workspaceEl, dragOverlay, grabManager, options = {}) {
     this.blockContainer = blockContainer;
     this.workspaceEl = workspaceEl;
     this.dragOverlay = dragOverlay;
     this.grabManager = grabManager;
+    this.onBlockDragMove = options.onBlockDragMove ?? null;
+    this.onBlockDragEnd = options.onBlockDragEnd ?? null;
 
     if (!this.dragOverlay) {
       logError('dragOverlay is required for workspace drag', { context: 'BlockWorkspaceDrag' });
@@ -16,7 +18,7 @@ export class BlockWorkspaceDrag {
     }
 
     this.dragging = null; // { element, origX, origY, overlayStartX, overlayStartY, startClientX, startClientY }
-    /** When true, next grab-end is ignored (e.g. block deleted over trash / templates). */
+    // When true, next grab-end is ignored (e.g. block deleted over trash / templates)
     this.skipGrabEndOnce = false;
 
     this.#initListeners();
@@ -76,6 +78,7 @@ export class BlockWorkspaceDrag {
     const x = overlayStartX + (event.clientX - startClientX);
     const y = overlayStartY + (event.clientY - startClientY);
     element.setAttribute('transform', `translate(${x}, ${y})`);
+    this.onBlockDragMove?.(element);
   }
 
   #onGrabEnd(detail) {
@@ -83,6 +86,7 @@ export class BlockWorkspaceDrag {
       this.skipGrabEndOnce = false;
       this.dragging.element.classList.remove('workspace-block--dragging');
       this.dragging = null;
+      this.onBlockDragEnd?.();
       return;
     }
 
@@ -116,6 +120,7 @@ export class BlockWorkspaceDrag {
     el.setAttribute('transform', `translate(${x}, ${y})`);
     el.classList.remove('workspace-block--dragging');
     this.dragging = null;
+    this.onBlockDragEnd?.();
 
     this.workspaceEl.dispatchEvent(
       new CustomEvent('block-moved', {

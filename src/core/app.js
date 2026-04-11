@@ -8,6 +8,9 @@ import {
   hydrateWorkspaceFromServer,
 } from '../managers/WorkspacePersistence.js';
 import { BlockWorkspaceDrag, enableConnectorDebug } from '../interactions/blocks/index.js';
+import {
+  ConnectionGhostPreview,
+} from '../interactions/connections/index.js';
 import { DOM_IDS } from '../constans/Global.js';
 
 const q = (id) => `#${id}`;
@@ -49,11 +52,24 @@ const categoryUI = new CategoryRenderer('category-list', (categoryId) => {
 });
 
 // --- Interactions ---
+const blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
+const dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
+const connectionGhostPreview = new ConnectionGhostPreview({
+  dragOverlay: dragOverlayEl,
+  blockContainer: blockContainerEl,
+});
+
 const workspaceDrag = new BlockWorkspaceDrag(
-  document.getElementById(DOM_IDS.blockContainer),
+  blockContainerEl,
   document.getElementById(DOM_IDS.workspace),
-  document.getElementById(DOM_IDS.dragOverlay),
-  grabManager
+  dragOverlayEl,
+  grabManager,
+  {
+    onBlockDragMove: (el) => {
+      connectionGhostPreview.sync(el, spawner.blockRegistry);
+    },
+    onBlockDragEnd: () => connectionGhostPreview.clear(),
+  }
 );
 
 new BlockDeletionManager({
