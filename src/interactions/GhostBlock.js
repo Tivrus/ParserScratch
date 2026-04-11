@@ -1,12 +1,13 @@
 import * as SvgUtils from '../utils/SvgUtils.js';
 import { GHOST_BLOCK } from '../constans/Global.js';
 
-// Semi-transparent SVG preview of a block (e.g. ghost block)
+// Monotone silhouette of a block (labels omitted). Used for snap preview / drag hints.
 export class GhostBlock {
   constructor() {
     this.element = null;
   }
 
+  // --- Build ---
   #appendGhostPath(group, pathD) {
     group.appendChild(
       SvgUtils.createElement('path', {
@@ -19,7 +20,6 @@ export class GhostBlock {
     );
   }
 
-  // Creates a ghost block from block definition data
   createFromData(data, x = 0, y = 0) {
     this.dispose();
     if (!data?.pathData) return this;
@@ -33,7 +33,6 @@ export class GhostBlock {
     return this;
   }
 
-  // Creates a ghost block from a live workspace block
   createFromElement(sourceBlockGroup, x = 0, y = 0) {
     this.dispose();
     if (!sourceBlockGroup) return this;
@@ -51,6 +50,7 @@ export class GhostBlock {
     return this;
   }
 
+  // --- API ---
   setPosition(x, y) {
     if (this.element) {
       this.element.setAttribute('transform', `translate(${x}, ${y})`);

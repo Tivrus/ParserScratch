@@ -1,11 +1,14 @@
-// Eligibility checks for stacking blocks (no actual linking yet)
+// Stack snap eligibility (checks only; no linking in the scene graph).
+
+// --- Viewport geometry ---
+
 export function rectsIntersectClient(a, b) {
   const separated =
     a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom;
   return !separated;
 }
 
-// Zone rect in block &lt;g&gt; local space → axis-aligned rect in viewport pixels
+// Zone in block <g> local space → axis-aligned rect in viewport pixels.
 export function zoneToClientRect(blockGroup, zone) {
   const svg = blockGroup.ownerSVGElement;
   if (!svg?.createSVGPoint || typeof blockGroup.getScreenCTM !== 'function') {
@@ -49,11 +52,12 @@ export function zoneToClientRect(blockGroup, zone) {
     bottom: maxY };
 }
 
+// --- Stack rules (one edge: top or bottom) ---
+
 function zoneByType(zones, type) {
-  return zones?.find((z) => z.type === type) ?? null;
+  return zones?.find(z => z.type === type) ?? null;
 }
 
-// Checks if the dragged block can stack on the edge of the other block
 function canStackOnEdge(dragged, other, edge) {
   const bandOnOther = zoneByType(other.connectorZones, edge);
   const bandOnDragged = zoneByType(dragged.connectorZones, edge);
@@ -70,17 +74,16 @@ function canStackOnEdge(dragged, other, edge) {
   return draggedTouchesOtherSocket && !twoSocketsOverlap;
 }
 
-// Checks if the dragged block can stack below the other block
 export function canConnectStackBelow(dragged, other) {
   return canStackOnEdge(dragged, other, 'bottom');
 }
 
-  // Checks if the dragged block can stack above the other block
 export function canConnectStackAbove(dragged, other) {
   return canStackOnEdge(dragged, other, 'top');
 }
 
-// Lists the connection candidates for the dragged block
+// --- Registry scan ---
+
 export function listConnectionCandidates(draggedElement, blockRegistry) {
   const draggedId = draggedElement?.dataset?.blockUUID;
   if (!draggedId) return [];
@@ -88,7 +91,6 @@ export function listConnectionCandidates(draggedElement, blockRegistry) {
   const dragged = blockRegistry.get(draggedId);
   if (!dragged?.connectorZones?.length) return [];
 
-  // Connection candidates
   const candidates = [];
 
   for (const [otherId, other] of blockRegistry) {
@@ -104,15 +106,3 @@ export function listConnectionCandidates(draggedElement, blockRegistry) {
 
   return candidates;
 }
-
-// Drag debug: log only when the candidate set changes
-const dragLog = {
-  blockId: (null),
-  signature: (null),
-};
-
-function candidatesSignature(list) {
-  if (!list.length) return '';
-  return list.map((c) => `${c.staticUUID}:${c.below ? 'B' : ''}${c.above ? 'T' : ''}`).sort().join('|');
-}
-

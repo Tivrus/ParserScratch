@@ -7,8 +7,8 @@
       "inputs": {},
       "fields": {},
       "topLevel": true,
-      "x": 249,
-      "y": 127
+      "x": 323,
+      "y": 185
     },
     "2FrocUobGwjZM0chhp7p": {
       "opcode": "turn_right_steps",
@@ -17,8 +17,8 @@
       "inputs": {},
       "fields": {},
       "topLevel": true,
-      "x": 311,
-      "y": 57
+      "x": 88,
+      "y": 201
     }
   }
 }

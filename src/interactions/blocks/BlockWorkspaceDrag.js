@@ -17,15 +17,13 @@ export class BlockWorkspaceDrag {
       return;
     }
 
-    this.dragging = null; // { element, origX, origY, overlayStartX, overlayStartY, startClientX, startClientY }
-    // When true, next grab-end is ignored (e.g. block deleted over trash / templates)
+    this.dragging = null;
     this.skipGrabEndOnce = false;
 
     this.#initListeners();
   }
 
   #initListeners() {
-    // grab-start bubbles up from workspace container
     this.workspaceEl.addEventListener('grab-start', (e) => {
       if (e.detail.target === 'block' && e.detail.grabKey) {
         this.#onGrabStart(e.detail);
@@ -107,7 +105,7 @@ export class BlockWorkspaceDrag {
     this.#applyPosition(this.dragging.origX, this.dragging.origY);
   }
 
-  /** Call from BlockDeletionManager before bubble-phase grab-end so drag state is cleared without moving the block. */
+  // Call from BlockDeletionManager so grab-end clears drag without moving the block.
   armSkipGrabEndOnce() {
     this.skipGrabEndOnce = true;
   }
@@ -129,5 +127,4 @@ export class BlockWorkspaceDrag {
       })
     );
   }
-
 }

@@ -3,8 +3,11 @@ import { parseTranslateTransform } from '../../utils/SvgUtils.js';
 import { GhostBlock } from '../GhostBlock.js';
 import { listConnectionCandidates } from './BlockConnectionCheck.js';
 
-// Renders a GhostBlock at the snap point when stack rules pass (BlockConnectionCheck)
+// Ghost silhouette at the stack snap point when BlockConnectionCheck reports a candidate.
+
 export class ConnectionGhostPreview {
+
+  // --- Setup ---
   constructor({ dragOverlay, blockContainer }) {
     this.dragOverlay = dragOverlay;
     this.blockContainer = blockContainer;
@@ -12,7 +15,9 @@ export class ConnectionGhostPreview {
     this.lastTargetKey = null;
   }
 
-  // Calculates the snap position in the container
+  // --- Snap position (block-container space, same as workspace translate) ---
+  // Below: ghost group origin Y = ty + bbox bottom − CONNECTOR_SOCKET_HEIGHT (per spec).
+  // Above: ghost bottom at ty + bbox top + CONNECTOR_SOCKET_HEIGHT.
   #snapPositionInContainer(staticBlock, draggedElement, mode) {
     const el = staticBlock.element;
     if (!el) return null;
@@ -33,7 +38,7 @@ export class ConnectionGhostPreview {
     }
 
     if (mode === 'below') {
-      const y = ty + sbb.y + sbb.height - CONNECTOR_SOCKET_HEIGHT; // -1 to avoid overlap
+      const y = ty + sbb.y + sbb.height - CONNECTOR_SOCKET_HEIGHT;
       return { x: tx, y };
     }
 
@@ -50,16 +55,15 @@ export class ConnectionGhostPreview {
     };
   }
 
-  // Picks the snap mode from the candidates
   #pickSnap(candidates) {
-    const under = candidates.find((c) => c.below);
+    const under = candidates.find(c => c.below);
     if (under) return { staticUUID: under.staticUUID, mode: 'below' };
-    const over = candidates.find((c) => c.above);
+    const over = candidates.find(c => c.above);
     if (over) return { staticUUID: over.staticUUID, mode: 'above' };
     return null;
   }
 
-  // Syncs the ghost block with the dragged element
+  // --- API ---
   sync(draggedElement, blockRegistry) {
     if (!this.dragOverlay || !this.blockContainer) return;
 
@@ -102,7 +106,6 @@ export class ConnectionGhostPreview {
     this.dragOverlay.insertBefore(this.ghost.element, draggedElement);
   }
 
-  // Clears the ghost block
   clear() {
     this.lastTargetKey = null;
     this.ghost.dispose();
