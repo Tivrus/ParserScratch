@@ -1,10 +1,7 @@
 import { logError, SHRINK_MS, DOM_IDS } from '../constans/Global.js';
 import { parseTranslateTransform } from '../utils/SvgUtils.js';
 
-/**
- * True if two axis-aligned rectangles overlap (edges touching counts as overlap).
- * Accepts DOMRect or { left, right, top, bottom, width?, height? }.
- */
+// Axis-aligned overlap; edges touching counts. DOMRect or { left, right, top, bottom }.
 function rectsIntersect(r1, r2) {
   if (!r1 || !r2) return false;
 
@@ -25,7 +22,7 @@ function rectsIntersect(r1, r2) {
   return !disjointOnX && !disjointOnY;
 }
 
-// === SHRINK BLOCK TO CENTER ===
+// --- Shrink animation ---
 function shrinkBlockToCenter(element, durationMs = SHRINK_MS) {
   const bbox = element.getBBox();
   const cx = bbox.x + bbox.width / 2;
@@ -52,7 +49,6 @@ function shrinkBlockToCenter(element, durationMs = SHRINK_MS) {
   });
 }
 
-// === BLOCK DELETION MANAGER ===
 export class BlockDeletionManager {
   constructor({
     blockRegistry,

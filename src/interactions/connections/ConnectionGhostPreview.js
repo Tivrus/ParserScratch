@@ -2,17 +2,14 @@ import { GhostBlock } from '../GhostBlock.js';
 import { listConnectionCandidates } from './BlockConnectionCheck.js';
 import { stackSnapTranslateInContainer } from './stackSnapLayout.js';
 
-// Live snap ghost: same silhouette as the dragged block at the stack target.
-
+// Silhouette preview at stack snap target (see tryCommitStackConnect).
 export class ConnectionGhostPreview {
-
   // --- Setup ---
   constructor({ dragOverlay, blockContainer }) {
     this.dragOverlay = dragOverlay;
     this.blockContainer = blockContainer;
     this.ghost = new GhostBlock();
     this.lastTargetKey = null;
-    // Valid only while this.ghost.element is mounted (see getActiveSnap).
     this.activeSnap = null;
   }
 

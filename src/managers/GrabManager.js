@@ -1,17 +1,17 @@
 import { logError, MOVE_THRESHOLD } from '../constans/Global.js';
 import { readWorkspaceBlockUUID } from '../utils/SvgUtils.js';
 
-// Single source of truth for pointer grab: area, target, grabKey, and CustomEvent grab-* payloads.
+// Pointer grab: workspace vs palette, grab-start / grab-end payloads.
 export class GrabManager {
   constructor(containersConfig = {}) {
     this.state = {
       isGrabbed: false,
-      area: null,    // 'workspace' | 'blockTemplates'
-      target: null,  // 'block' | 'template' | 'empty'
+      area: null,
+      target: null,
       element: null,
       grabKey: null,
       start: { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 },
-      end:   { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 }
+      end: { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 },
     };
 
     this.moveThreshold = MOVE_THRESHOLD;
@@ -33,7 +33,7 @@ export class GrabManager {
     };
 
     return {
-      workspace:      resolve(config.workspace),
+      workspace: resolve(config.workspace),
       blockTemplates: resolve(config.blockTemplates),
     };
   }
@@ -68,7 +68,7 @@ export class GrabManager {
     if (areaName === 'blockTemplates') {
       const template = event.target.closest('.block-template');
       return template
-        ? { target: 'template', element: template,  grabKey: template.dataset.blockId }
+        ? { target: 'template', element: template, grabKey: template.dataset.blockId }
         : { target: 'empty', element: container, grabKey: null };
     }
 
@@ -122,12 +122,12 @@ export class GrabManager {
     const endX = Math.round(event.clientX - endRect.left);
     const endY = Math.round(event.clientY - endRect.top);
 
-    this.state.end = { 
+    this.state.end = {
       x: endX,
-      y: endY, 
-      clientX: endX, 
-      clientY: endY, 
-      timestamp: Date.now() 
+      y: endY,
+      clientX: endX,
+      clientY: endY,
+      timestamp: Date.now(),
     };
 
     const deltaX = event.clientX - startRect.left - this.state.start.x;
@@ -184,7 +184,6 @@ export class GrabManager {
   }
 
   // --- Public API ---
-
   isBlockGrabbed() {
     return this.state.isGrabbed && this.state.target === 'block';
   }
@@ -201,12 +200,12 @@ export class GrabManager {
     return this.state.isGrabbed && this.state.area === 'blockTemplates';
   }
 
-  /** Block UUID from the active workspace-block grab; use for hit-tests while the <g> is in the overlay. */
+  // UUID of the grabbed workspace block (overlay hit-tests).
   getWorkspaceBlockGrabKey() {
     return this.isBlockGrabbed() ? this.state.grabKey : null;
   }
 
-  /** True if `detail` came from a workspace block grab (grab-start / grab-end payload shape). */
+  // grab-start / grab-end detail: workspace block.
   isWorkspaceBlockGrabDetail(detail) {
     return Boolean(detail?.target === 'block' && detail?.area === 'workspace');
   }

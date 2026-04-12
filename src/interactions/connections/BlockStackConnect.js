@@ -1,7 +1,7 @@
 import { resolveDraggedBlockId } from './BlockConnectionCheck.js';
 import { stackSnapTranslateInContainer } from './stackSnapLayout.js';
 
-// Apply vertical stack links when drag ends with an active snap ghost (see ConnectionGhostPreview).
+// --- Stack commit (parent/next / topLevel) ---
 function resolveBlocks(draggedElement, staticUUID, blockRegistry, grabManager) {
   const draggedId = resolveDraggedBlockId(draggedElement, grabManager);
   if (!draggedId) return null;

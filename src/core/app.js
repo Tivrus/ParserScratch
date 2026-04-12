@@ -14,7 +14,7 @@ import {
 } from '../interactions/connections/index.js';
 import { DOM_IDS } from '../constans/Global.js';
 
-const q = (id) => `#${id}`;
+const q = id => `#${id}`;
 
 // --- Domain: categories + block definitions ---
 const ObjCategoryLogic = new CategoryLogic();
@@ -38,14 +38,14 @@ const grabManager = new GrabManager({
 });
 
 // --- UI: category rail; switches library + active state ---
-const categoryUI = new CategoryRenderer('category-list', (categoryId) => {
+const categoryUI = new CategoryRenderer('category-list', categoryId => {
   if (ObjCategoryLogic.setActive(categoryId)) {
     categoryUI.updateActive(categoryId);
     ObjBlockRenderer.renderLibrary(prepareBlocksForCategory(categoryId));
   }
 });
 
-// --- Interactions (workspace drag + stack snap ghost) ---
+// --- Workspace: DOM refs + stack snap (palette + workspace drag) ---
 const blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
 const dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
 const workspaceElForDrag = document.getElementById(DOM_IDS.workspace);
@@ -60,8 +60,7 @@ const spawner = new BlockSpawner(ObjBlockLogic, grabManager, {
   workspaceId: DOM_IDS.workspace,
   dragOverlayId: DOM_IDS.dragOverlay,
   blockContainerId: DOM_IDS.blockContainer,
-  onPaletteDragMove: (block, gm) =>
-    stackSnapGhost.sync(block.element, spawner.blockRegistry, gm),
+  onPaletteDragMove: (block, gm) => stackSnapGhost.sync(block.element, spawner.blockRegistry, gm),
   onPaletteDragEnd: () => stackSnapGhost.clear(),
   tryPaletteStackConnect: (block, gm) =>
     tryCommitStackConnect({
@@ -104,7 +103,7 @@ new BlockDeletionManager({
 
 attachWorkspacePersistence(workspaceElForDrag, () => spawner.blockRegistry);
 
-// Debug tools exposed to browser console
+// --- Debug (browser console) ---
 window.enableConnectorDebug = () => {
   window.disableConnectorDebug = enableConnectorDebug(
     spawner.blockRegistry,

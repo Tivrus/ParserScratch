@@ -4,27 +4,35 @@ import { Block } from '../constans/Block.js';
 import { ConnectorZone } from '../interactions/blocks/ConnectorZone.js';
 
 export class BlockSpawner {
-
   constructor(blockLogic, grabManager, config = {}) {
     this.blockLogic = blockLogic;
     this.grabManager = grabManager;
 
+    const {
+      blockTemplatesId,
+      workspaceId,
+      dragOverlayId,
+      blockContainerId,
+      onPaletteDragMove,
+      onPaletteDragEnd,
+      tryPaletteStackConnect,
+    } = config;
+
     this.containers = {
-      blockTemplates: this.#resolveElement(config.blockTemplatesId),
-      workspace: this.#resolveElement(config.workspaceId),
-      dragOverlay: this.#resolveElement(config.dragOverlayId),
-      blockContainer: this.#resolveElement(config.blockContainerId),
+      blockTemplates: this.#resolveElement(blockTemplatesId),
+      workspace: this.#resolveElement(workspaceId),
+      dragOverlay: this.#resolveElement(dragOverlayId),
+      blockContainer: this.#resolveElement(blockContainerId),
     };
 
     this.blockRegistry = new Map();
-
     this.dragOffset = { x: 0, y: 0 };
-    /** Block being dragged from the library (registered on grab-start until grab-end / blur). */
+    // Library drag: set on template grab-start, cleared on grab-end / blur.
     this.paletteDragBlock;
-    /** Same stack-snap pipeline as workspace drag (optional). */
-    this.onPaletteDragMove = config.onPaletteDragMove ?? null;
-    this.onPaletteDragEnd = config.onPaletteDragEnd ?? null;
-    this.tryPaletteStackConnect = config.tryPaletteStackConnect ?? null;
+    // Optional hooks — same stack snap as BlockWorkspaceDrag (see app.js).
+    this.onPaletteDragMove = onPaletteDragMove ?? null;
+    this.onPaletteDragEnd = onPaletteDragEnd ?? null;
+    this.tryPaletteStackConnect = tryPaletteStackConnect ?? null;
 
     if (!this.containers.blockTemplates || !this.containers.workspace || !this.containers.blockContainer || !this.containers.dragOverlay) {
       logError('Required containers not found', { context: 'BlockSpawner', containers: this.containers });
@@ -128,7 +136,7 @@ export class BlockSpawner {
     this.#clearTemplateDraggingClass();
   }
 
-  /** Remove palette block from registry and DOM (cancel drag outside workspace). */
+  // Drop outside workspace: remove transient block from registry + DOM.
   #discardPaletteBlock() {
     const block = this.paletteDragBlock;
     if (!block) return;
@@ -147,6 +155,7 @@ export class BlockSpawner {
     this.onPaletteDragMove?.(this.paletteDragBlock, this.grabManager);
   }
 
+  // --- API ---
   restoreWorkspaceBlock(opcode, blockUUID, x, y) {
     const data = this.blockLogic.prepareBlockData(opcode);
     if (!data) return null;
@@ -161,13 +170,13 @@ export class BlockSpawner {
     this.#rebuildConnectorZones(block, data);
   }
 
-  // Zones use screen→local math; rebuild after layout and when a block re-enters the workspace <svg>.
+  // Connector hit-zones (screen ↔ local); rebuild after layout / reparent.
   #rebuildConnectorZones(block, data) {
     if (!block?.element || !data) return;
     block.connectorZones = ConnectorZone.buildForBlock(data, block.element);
   }
 
-  /** Recompute hit zones after load or layout (getScreenCTM / getBBox need stable geometry). */
+  // Rebuild zones for every registered block (e.g. after hydrate / resize).
   refreshWorkspaceConnectorZones() {
     for (const block of this.blockRegistry.values()) {
       const data = this.blockLogic.prepareBlockData(block.blockKey);
@@ -178,7 +187,7 @@ export class BlockSpawner {
   #clearTemplateDraggingClass() {
     this.containers.blockTemplates
       .querySelectorAll('.block-template--dragging')
-      .forEach((el) => el.classList.remove('block-template--dragging'));
+      .forEach(el => el.classList.remove('block-template--dragging'));
   }
 
   #cleanupPaletteDrag() {

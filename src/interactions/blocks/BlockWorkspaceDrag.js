@@ -2,18 +2,14 @@ import { logError } from '../../constans/Global.js';
 import { parseTranslateTransform, readWorkspaceBlockUUID } from '../../utils/SvgUtils.js';
 
 export class BlockWorkspaceDrag {
-
   // --- Setup ---
-  // grabManager: drives grab-start/end; passed into callbacks so stack snap uses the same grab identity.
   constructor(blockContainer, workspaceEl, dragOverlay, grabManager, options = {}) {
     this.blockContainer = blockContainer;
     this.workspaceEl = workspaceEl;
     this.dragOverlay = dragOverlay;
     this.grabManager = grabManager;
-    /** (element, grabManager) => void */
     this.onBlockDragMove = options.onBlockDragMove ?? null;
     this.onBlockDragEnd = options.onBlockDragEnd ?? null;
-    /** (draggingState, grabManager) => { x, y } | null */
     this.tryCommitStackConnect = options.tryCommitStackConnect ?? null;
 
     if (!this.dragOverlay) {
@@ -113,7 +109,7 @@ export class BlockWorkspaceDrag {
     this.#applyPosition(this.dragging.origX, this.dragging.origY);
   }
 
-  // Call from BlockDeletionManager so grab-end clears drag without moving the block.
+  // BlockDeletionManager: consume grab-end without repositioning the block.
   armSkipGrabEndOnce() {
     this.skipGrabEndOnce = true;
   }

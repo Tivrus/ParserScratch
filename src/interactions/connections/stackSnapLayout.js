@@ -1,8 +1,7 @@
 import { CONNECTOR_SOCKET_HEIGHT } from '../../constans/Global.js';
 import { parseTranslateTransform } from '../../utils/SvgUtils.js';
 
-// Translate for the dragged block in block-container space when it stacks to another block.
-
+// --- Stack layout (block-container translate) ---
 export function stackSnapTranslateInContainer(anchorBlock, draggedElement, mode) {
   const el = anchorBlock.element;
   if (!el) return null;

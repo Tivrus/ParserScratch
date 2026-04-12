@@ -1,8 +1,8 @@
-// Stack snap hit-test only (no scene graph changes).
+// --- Stack snap hit-test (no graph mutations) ---
 
 import { readWorkspaceBlockUUID } from '../../utils/SvgUtils.js';
 
-// While a workspace block is grabbed, GrabManager is the source of truth for UUID (DOM on overlay can disagree).
+// Prefer GrabManager UUID while a workspace block is grabbed (overlay DOM can disagree).
 export function resolveDraggedBlockId(draggedElement, grabManager) {
   const key = grabManager?.getWorkspaceBlockGrabKey?.();
   if (key) return key;
