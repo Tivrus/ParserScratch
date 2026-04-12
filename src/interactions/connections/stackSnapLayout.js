@@ -31,3 +31,8 @@ export function stackSnapTranslateInContainer(anchorBlock, draggedElement, mode)
 
   return null;
 }
+
+// Slot between parent and existing child (same Y as “below parent” before child existed).
+export function stackSnapTranslateMiddleInsert(parentBlock, draggedElement) {
+  return stackSnapTranslateInContainer(parentBlock, draggedElement, 'below');
+}

@@ -28,7 +28,8 @@ function drawZone(parent, zone, bx, by, offsetX, offsetY) {
     'pointer-events': 'none',
   });
   label.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';
-  label.textContent = zone.type;
+  label.textContent =
+    zone.type === 'middle' && zone.inCBlock ? 'middle(C)' : zone.type;
   parent.appendChild(label);
 }
 

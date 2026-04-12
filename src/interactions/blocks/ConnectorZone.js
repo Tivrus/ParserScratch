@@ -11,12 +11,16 @@ import {
 
 // Connector hit bands in the block group's local coordinate system.
 export class ConnectorZone {
-  constructor({ type, x, y, width, height }) {
+  constructor({ type, x, y, width, height, inCBlock, linkedParentUUID } = {}) {
     this.type = type;
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
+    if (type === 'middle') {
+      this.inCBlock = Boolean(inCBlock);
+      this.linkedParentUUID = linkedParentUUID ?? null;
+    }
   }
 
   getAbsoluteRect(blockX, blockY) {
@@ -26,17 +30,6 @@ export class ConnectorZone {
       width: this.width,
       height: this.height,
     };
-  }
-
-  // Future c-block middle / branch socket (0×0 at origin); buildForBlock does not attach it yet.
-  static createMiddlePlaceholder() {
-    return new ConnectorZone({
-      type: 'middle',
-      x: 0,
-      y: 0,
-      width: 0,
-      height: 0,
-    });
   }
 
   static buildForBlock(data, blockElement) {

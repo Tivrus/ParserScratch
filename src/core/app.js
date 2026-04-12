@@ -1,5 +1,5 @@
-import { CategoryLogic, CategoryRenderer } from '../factories/CategoryFactory.js';
-import { BlockLogic, BlockRenderer } from '../factories/BlockFactory.js';
+import { CategoryLogic, CategoryRenderer } from '../Factories/CategoryFactory.js';
+import { BlockLogic, BlockRenderer } from '../Factories/BlockFactory.js';
 import { GrabManager } from '../managers/GrabManager.js';
 import { BlockSpawner } from '../managers/BlockSpawner.js';
 import { BlockDeletionManager } from '../managers/BlockDeletionManager.js';
@@ -63,21 +63,18 @@ const spawner = new BlockSpawner(ObjBlockLogic, grabManager, {
   onPaletteDragMove: (block, gm) => stackSnapGhost.sync(block.element, spawner.blockRegistry, gm),
   onPaletteDragEnd: () => stackSnapGhost.clear(),
   tryPaletteStackConnect: (block, gm) =>
-    tryCommitStackConnect({
-      ghostPreview: stackSnapGhost,
-      draggedElement: block.element,
-      blockRegistry: spawner.blockRegistry,
-      grabManager: gm,
-    }),
+    commitStackConnectAndRefresh(block.element, gm),
 });
 
-function tryWorkspaceStackConnect(dragging, gm) {
-  return tryCommitStackConnect({
+function commitStackConnectAndRefresh(draggedElement, grabManager) {
+  const pos = tryCommitStackConnect({
     ghostPreview: stackSnapGhost,
-    draggedElement: dragging.element,
+    draggedElement,
     blockRegistry: spawner.blockRegistry,
-    grabManager: gm,
+    grabManager,
   });
+  if (pos) spawner.refreshWorkspaceConnectorZones();
+  return pos;
 }
 
 const workspaceDrag = new BlockWorkspaceDrag(
@@ -88,7 +85,8 @@ const workspaceDrag = new BlockWorkspaceDrag(
   {
     onBlockDragMove: (el, gm) => stackSnapGhost.sync(el, spawner.blockRegistry, gm),
     onBlockDragEnd: () => stackSnapGhost.clear(),
-    tryCommitStackConnect: tryWorkspaceStackConnect,
+    tryCommitStackConnect: (dragging, gm) =>
+      commitStackConnectAndRefresh(dragging.element, gm),
   }
 );
 

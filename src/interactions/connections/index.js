@@ -1,7 +1,10 @@
 export {
   canConnectStackAbove,
   canConnectStackBelow,
+  canInsertAtMiddleJoint,
   listConnectionCandidates,
+  middleInsertEligibility,
+  middleZoneForParent,
   rectsIntersectClient,
   resolveDraggedBlockId,
   zoneToClientRect,
@@ -9,4 +12,7 @@ export {
 
 export { ConnectionGhostPreview } from './ConnectionGhostPreview.js';
 export { tryCommitStackConnect } from './BlockStackConnect.js';
-export { stackSnapTranslateInContainer } from './stackSnapLayout.js';
+export {
+  stackSnapTranslateInContainer,
+  stackSnapTranslateMiddleInsert,
+} from './stackSnapLayout.js';

@@ -1,7 +1,7 @@
 import { generateUUID } from '../utils/MathUtils.js';
 import { logError } from '../constans/Global.js';
 import { Block } from '../constans/Block.js';
-import { ConnectorZone } from '../interactions/blocks/ConnectorZone.js';
+import { applyStackChainMiddles } from '../interactions/blocks/ChainMiddleZone.js';
 
 export class BlockSpawner {
   constructor(blockLogic, grabManager, config = {}) {
@@ -116,11 +116,10 @@ export class BlockSpawner {
       this.containers.blockContainer.appendChild(block.element);
       block.setPosition(finalX, finalY);
 
-      const data = this.blockLogic.prepareBlockData(block.blockKey);
-      this.#rebuildConnectorZones(block, data);
+      this.#rebuildConnectorZones();
       requestAnimationFrame(() => {
         if (this.blockRegistry.get(block.blockUUID) !== block) return;
-        this.#rebuildConnectorZones(block, data);
+        this.#rebuildConnectorZones();
       });
 
       this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
@@ -167,21 +166,19 @@ export class BlockSpawner {
   #mountRegisteredBlock(block, data) {
     block.mount(this.containers.blockContainer);
     this.blockRegistry.set(block.blockUUID, block);
-    this.#rebuildConnectorZones(block, data);
+    this.#rebuildConnectorZones();
   }
 
-  // Connector hit-zones (screen ↔ local); rebuild after layout / reparent.
-  #rebuildConnectorZones(block, data) {
-    if (!block?.element || !data) return;
-    block.connectorZones = ConnectorZone.buildForBlock(data, block.element);
+  // Base ConnectorZone geometry + stack joints (middle replaces parent.bottom + child.top).
+  #rebuildConnectorZones() {
+    applyStackChainMiddles(this.blockRegistry, b =>
+      this.blockLogic.prepareBlockData(b.blockKey)
+    );
   }
 
   // Rebuild zones for every registered block (e.g. after hydrate / resize).
   refreshWorkspaceConnectorZones() {
-    for (const block of this.blockRegistry.values()) {
-      const data = this.blockLogic.prepareBlockData(block.blockKey);
-      this.#rebuildConnectorZones(block, data);
-    }
+    this.#rebuildConnectorZones();
   }
 
   #clearTemplateDraggingClass() {
