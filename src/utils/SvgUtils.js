@@ -16,6 +16,14 @@ export function createElement(tag, attrs = {}) {
   return el;
 }
 
+// Workspace <g.workspace-block>: use attribute + getAttribute (SVG dataset is unreliable; UUID may contain % + /).
+export const ATTR_WORKSPACE_BLOCK_UUID = 'data-block-uuid';
+
+export function readWorkspaceBlockUUID(element) {
+  if (!element?.getAttribute) return '';
+  return element.getAttribute(ATTR_WORKSPACE_BLOCK_UUID) || '';
+}
+
 // Parse translate transform from SVG element
 export function parseTranslateTransform(element) {
   const match = (element.getAttribute('transform') || '').match(

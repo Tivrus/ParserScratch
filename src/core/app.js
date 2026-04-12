@@ -10,6 +10,7 @@ import {
 import { BlockWorkspaceDrag, enableConnectorDebug } from '../interactions/blocks/index.js';
 import {
   ConnectionGhostPreview,
+  tryCommitStackConnect,
 } from '../interactions/connections/index.js';
 import { DOM_IDS } from '../constans/Global.js';
 
@@ -36,13 +37,6 @@ const grabManager = new GrabManager({
   blockTemplates: q(DOM_IDS.blockTemplates),
 });
 
-const spawner = new BlockSpawner(ObjBlockLogic, grabManager, {
-  blockTemplatesId: DOM_IDS.blockTemplates,
-  workspaceId: DOM_IDS.workspace,
-  dragOverlayId: DOM_IDS.dragOverlay,
-  blockContainerId: DOM_IDS.blockContainer,
-});
-
 // --- UI: category rail; switches library + active state ---
 const categoryUI = new CategoryRenderer('category-list', (categoryId) => {
   if (ObjCategoryLogic.setActive(categoryId)) {
@@ -51,44 +45,71 @@ const categoryUI = new CategoryRenderer('category-list', (categoryId) => {
   }
 });
 
-// --- Interactions ---
+// --- Interactions (workspace drag + stack snap ghost) ---
 const blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
 const dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
-const connectionGhostPreview = new ConnectionGhostPreview({
+const workspaceElForDrag = document.getElementById(DOM_IDS.workspace);
+
+const stackSnapGhost = new ConnectionGhostPreview({
   dragOverlay: dragOverlayEl,
   blockContainer: blockContainerEl,
 });
 
+const spawner = new BlockSpawner(ObjBlockLogic, grabManager, {
+  blockTemplatesId: DOM_IDS.blockTemplates,
+  workspaceId: DOM_IDS.workspace,
+  dragOverlayId: DOM_IDS.dragOverlay,
+  blockContainerId: DOM_IDS.blockContainer,
+  onPaletteDragMove: (block, gm) =>
+    stackSnapGhost.sync(block.element, spawner.blockRegistry, gm),
+  onPaletteDragEnd: () => stackSnapGhost.clear(),
+  tryPaletteStackConnect: (block, gm) =>
+    tryCommitStackConnect({
+      ghostPreview: stackSnapGhost,
+      draggedElement: block.element,
+      blockRegistry: spawner.blockRegistry,
+      grabManager: gm,
+    }),
+});
+
+function tryWorkspaceStackConnect(dragging, gm) {
+  return tryCommitStackConnect({
+    ghostPreview: stackSnapGhost,
+    draggedElement: dragging.element,
+    blockRegistry: spawner.blockRegistry,
+    grabManager: gm,
+  });
+}
+
 const workspaceDrag = new BlockWorkspaceDrag(
   blockContainerEl,
-  document.getElementById(DOM_IDS.workspace),
+  workspaceElForDrag,
   dragOverlayEl,
   grabManager,
   {
-    onBlockDragMove: (el) => {
-      connectionGhostPreview.sync(el, spawner.blockRegistry);
-    },
-    onBlockDragEnd: () => connectionGhostPreview.clear(),
+    onBlockDragMove: (el, gm) => stackSnapGhost.sync(el, spawner.blockRegistry, gm),
+    onBlockDragEnd: () => stackSnapGhost.clear(),
+    tryCommitStackConnect: tryWorkspaceStackConnect,
   }
 );
 
 new BlockDeletionManager({
   blockRegistry: spawner.blockRegistry,
-  workspaceEl: document.getElementById(DOM_IDS.workspace),
+  workspaceEl: workspaceElForDrag,
   trashCanId: DOM_IDS.trashCan,
   sidebarId: DOM_IDS.sidebar,
   workspaceDrag,
+  grabManager,
 });
 
-const workspaceEl = document.getElementById(DOM_IDS.workspace);
-attachWorkspacePersistence(workspaceEl, () => spawner.blockRegistry);
+attachWorkspacePersistence(workspaceElForDrag, () => spawner.blockRegistry);
 
 // Debug tools exposed to browser console
 window.enableConnectorDebug = () => {
   window.disableConnectorDebug = enableConnectorDebug(
     spawner.blockRegistry,
-    document.getElementById(DOM_IDS.blockContainer),
-    document.getElementById(DOM_IDS.dragOverlay)
+    blockContainerEl,
+    dragOverlayEl
   );
 };
 

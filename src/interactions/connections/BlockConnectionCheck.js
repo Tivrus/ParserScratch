@@ -1,4 +1,13 @@
-// Stack snap eligibility (checks only; no linking in the scene graph).
+// Stack snap hit-test only (no scene graph changes).
+
+import { readWorkspaceBlockUUID } from '../../utils/SvgUtils.js';
+
+// While a workspace block is grabbed, GrabManager is the source of truth for UUID (DOM on overlay can disagree).
+export function resolveDraggedBlockId(draggedElement, grabManager) {
+  const key = grabManager?.getWorkspaceBlockGrabKey?.();
+  if (key) return key;
+  return readWorkspaceBlockUUID(draggedElement) || '';
+}
 
 // --- Viewport geometry ---
 
@@ -8,7 +17,7 @@ export function rectsIntersectClient(a, b) {
   return !separated;
 }
 
-// Zone in block <g> local space → axis-aligned rect in viewport pixels.
+// Zone in block <g> local space -> axis-aligned rect in viewport pixels.
 export function zoneToClientRect(blockGroup, zone) {
   const svg = blockGroup.ownerSVGElement;
   if (!svg?.createSVGPoint || typeof blockGroup.getScreenCTM !== 'function') {
@@ -45,47 +54,65 @@ export function zoneToClientRect(blockGroup, zone) {
     }
   }
 
-  return { 
-    left: minX, 
-    top: minY, 
-    right: maxX, 
-    bottom: maxY };
+  return { left: minX, top: minY, right: maxX, bottom: maxY };
 }
 
-// --- Stack rules (one edge: top or bottom) ---
+// --- Stack rules ---
 
 function zoneByType(zones, type) {
   return zones?.find(z => z.type === type) ?? null;
 }
 
-function canStackOnEdge(dragged, other, edge) {
-  const bandOnOther = zoneByType(other.connectorZones, edge);
-  const bandOnDragged = zoneByType(dragged.connectorZones, edge);
-  if (!bandOnOther || !bandOnDragged) return false;
+function canConnectStackBelowGeometry(dragged, other) {
+  const otherBottom = zoneByType(other.connectorZones, 'bottom');
+  if (!otherBottom) return false;
 
   const draggedOutline = dragged.element.getBoundingClientRect();
-  const otherBandClient = zoneToClientRect(other.element, bandOnOther);
-  const draggedBandClient = zoneToClientRect(dragged.element, bandOnDragged);
-  if (!otherBandClient || !draggedBandClient) return false;
+  const otherBottomClient = zoneToClientRect(other.element, otherBottom);
+  if (!otherBottomClient) return false;
 
-  const draggedTouchesOtherSocket = rectsIntersectClient(draggedOutline, otherBandClient);
-  const twoSocketsOverlap = rectsIntersectClient(draggedBandClient, otherBandClient);
+  if (!rectsIntersectClient(draggedOutline, otherBottomClient)) return false;
 
-  return draggedTouchesOtherSocket && !twoSocketsOverlap;
+  const draggedBottom = zoneByType(dragged.connectorZones, 'bottom');
+  if (!draggedBottom) return true;
+
+  const draggedBottomClient = zoneToClientRect(dragged.element, draggedBottom);
+  if (!draggedBottomClient) return false;
+  return !rectsIntersectClient(draggedBottomClient, otherBottomClient);
+}
+
+function canConnectStackAboveGeometry(dragged, other) {
+  const otherTop = zoneByType(other.connectorZones, 'top');
+  if (!otherTop) return false;
+
+  const draggedOutline = dragged.element.getBoundingClientRect();
+  const otherTopClient = zoneToClientRect(other.element, otherTop);
+  if (!otherTopClient) return false;
+
+  if (!rectsIntersectClient(draggedOutline, otherTopClient)) return false;
+
+  const draggedTop = zoneByType(dragged.connectorZones, 'top');
+  if (!draggedTop) return true;
+
+  const draggedTopClient = zoneToClientRect(dragged.element, draggedTop);
+  if (!draggedTopClient) return false;
+  return !rectsIntersectClient(draggedTopClient, otherTopClient);
 }
 
 export function canConnectStackBelow(dragged, other) {
-  return canStackOnEdge(dragged, other, 'bottom');
+  if (!zoneByType(dragged.connectorZones, 'top')) return false;
+  return canConnectStackBelowGeometry(dragged, other);
 }
 
 export function canConnectStackAbove(dragged, other) {
-  return canStackOnEdge(dragged, other, 'top');
+  if (!zoneByType(dragged.connectorZones, 'bottom')) return false;
+  return canConnectStackAboveGeometry(dragged, other);
 }
 
 // --- Registry scan ---
 
-export function listConnectionCandidates(draggedElement, blockRegistry) {
-  const draggedId = draggedElement?.dataset?.blockUUID;
+export function listConnectionCandidates(draggedElement, blockRegistry, grabManager) {
+  const draggedId = resolveDraggedBlockId(draggedElement, grabManager);
   if (!draggedId) return [];
 
   const dragged = blockRegistry.get(draggedId);
@@ -103,6 +130,5 @@ export function listConnectionCandidates(draggedElement, blockRegistry) {
       candidates.push({ staticUUID: otherId, below, above });
     }
   }
-
   return candidates;
 }

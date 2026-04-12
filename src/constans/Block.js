@@ -10,6 +10,11 @@ export class Block {
     this.x = x;
     this.y = y;
 
+    // Script stack (mirrors workspace.json next / parent / topLevel)
+    this.parentUUID = null;
+    this.nextUUID = null;
+    this.topLevel = true;
+
     this.element = this.#buildElement(data);
   }
 
@@ -22,7 +27,7 @@ export class Block {
 
     Block.fillContent(group, data);
 
-    group.dataset.blockUUID = this.blockUUID;
+    group.setAttribute(SvgUtils.ATTR_WORKSPACE_BLOCK_UUID, String(this.blockUUID));
     group.dataset.blockId   = this.blockKey;
     group.dataset.type      = this.type;
     group.dataset.category  = this.category;

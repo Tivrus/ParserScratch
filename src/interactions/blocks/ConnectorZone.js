@@ -28,21 +28,40 @@ export class ConnectorZone {
     };
   }
 
+  // Future c-block middle / branch socket (0×0 at origin); buildForBlock does not attach it yet.
+  static createMiddlePlaceholder() {
+    return new ConnectorZone({
+      type: 'middle',
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    });
+  }
+
   static buildForBlock(data, blockElement) {
     switch (data.type) {
       case 'default-block':
-        return ConnectorZone.#stackZonesForDefaultBlock(data, blockElement);
+      case 'c-block':
+        return ConnectorZone.#zonesTopAndBottom(data, blockElement);
+      case 'start-block':
+        return ConnectorZone.#zonesBottomOnly(data, blockElement);
+      case 'stop-block':
+        return ConnectorZone.#zonesTopOnly(data, blockElement);
       default:
         return [];
     }
   }
 
+  // --- Geometry from DOM (fallback uses data.width / data.height) ---
+
   static #bboxFallback(data) {
+    const h = data.height ?? DEFAULT_BLOCK_HEIGHT;
     return {
       connectorX: 0,
       width: data.width ?? 0,
       topBaseY: 0,
-      bottomBaseY: DEFAULT_BLOCK_HEIGHT,
+      bottomBaseY: h,
     };
   }
 
@@ -64,6 +83,8 @@ export class ConnectorZone {
     const topLeft = clientPointToElementLocal(blockElement, r.left, r.top);
     const topRight = clientPointToElementLocal(blockElement, r.right, r.top);
     const bottomLeft = clientPointToElementLocal(blockElement, r.left, r.bottom);
+    if (!topLeft || !topRight || !bottomLeft) return fallback;
+
     const widthFromClient = Math.abs(topRight.x - topLeft.x);
     return {
       connectorX: topLeft.x,
@@ -73,26 +94,46 @@ export class ConnectorZone {
     };
   }
 
-  // Stack connector zones for a default block.
-  static #stackZonesForDefaultBlock(data, blockElement) {
+  // --- Stack zones ---
+
+  static #makeTopZone(connectorX, width, topBaseY) {
+    return new ConnectorZone({
+      type: 'top',
+      x: connectorX,
+      y: topBaseY + CONNECTOR_OFFSETS.TOP_Y,
+      width,
+      height: CONNECTOR_THRESHOLD,
+    });
+  }
+
+  static #makeBottomZone(connectorX, width, bottomBaseY) {
+    return new ConnectorZone({
+      type: 'bottom',
+      x: connectorX,
+      y: bottomBaseY - CONNECTOR_SOCKET_HEIGHT + CONNECTOR_OFFSETS.BOTTOM_Y,
+      width,
+      height: CONNECTOR_THRESHOLD,
+    });
+  }
+
+  static #zonesTopAndBottom(data, blockElement) {
     const { connectorX, width, topBaseY, bottomBaseY } =
       ConnectorZone.#readLocalGeometry(data, blockElement);
-
     return [
-      new ConnectorZone({
-        type: 'top',
-        x: connectorX,
-        y: topBaseY + CONNECTOR_OFFSETS.TOP_Y,
-        width,
-        height: CONNECTOR_THRESHOLD,
-      }),
-      new ConnectorZone({
-        type: 'bottom',
-        x: connectorX,
-        y: bottomBaseY - CONNECTOR_SOCKET_HEIGHT + CONNECTOR_OFFSETS.BOTTOM_Y,
-        width,
-        height: CONNECTOR_THRESHOLD,
-      }),
+      ConnectorZone.#makeTopZone(connectorX, width, topBaseY),
+      ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY),
     ];
+  }
+
+  static #zonesBottomOnly(data, blockElement) {
+    const { connectorX, width, bottomBaseY } =
+      ConnectorZone.#readLocalGeometry(data, blockElement);
+    return [ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY)];
+  }
+
+  static #zonesTopOnly(data, blockElement) {
+    const { connectorX, width, topBaseY } =
+      ConnectorZone.#readLocalGeometry(data, blockElement);
+    return [ConnectorZone.#makeTopZone(connectorX, width, topBaseY)];
   }
 }

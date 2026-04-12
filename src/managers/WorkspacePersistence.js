@@ -3,17 +3,18 @@ import { logError } from '../constans/Global.js';
 const SAVE_URL = '/api/save-workspace';
 const LOAD_URL = '/api/load-workspace';
 
-// Serializes the workspace to a JSON object
+// --- Serialize / deserialize document ---
+
 export function serializeWorkspace(blockRegistry) {
   const blocks = {};
   for (const block of blockRegistry.values()) {
     blocks[block.blockUUID] = {
       opcode: block.blockKey,
-      next: null,
-      parent: null,
+      next: block.nextUUID ?? null,
+      parent: block.parentUUID ?? null,
       inputs: {},
       fields: {},
-      topLevel: true,
+      topLevel: block.topLevel !== false,
       x: Math.round(block.x),
       y: Math.round(block.y),
     };
@@ -21,7 +22,34 @@ export function serializeWorkspace(blockRegistry) {
   return { blocks };
 }
 
-// Saves the workspace to the server
+export function applyWorkspaceDocument(spawner, doc) {
+  const raw = doc?.blocks;
+  if (!raw || typeof raw !== 'object') return;
+
+  for (const [id, rec] of Object.entries(raw)) {
+    if (!rec || typeof rec !== 'object') continue;
+    if (typeof rec.opcode !== 'string') continue;
+    spawner.restoreWorkspaceBlock(rec.opcode, id, Number(rec.x) || 0, Number(rec.y) || 0);
+  }
+}
+
+// Run after every block exists (restoreWorkspaceBlock).
+export function applyWorkspaceChainLinks(blockRegistry, doc) {
+  const raw = doc?.blocks;
+  if (!raw || typeof raw !== 'object') return;
+
+  for (const [id, rec] of Object.entries(raw)) {
+    if (!rec || typeof rec !== 'object') continue;
+    const block = blockRegistry.get(id);
+    if (!block) continue;
+    block.nextUUID = rec.next ?? null;
+    block.parentUUID = rec.parent ?? null;
+    block.topLevel = rec.topLevel !== false;
+  }
+}
+
+// --- Network ---
+
 export async function saveWorkspaceToServer(blockRegistry) {
   try {
     const res = await fetch(SAVE_URL, {
@@ -41,7 +69,6 @@ export async function saveWorkspaceToServer(blockRegistry) {
   }
 }
 
-// Loads the workspace from the server
 export async function loadWorkspaceDocument() {
   try {
     const res = await fetch(LOAD_URL);
@@ -55,19 +82,8 @@ export async function loadWorkspaceDocument() {
   }
 }
 
-// Applies the workspace document to the block registry
-export function applyWorkspaceDocument(spawner, doc) {
-  const raw = doc?.blocks;
-  if (!raw || typeof raw !== 'object') return;
+// --- Wire-up ---
 
-  for (const [id, rec] of Object.entries(raw)) {
-    if (!rec || typeof rec !== 'object') continue;
-    if (typeof rec.opcode !== 'string') continue;
-    spawner.restoreWorkspaceBlock(rec.opcode, id, Number(rec.x) || 0, Number(rec.y) || 0);
-  }
-}
-
-// Attaches the workspace persistence to the workspace element
 export function attachWorkspacePersistence(workspaceEl, getRegistry) {
   if (!workspaceEl || typeof getRegistry !== 'function') return;
 
@@ -84,5 +100,8 @@ export function attachWorkspacePersistence(workspaceEl, getRegistry) {
 }
 
 export async function hydrateWorkspaceFromServer(spawner) {
-  applyWorkspaceDocument(spawner, await loadWorkspaceDocument());
+  const doc = await loadWorkspaceDocument();
+  applyWorkspaceDocument(spawner, doc);
+  applyWorkspaceChainLinks(spawner.blockRegistry, doc);
+  requestAnimationFrame(() => spawner.refreshWorkspaceConnectorZones());
 }

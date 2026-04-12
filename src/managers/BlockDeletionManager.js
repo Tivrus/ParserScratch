@@ -60,12 +60,14 @@ export class BlockDeletionManager {
     trashCanId = DOM_IDS.trashCan,
     sidebarId = DOM_IDS.sidebar,
     workspaceDrag,
+    grabManager,
   }) {
     this.blockRegistry = blockRegistry;
     this.workspaceEl = workspaceEl instanceof HTMLElement ? workspaceEl : null;
     this.trashEl = document.getElementById(trashCanId);
     this.sidebarEl = document.getElementById(sidebarId);
     this.workspaceDrag = workspaceDrag;
+    this.grabManager = grabManager;
 
     if (!this.blockRegistry || !this.workspaceEl || !this.workspaceDrag) {
       logError('BlockDeletionManager: blockRegistry, workspaceEl, workspaceDrag are required', {
@@ -79,7 +81,7 @@ export class BlockDeletionManager {
 
   #onGrabEnd(event) {
     const d = event.detail;
-    if (d.target !== 'block' || d.area !== DOM_IDS.workspace) return;
+    if (!this.grabManager?.isWorkspaceBlockGrabDetail?.(d)) return;
 
     const block = this.blockRegistry.get(d.grabKey);
     if (!block?.element) return;

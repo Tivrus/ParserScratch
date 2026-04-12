@@ -1,9 +1,8 @@
-import { CONNECTOR_SOCKET_HEIGHT } from '../../constans/Global.js';
-import { parseTranslateTransform } from '../../utils/SvgUtils.js';
 import { GhostBlock } from '../GhostBlock.js';
 import { listConnectionCandidates } from './BlockConnectionCheck.js';
+import { stackSnapTranslateInContainer } from './stackSnapLayout.js';
 
-// Ghost silhouette at the stack snap point when BlockConnectionCheck reports a candidate.
+// Live snap ghost: same silhouette as the dragged block at the stack target.
 
 export class ConnectionGhostPreview {
 
@@ -13,37 +12,63 @@ export class ConnectionGhostPreview {
     this.blockContainer = blockContainer;
     this.ghost = new GhostBlock();
     this.lastTargetKey = null;
+    // Valid only while this.ghost.element is mounted (see getActiveSnap).
+    this.activeSnap = null;
   }
 
-  // --- Snap position (block-container space, same as workspace translate) ---
-  // Below: ghost group origin Y = ty + bbox bottom − CONNECTOR_SOCKET_HEIGHT (per spec).
-  // Above: ghost bottom at ty + bbox top + CONNECTOR_SOCKET_HEIGHT.
-  #snapPositionInContainer(staticBlock, draggedElement, mode) {
-    const el = staticBlock.element;
-    if (!el) return null;
+  // --- API ---
+  getActiveSnap() {
+    return this.ghost.element ? this.activeSnap : null;
+  }
 
-    const { x: tx, y: ty } = parseTranslateTransform(el);
-    let sbb;
-    try {
-      sbb = el.getBBox();
-    } catch {
-      return null;
+  sync(draggedElement, blockRegistry, grabManager) {
+    if (!this.dragOverlay || !this.blockContainer) return;
+
+    const candidates = listConnectionCandidates(draggedElement, blockRegistry, grabManager);
+    const snap = this.#pickSnap(candidates);
+    if (!snap) {
+      this.clear();
+      return;
     }
 
-    let ghostH;
-    try {
-      ghostH = draggedElement.getBBox().height;
-    } catch {
-      return null;
+    const anchor = blockRegistry.get(snap.staticUUID);
+    if (!anchor?.element) {
+      this.clear();
+      return;
     }
 
-    if (mode === 'below') {
-      const y = ty + sbb.y + sbb.height - CONNECTOR_SOCKET_HEIGHT;
-      return { x: tx, y };
+    const pos = stackSnapTranslateInContainer(anchor, draggedElement, snap.mode);
+    if (!pos) {
+      this.clear();
+      return;
     }
 
-    const y = ty + sbb.y + CONNECTOR_SOCKET_HEIGHT - ghostH - 2; // +1 to avoid overlap
-    return { x: tx, y };
+    const { x: ox, y: oy } = this.#containerToOverlay(pos.x, pos.y);
+    const targetKey = `${snap.staticUUID}|${snap.mode}|${Math.round(ox)}|${Math.round(oy)}`;
+
+    if (this.lastTargetKey === targetKey && this.ghost.element) {
+      this.ghost.setPosition(ox, oy);
+      this.activeSnap = { staticUUID: snap.staticUUID, mode: snap.mode };
+      return;
+    }
+
+    this.lastTargetKey = targetKey;
+    this.ghost.createFromElement(draggedElement, ox, oy);
+    if (!this.ghost.element) {
+      this.clear();
+      return;
+    }
+
+    this.activeSnap = { staticUUID: snap.staticUUID, mode: snap.mode };
+    this.ghost.element.style.pointerEvents = 'none';
+    this.ghost.attach(this.dragOverlay);
+    this.dragOverlay.insertBefore(this.ghost.element, draggedElement);
+  }
+
+  clear() {
+    this.lastTargetKey = null;
+    this.activeSnap = null;
+    this.ghost.dispose();
   }
 
   #containerToOverlay(x, y) {
@@ -61,53 +86,5 @@ export class ConnectionGhostPreview {
     const over = candidates.find(c => c.above);
     if (over) return { staticUUID: over.staticUUID, mode: 'above' };
     return null;
-  }
-
-  // --- API ---
-  sync(draggedElement, blockRegistry) {
-    if (!this.dragOverlay || !this.blockContainer) return;
-
-    const candidates = listConnectionCandidates(draggedElement, blockRegistry);
-    const snap = this.#pickSnap(candidates);
-    if (!snap) {
-      this.clear();
-      return;
-    }
-
-    const staticBlock = blockRegistry.get(snap.staticUUID);
-    if (!staticBlock?.element) {
-      this.clear();
-      return;
-    }
-
-    const pos = this.#snapPositionInContainer(staticBlock, draggedElement, snap.mode);
-    if (!pos) {
-      this.clear();
-      return;
-    }
-
-    const { x: ox, y: oy } = this.#containerToOverlay(pos.x, pos.y);
-    const targetKey = `${snap.staticUUID}|${snap.mode}|${Math.round(ox)}|${Math.round(oy)}`;
-
-    if (this.lastTargetKey === targetKey && this.ghost.element) {
-      this.ghost.setPosition(ox, oy);
-      return;
-    }
-
-    this.lastTargetKey = targetKey;
-    this.ghost.createFromElement(draggedElement, ox, oy);
-    if (!this.ghost.element) {
-      this.clear();
-      return;
-    }
-
-    this.ghost.element.style.pointerEvents = 'none';
-    this.ghost.attach(this.dragOverlay);
-    this.dragOverlay.insertBefore(this.ghost.element, draggedElement);
-  }
-
-  clear() {
-    this.lastTargetKey = null;
-    this.ghost.dispose();
   }
 }

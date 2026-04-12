@@ -1,5 +1,7 @@
-import { logError,  MOVE_THRESHOLD} from '../constans/Global.js';
+import { logError, MOVE_THRESHOLD } from '../constans/Global.js';
+import { readWorkspaceBlockUUID } from '../utils/SvgUtils.js';
 
+// Single source of truth for pointer grab: area, target, grabKey, and CustomEvent grab-* payloads.
 export class GrabManager {
   constructor(containersConfig = {}) {
     this.state = {
@@ -59,7 +61,7 @@ export class GrabManager {
     if (areaName === 'workspace') {
       const block = event.target.closest('.workspace-block');
       return block
-        ? { target: 'block', element: block, grabKey: block.dataset.blockUUID }
+        ? { target: 'block', element: block, grabKey: readWorkspaceBlockUUID(block) }
         : { target: 'empty', element: container, grabKey: null };
     }
 
@@ -182,9 +184,34 @@ export class GrabManager {
   }
 
   // --- Public API ---
-  isBlockGrabbed() { return this.state.isGrabbed && this.state.target === 'block'; }
-  isTemplateGrabbed() { return this.state.isGrabbed && this.state.target === 'template'; }
-  isGrabbedInWorkspace() { return this.state.isGrabbed && this.state.area === 'workspace'; }
-  isGrabbedInTemplates() { return this.state.isGrabbed && this.state.area === 'blockTemplates'; }
-  getCurrentState() { return { ...this.state }; }
+
+  isBlockGrabbed() {
+    return this.state.isGrabbed && this.state.target === 'block';
+  }
+
+  isTemplateGrabbed() {
+    return this.state.isGrabbed && this.state.target === 'template';
+  }
+
+  isGrabbedInWorkspace() {
+    return this.state.isGrabbed && this.state.area === 'workspace';
+  }
+
+  isGrabbedInTemplates() {
+    return this.state.isGrabbed && this.state.area === 'blockTemplates';
+  }
+
+  /** Block UUID from the active workspace-block grab; use for hit-tests while the <g> is in the overlay. */
+  getWorkspaceBlockGrabKey() {
+    return this.isBlockGrabbed() ? this.state.grabKey : null;
+  }
+
+  /** True if `detail` came from a workspace block grab (grab-start / grab-end payload shape). */
+  isWorkspaceBlockGrabDetail(detail) {
+    return Boolean(detail?.target === 'block' && detail?.area === 'workspace');
+  }
+
+  getCurrentState() {
+    return { ...this.state };
+  }
 }

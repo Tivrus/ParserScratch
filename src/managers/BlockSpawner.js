@@ -21,6 +21,10 @@ export class BlockSpawner {
     this.dragOffset = { x: 0, y: 0 };
     /** Block being dragged from the library (registered on grab-start until grab-end / blur). */
     this.paletteDragBlock;
+    /** Same stack-snap pipeline as workspace drag (optional). */
+    this.onPaletteDragMove = config.onPaletteDragMove ?? null;
+    this.onPaletteDragEnd = config.onPaletteDragEnd ?? null;
+    this.tryPaletteStackConnect = config.tryPaletteStackConnect ?? null;
 
     if (!this.containers.blockTemplates || !this.containers.workspace || !this.containers.blockContainer || !this.containers.dragOverlay) {
       logError('Required containers not found', { context: 'BlockSpawner', containers: this.containers });
@@ -90,11 +94,27 @@ export class BlockSpawner {
     }
 
     if (grabDetail.endArea === 'workspace') {
-      const wr = this.containers.workspace.getBoundingClientRect();
-      const finalX = Math.round(grabDetail.clientX - wr.left - this.dragOffset.x);
-      const finalY = Math.round(grabDetail.clientY - wr.top - this.dragOffset.y);
+      const stackPlace = this.tryPaletteStackConnect?.(block, this.grabManager);
+      let finalX;
+      let finalY;
+      if (stackPlace) {
+        finalX = Math.round(stackPlace.x);
+        finalY = Math.round(stackPlace.y);
+      } else {
+        const wr = this.containers.workspace.getBoundingClientRect();
+        finalX = Math.round(grabDetail.clientX - wr.left - this.dragOffset.x);
+        finalY = Math.round(grabDetail.clientY - wr.top - this.dragOffset.y);
+      }
       this.containers.blockContainer.appendChild(block.element);
       block.setPosition(finalX, finalY);
+
+      const data = this.blockLogic.prepareBlockData(block.blockKey);
+      this.#rebuildConnectorZones(block, data);
+      requestAnimationFrame(() => {
+        if (this.blockRegistry.get(block.blockUUID) !== block) return;
+        this.#rebuildConnectorZones(block, data);
+      });
+
       this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
         detail: { block, blockId: block.blockKey, x: finalX, y: finalY },
         bubbles: true,
@@ -103,6 +123,7 @@ export class BlockSpawner {
       this.#discardPaletteBlock();
     }
 
+    this.onPaletteDragEnd?.();
     this.paletteDragBlock = null;
     this.#clearTemplateDraggingClass();
   }
@@ -123,6 +144,7 @@ export class BlockSpawner {
     const x = clientX - overlayRect.left - this.dragOffset.x;
     const y = clientY - overlayRect.top - this.dragOffset.y;
     el.setAttribute('transform', `translate(${x}, ${y})`);
+    this.onPaletteDragMove?.(this.paletteDragBlock, this.grabManager);
   }
 
   restoreWorkspaceBlock(opcode, blockUUID, x, y) {
@@ -135,8 +157,22 @@ export class BlockSpawner {
 
   #mountRegisteredBlock(block, data) {
     block.mount(this.containers.blockContainer);
-    block.connectorZones = ConnectorZone.buildForBlock(data, block.element);
     this.blockRegistry.set(block.blockUUID, block);
+    this.#rebuildConnectorZones(block, data);
+  }
+
+  // Zones use screen→local math; rebuild after layout and when a block re-enters the workspace <svg>.
+  #rebuildConnectorZones(block, data) {
+    if (!block?.element || !data) return;
+    block.connectorZones = ConnectorZone.buildForBlock(data, block.element);
+  }
+
+  /** Recompute hit zones after load or layout (getScreenCTM / getBBox need stable geometry). */
+  refreshWorkspaceConnectorZones() {
+    for (const block of this.blockRegistry.values()) {
+      const data = this.blockLogic.prepareBlockData(block.blockKey);
+      this.#rebuildConnectorZones(block, data);
+    }
   }
 
   #clearTemplateDraggingClass() {
@@ -150,6 +186,7 @@ export class BlockSpawner {
       this.#discardPaletteBlock();
       this.paletteDragBlock = null;
     }
+    this.onPaletteDragEnd?.();
     this.#clearTemplateDraggingClass();
   }
 }

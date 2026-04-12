@@ -1,16 +1,20 @@
 import { logError } from '../../constans/Global.js';
-import { parseTranslateTransform } from '../../utils/SvgUtils.js';
+import { parseTranslateTransform, readWorkspaceBlockUUID } from '../../utils/SvgUtils.js';
 
 export class BlockWorkspaceDrag {
 
   // --- Setup ---
+  // grabManager: drives grab-start/end; passed into callbacks so stack snap uses the same grab identity.
   constructor(blockContainer, workspaceEl, dragOverlay, grabManager, options = {}) {
     this.blockContainer = blockContainer;
     this.workspaceEl = workspaceEl;
     this.dragOverlay = dragOverlay;
     this.grabManager = grabManager;
+    /** (element, grabManager) => void */
     this.onBlockDragMove = options.onBlockDragMove ?? null;
     this.onBlockDragEnd = options.onBlockDragEnd ?? null;
+    /** (draggingState, grabManager) => { x, y } | null */
+    this.tryCommitStackConnect = options.tryCommitStackConnect ?? null;
 
     if (!this.dragOverlay) {
       logError('dragOverlay is required for workspace drag', { context: 'BlockWorkspaceDrag' });
@@ -45,9 +49,7 @@ export class BlockWorkspaceDrag {
 
   // --- Drag lifecycle ---
   #onGrabStart(detail) {
-    const element = this.blockContainer.querySelector(
-      `[data-block-u-u-i-d="${detail.grabKey}"]`
-    );
+    const element = this.#findWorkspaceBlockByUuid(detail.grabKey);
     if (!element) return;
     const { x: origX, y: origY } = parseTranslateTransform(element);
 
@@ -76,7 +78,7 @@ export class BlockWorkspaceDrag {
     const x = overlayStartX + (event.clientX - startClientX);
     const y = overlayStartY + (event.clientY - startClientY);
     element.setAttribute('transform', `translate(${x}, ${y})`);
-    this.onBlockDragMove?.(element);
+    this.onBlockDragMove?.(element, this.grabManager);
   }
 
   #onGrabEnd(detail) {
@@ -90,6 +92,12 @@ export class BlockWorkspaceDrag {
 
     if (!detail.moved) {
       this.#applyPosition(this.dragging.origX, this.dragging.origY);
+      return;
+    }
+
+    const stackPlace = this.tryCommitStackConnect?.(this.dragging, this.grabManager);
+    if (stackPlace) {
+      this.#applyPosition(Math.round(stackPlace.x), Math.round(stackPlace.y));
       return;
     }
 
@@ -111,9 +119,17 @@ export class BlockWorkspaceDrag {
   }
 
   // --- Helpers ---
+  #findWorkspaceBlockByUuid(uuid) {
+    if (!uuid) return null;
+    for (const g of this.blockContainer.querySelectorAll('.workspace-block')) {
+      if (readWorkspaceBlockUUID(g) === uuid) return g;
+    }
+    return null;
+  }
+
   #applyPosition(x, y) {
     const el = this.dragging.element;
-    const blockUUID = el.dataset.blockUUID;
+    const blockUUID = readWorkspaceBlockUUID(el);
     this.blockContainer.appendChild(el);
     el.setAttribute('transform', `translate(${x}, ${y})`);
     el.classList.remove('workspace-block--dragging');
