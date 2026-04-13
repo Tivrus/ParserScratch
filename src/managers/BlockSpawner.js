@@ -1,7 +1,7 @@
-import { generateUUID } from '../utils/MathUtils.js';
+import { BlockIdentity } from '../utils/MathUtils.js';
 import { logError } from '../constans/Global.js';
 import { Block } from '../constans/Block.js';
-import { applyStackChainMiddles } from '../interactions/blocks/ChainMiddleZone.js';
+import { StackChainMiddle } from '../interactions/blocks/ChainMiddleZone.js';
 
 export class BlockSpawner {
   constructor(blockLogic, grabManager, config = {}) {
@@ -52,7 +52,7 @@ export class BlockSpawner {
   #initListeners() {
     this.containers.blockTemplates.addEventListener('grab-start', (e) => {
       if (this.grabManager.isBlockGrabbed()) return;
-      if (e.detail.target === 'template' && e.detail.grabKey) {
+      if (this.grabManager.isTemplateGrabbed() && e.detail.grabKey) {
         this.#onTemplateGrab(e.detail);
       }
     });
@@ -80,7 +80,7 @@ export class BlockSpawner {
     const data = this.blockLogic.prepareBlockData(grabDetail.grabKey);
     if (!data) return;
 
-    const block = new Block(data, { blockUUID: generateUUID(), x: 0, y: 0 });
+    const block = new Block(data, { blockUUID: BlockIdentity.generateUUID(), x: 0, y: 0 });
     this.#mountRegisteredBlock(block, data);
 
     this.containers.dragOverlay.appendChild(block.element);
@@ -171,7 +171,7 @@ export class BlockSpawner {
 
   // Base ConnectorZone geometry + stack joints (middle replaces parent.bottom + child.top).
   #rebuildConnectorZones() {
-    applyStackChainMiddles(this.blockRegistry, b =>
+    StackChainMiddle.applyStackChainMiddles(this.blockRegistry, b =>
       this.blockLogic.prepareBlockData(b.blockKey)
     );
   }

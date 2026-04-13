@@ -5,7 +5,7 @@ const LOAD_URL = '/api/load-workspace';
 
 // --- Serialize / deserialize document ---
 
-export function serializeWorkspace(blockRegistry) {
+function serializeWorkspace(blockRegistry) {
   const blocks = {};
   for (const block of blockRegistry.values()) {
     blocks[block.blockUUID] = {
@@ -22,7 +22,7 @@ export function serializeWorkspace(blockRegistry) {
   return { blocks };
 }
 
-export function applyWorkspaceDocument(spawner, doc) {
+function applyWorkspaceDocument(spawner, doc) {
   const raw = doc?.blocks;
   if (!raw || typeof raw !== 'object') return;
 
@@ -34,7 +34,7 @@ export function applyWorkspaceDocument(spawner, doc) {
 }
 
 // Run after every block exists (restoreWorkspaceBlock).
-export function applyWorkspaceChainLinks(blockRegistry, doc) {
+function applyWorkspaceChainLinks(blockRegistry, doc) {
   const raw = doc?.blocks;
   if (!raw || typeof raw !== 'object') return;
 
@@ -50,7 +50,7 @@ export function applyWorkspaceChainLinks(blockRegistry, doc) {
 
 // --- Network ---
 
-export async function saveWorkspaceToServer(blockRegistry) {
+async function saveWorkspaceToServer(blockRegistry) {
   try {
     const res = await fetch(SAVE_URL, {
       method: 'POST',
@@ -69,7 +69,7 @@ export async function saveWorkspaceToServer(blockRegistry) {
   }
 }
 
-export async function loadWorkspaceDocument() {
+async function loadWorkspaceDocument() {
   try {
     const res = await fetch(LOAD_URL);
     const json = await res.json();

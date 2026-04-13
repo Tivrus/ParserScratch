@@ -29,7 +29,6 @@ export const SHRINK_MS = 260;
 export const DOM_IDS = {
   workspace: 'workspace',
   blockTemplates: 'block-templates',
-  blockTemplatesGrab: 'blockTemplates',
   sidebar: 'sidebar',
   dragOverlay: 'drag-overlay',
   trashCan: 'trash-can',
@@ -78,12 +77,6 @@ export const BLOCK_FORMS = [
     }
   ];
 
-export const getBlockForm = (type) => BLOCK_FORMS.get(type) ||
- logError(`Неверный тип блока: "${type}"`, { 
-      context: 'Global', 
-      throwAfter: true 
-    });
-
 // === COLOR SCHEME ===
 // Standard fill color of blocks
 export const DEFAULT_BLOCK_COLOR = '#4c97ff';
@@ -105,8 +98,6 @@ export const C_BLOCK_EMPTY_INNER_SPACE = 24;
 // === CONNECTOR ZONES ===
 // Threshold distance (in pixels) for activating the connector zone
 export const CONNECTOR_THRESHOLD = 32;
-// Reduced activation zone for the outer MIDDLE-connector of the c-block with the lower chain
-export const CBLOCK_MIDDLE_THRESHOLD = 28;
 // Height of the visual connector socket
 export const CONNECTOR_SOCKET_HEIGHT = 8;
 // Minimum delta to count as a drag rather than a click
@@ -114,11 +105,8 @@ export const MOVE_THRESHOLD = 3;
 
 // Offsets of connector positions relative to the block
 export const CONNECTOR_OFFSETS = {
-  TOP_Y: 0,       
-  BOTTOM_Y: 0,       
-  INNER_TOP_X: 16,                         
-  INNER_TOP_Y: 48,                         
-  CBLOCK_MIDDLE_ZONE_Y: 10                 
+  TOP_Y: 0,
+  BOTTOM_Y: 0,
 };
 
 export const CONNECTOR_ZONE_STYLE = {
@@ -131,3 +119,5 @@ export const CONNECTOR_ZONE_STYLE = {
 
 // === SVG CONSTANTS ===
 export const SVG_NS = 'http://www.w3.org/2000/svg';
+export const FALLBACK_DARK = 'rgba(0,0,0,0.7)';
+export const UUID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/%+';

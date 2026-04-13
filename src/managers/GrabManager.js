@@ -192,14 +192,6 @@ export class GrabManager {
     return this.state.isGrabbed && this.state.target === 'template';
   }
 
-  isGrabbedInWorkspace() {
-    return this.state.isGrabbed && this.state.area === 'workspace';
-  }
-
-  isGrabbedInTemplates() {
-    return this.state.isGrabbed && this.state.area === 'blockTemplates';
-  }
-
   // UUID of the grabbed workspace block (overlay hit-tests).
   getWorkspaceBlockGrabKey() {
     return this.isBlockGrabbed() ? this.state.grabKey : null;
@@ -208,9 +200,5 @@ export class GrabManager {
   // grab-start / grab-end detail: workspace block.
   isWorkspaceBlockGrabDetail(detail) {
     return Boolean(detail?.target === 'block' && detail?.area === 'workspace');
-  }
-
-  getCurrentState() {
-    return { ...this.state };
   }
 }

@@ -1,5 +1,5 @@
 import { blocks_list } from '../data/BlocksData.js';
-import { darkenColor } from '../utils/MathUtils.js';
+import { ColorMath } from '../utils/MathUtils.js';
 import * as Global from '../constans/Global.js';
 import * as SvgUtils from '../utils/SvgUtils.js';
 import { Block } from '../constans/Block.js';
@@ -40,7 +40,7 @@ export class BlockLogic {
     }
     const viewBox = vb.join(' ');
     const fillColor = this.categoriesMap.get(config.category)?.color || Global.DEFAULT_BLOCK_COLOR;
-    return { ...config, pathData, width, height, viewBox, fillColor, strokeColor: darkenColor(fillColor) };
+    return { ...config, pathData, width, height, viewBox, fillColor, strokeColor: ColorMath.darken(fillColor) };
   }
 }
 

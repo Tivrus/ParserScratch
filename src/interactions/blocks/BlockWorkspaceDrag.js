@@ -25,7 +25,7 @@ export class BlockWorkspaceDrag {
 
   #initListeners() {
     this.workspaceEl.addEventListener('grab-start', (e) => {
-      if (e.detail.target === 'block' && e.detail.grabKey) {
+      if (this.grabManager.isWorkspaceBlockGrabDetail(e.detail) && e.detail.grabKey) {
         this.#onGrabStart(e.detail);
       }
     });

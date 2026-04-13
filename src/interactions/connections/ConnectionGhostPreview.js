@@ -1,52 +1,47 @@
 import { GhostBlock } from '../GhostBlock.js';
-import {
-  clearChainSpread,
-  expandedMiddleZoneLocal,
-  ghostSpreadDeltaY,
-  setChainSpreadBelow,
-} from '../blocks/ChainMiddleZone.js';
-import {
-  listConnectionCandidates,
-  middleInsertEligibility,
-  middleZoneForParent,
-  rectsIntersectClient,
-  resolveDraggedBlockId,
-  zoneToClientRect,
-} from './BlockConnectionCheck.js';
-import {
-  stackSnapTranslateInContainer,
-  stackSnapTranslateMiddleInsert,
-} from './stackSnapLayout.js';
+import { StackChainMiddle } from '../blocks/ChainMiddleZone.js';
+import { BlockConnectionCheck } from './BlockConnectionCheck.js';
+import { StackSnapLayout } from './stackSnapLayout.js';
 
 // Silhouette preview at stack snap target (see tryCommitStackConnect).
 export class ConnectionGhostPreview {
+  #dragOverlay;
+  #blockContainer;
+  #ghost;
+  #lastTargetKey;
+  #activeSnap;
+  #spreadRegistry;
+  #spreadExcludeUUID;
+  #middleZoneRestore;
+
   constructor({ dragOverlay, blockContainer }) {
-    this.dragOverlay = dragOverlay;
-    this.blockContainer = blockContainer;
-    this.ghost = new GhostBlock();
-    this.lastTargetKey = null;
-    this.activeSnap = null;
-    this._spreadRegistry = null;
-    this._spreadExcludeUUID = null;
-    this._middleZoneRestore = null;
+    this.#dragOverlay = dragOverlay;
+    this.#blockContainer = blockContainer;
+    this.#ghost = new GhostBlock();
+    this.#lastTargetKey = null;
+    this.#activeSnap = null;
+    this.#spreadRegistry = null;
+    this.#spreadExcludeUUID = null;
+    this.#middleZoneRestore = null;
   }
 
   getActiveSnap() {
-    return this.ghost.element ? this.activeSnap : null;
+    return this.#ghost.element ? this.#activeSnap : null;
   }
 
   sync(draggedElement, blockRegistry, grabManager) {
-    if (!this.dragOverlay || !this.blockContainer) return;
+    if (!this.#dragOverlay || !this.#blockContainer) return;
 
     this.#restoreMiddleZonePatch(blockRegistry);
-    this._spreadRegistry = blockRegistry;
-    this._spreadExcludeUUID = resolveDraggedBlockId(draggedElement, grabManager) || null;
+    this.#spreadRegistry = blockRegistry;
+    this.#spreadExcludeUUID =
+      BlockConnectionCheck.resolveDraggedBlockId(draggedElement, grabManager) || null;
 
-    clearChainSpread(blockRegistry, this._spreadExcludeUUID);
+    StackChainMiddle.clearChainSpread(blockRegistry, this.#spreadExcludeUUID);
     this.#tryPrepareMiddleSpread(draggedElement, blockRegistry, grabManager);
 
     const snap = this.#pickSnap(
-      listConnectionCandidates(draggedElement, blockRegistry, grabManager)
+      BlockConnectionCheck.listConnectionCandidates(draggedElement, blockRegistry, grabManager)
     );
 
     if (!snap) {
@@ -67,49 +62,54 @@ export class ConnectionGhostPreview {
         this.#cancelSnapPreview(blockRegistry);
         return;
       }
-      const dy = ghostSpreadDeltaY(draggedElement);
-      setChainSpreadBelow(blockRegistry, snap.staticUUID, dy, this._spreadExcludeUUID);
+      const dy = StackChainMiddle.ghostSpreadDeltaY(draggedElement);
+      StackChainMiddle.setChainSpreadBelow(
+        blockRegistry,
+        snap.staticUUID,
+        dy,
+        this.#spreadExcludeUUID
+      );
       this.#patchMiddleGeometry(parent, child, dy, 0);
     } else {
-      clearChainSpread(blockRegistry, this._spreadExcludeUUID);
+      StackChainMiddle.clearChainSpread(blockRegistry, this.#spreadExcludeUUID);
     }
 
     const { x: ox, y: oy } = this.#containerToOverlay(pos.x, pos.y);
     const targetKey = `${snap.staticUUID}|${snap.mode}|${snap.parentUUID ?? ''}|${Math.round(ox)}|${Math.round(oy)}`;
 
-    if (this.lastTargetKey === targetKey && this.ghost.element) {
-      this.ghost.setPosition(ox, oy);
-      this.activeSnap = this.#activeSnapPayload(snap);
+    if (this.#lastTargetKey === targetKey && this.#ghost.element) {
+      this.#ghost.setPosition(ox, oy);
+      this.#activeSnap = this.#activeSnapPayload(snap);
       return;
     }
 
-    this.lastTargetKey = targetKey;
-    this.ghost.createFromElement(draggedElement, ox, oy);
-    if (!this.ghost.element) {
+    this.#lastTargetKey = targetKey;
+    this.#ghost.createFromElement(draggedElement, ox, oy);
+    if (!this.#ghost.element) {
       this.#cancelSnapPreview(blockRegistry);
       return;
     }
 
-    this.activeSnap = this.#activeSnapPayload(snap);
-    this.ghost.element.style.pointerEvents = 'none';
-    this.ghost.attach(this.dragOverlay);
-    this.dragOverlay.insertBefore(this.ghost.element, draggedElement);
+    this.#activeSnap = this.#activeSnapPayload(snap);
+    this.#ghost.element.style.pointerEvents = 'none';
+    this.#ghost.attach(this.#dragOverlay);
+    this.#dragOverlay.insertBefore(this.#ghost.element, draggedElement);
   }
 
   clear() {
-    this.#restoreMiddleZonePatch(this._spreadRegistry);
-    if (this._spreadRegistry) {
-      clearChainSpread(this._spreadRegistry, this._spreadExcludeUUID);
+    this.#restoreMiddleZonePatch(this.#spreadRegistry);
+    if (this.#spreadRegistry) {
+      StackChainMiddle.clearChainSpread(this.#spreadRegistry, this.#spreadExcludeUUID);
     }
-    this._spreadRegistry = null;
-    this._spreadExcludeUUID = null;
-    this.lastTargetKey = null;
-    this.activeSnap = null;
-    this.ghost.dispose();
+    this.#spreadRegistry = null;
+    this.#spreadExcludeUUID = null;
+    this.#lastTargetKey = null;
+    this.#activeSnap = null;
+    this.#ghost.dispose();
   }
 
   #cancelSnapPreview(blockRegistry) {
-    clearChainSpread(blockRegistry, this._spreadExcludeUUID);
+    StackChainMiddle.clearChainSpread(blockRegistry, this.#spreadExcludeUUID);
     this.clear();
   }
 
@@ -129,35 +129,35 @@ export class ConnectionGhostPreview {
       const parent = blockRegistry.get(snap.parentUUID);
       const child = blockRegistry.get(snap.staticUUID);
       if (!parent?.element || !child?.element) return null;
-      return stackSnapTranslateMiddleInsert(parent, draggedElement);
+      return StackSnapLayout.translateMiddleInsert(parent, draggedElement);
     }
     const anchor = blockRegistry.get(snap.staticUUID);
     if (!anchor?.element) return null;
-    return stackSnapTranslateInContainer(anchor, draggedElement, snap.mode);
+    return StackSnapLayout.translateInContainer(anchor, draggedElement, snap.mode);
   }
 
   #restoreMiddleZonePatch(blockRegistry = null) {
-    const reg = blockRegistry ?? this._spreadRegistry;
-    if (!this._middleZoneRestore || !reg) {
-      this._middleZoneRestore = null;
+    const reg = blockRegistry ?? this.#spreadRegistry;
+    if (!this.#middleZoneRestore || !reg) {
+      this.#middleZoneRestore = null;
       return;
     }
-    const { childUUID, prevY, prevH } = this._middleZoneRestore;
+    const { childUUID, prevY, prevH } = this.#middleZoneRestore;
     const child = reg.get(childUUID);
     const mid = child?.connectorZones?.find(z => z.type === 'middle');
     if (mid) {
       mid.y = prevY;
       mid.height = prevH;
     }
-    this._middleZoneRestore = null;
+    this.#middleZoneRestore = null;
   }
 
   // Writes expanded middle geometry into `child.connectorZones` (snapshot for restore).
   #patchMiddleGeometry(parent, child, ghostH, childSpreadClientDy) {
     if (!ghostH || !parent?.element || !child?.element) return false;
-    const mid = middleZoneForParent(child, parent.blockUUID);
+    const mid = BlockConnectionCheck.middleZoneForParent(child, parent.blockUUID);
     if (!mid) return false;
-    const exp = expandedMiddleZoneLocal(
+    const exp = StackChainMiddle.expandedMiddleZoneLocal(
       parent.element,
       child.element,
       mid,
@@ -166,10 +166,10 @@ export class ConnectionGhostPreview {
     );
     if (!exp) return false;
     if (
-      !this._middleZoneRestore ||
-      this._middleZoneRestore.childUUID !== child.blockUUID
+      !this.#middleZoneRestore ||
+      this.#middleZoneRestore.childUUID !== child.blockUUID
     ) {
-      this._middleZoneRestore = {
+      this.#middleZoneRestore = {
         childUUID: child.blockUUID,
         prevY: mid.y,
         prevH: mid.height,
@@ -182,9 +182,9 @@ export class ConnectionGhostPreview {
 
   // Before hit-test: if cursor is in the thick preview band, spread tail + patch middle.
   #tryPrepareMiddleSpread(draggedElement, blockRegistry, grabManager) {
-    const draggedId = resolveDraggedBlockId(draggedElement, grabManager);
+    const draggedId = BlockConnectionCheck.resolveDraggedBlockId(draggedElement, grabManager);
     const dragged = blockRegistry.get(draggedId);
-    const dy = ghostSpreadDeltaY(draggedElement);
+    const dy = StackChainMiddle.ghostSpreadDeltaY(draggedElement);
     if (!dragged?.element || !dy) return;
 
     const outline = dragged.element.getBoundingClientRect();
@@ -193,12 +193,12 @@ export class ConnectionGhostPreview {
       if (child.blockUUID === draggedId || !child.parentUUID) continue;
       const parent = blockRegistry.get(child.parentUUID);
       if (!parent?.element || !child.element) continue;
-      if (!middleInsertEligibility(dragged, parent, child)) continue;
+      if (!BlockConnectionCheck.middleInsertEligibility(dragged, parent, child)) continue;
 
-      const mid = middleZoneForParent(child, parent.blockUUID);
+      const mid = BlockConnectionCheck.middleZoneForParent(child, parent.blockUUID);
       if (!mid) continue;
 
-      const exp = expandedMiddleZoneLocal(
+      const exp = StackChainMiddle.expandedMiddleZoneLocal(
         parent.element,
         child.element,
         mid,
@@ -206,18 +206,18 @@ export class ConnectionGhostPreview {
         dy
       );
       if (!exp) continue;
-      const hit = zoneToClientRect(child.element, exp);
-      if (!hit || !rectsIntersectClient(outline, hit)) continue;
+      const hit = BlockConnectionCheck.zoneToClientRect(child.element, exp);
+      if (!hit || !BlockConnectionCheck.rectsIntersectClient(outline, hit)) continue;
 
-      setChainSpreadBelow(blockRegistry, child.blockUUID, dy, this._spreadExcludeUUID);
+      StackChainMiddle.setChainSpreadBelow(blockRegistry, child.blockUUID, dy, this.#spreadExcludeUUID);
       this.#patchMiddleGeometry(parent, child, dy, dy);
       break;
     }
   }
 
   #containerToOverlay(x, y) {
-    const c = this.blockContainer.getBoundingClientRect();
-    const o = this.dragOverlay.getBoundingClientRect();
+    const c = this.#blockContainer.getBoundingClientRect();
+    const o = this.#dragOverlay.getBoundingClientRect();
     return {
       x: x + c.left - o.left,
       y: y + c.top - o.top,

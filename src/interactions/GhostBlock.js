@@ -20,19 +20,6 @@ export class GhostBlock {
     );
   }
 
-  createFromData(data, x = 0, y = 0) {
-    this.dispose();
-    if (!data?.pathData) return this;
-
-    const group = SvgUtils.createElement('g', {
-      transform: `translate(${x}, ${y})`,
-      class: 'ghost-block',
-    });
-    this.#appendGhostPath(group, data.pathData);
-    this.element = group;
-    return this;
-  }
-
   createFromElement(sourceBlockGroup, x = 0, y = 0) {
     this.dispose();
     if (!sourceBlockGroup) return this;
