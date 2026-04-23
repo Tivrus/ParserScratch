@@ -1,19 +1,16 @@
 import * as SvgUtils from '../../utils/SvgUtils.js';
 import { CONNECTOR_ZONE_STYLE } from '../../constans/Global.js';
+import { BlockConnectionCheck } from '../connections/BlockConnectionCheck.js';
 
-// Previous session teardown to prevent stacked rAF loops if enable is called again
-let disconnectConnectorDebug = null;
+const DEBUG_GROUP_CLASS = 'connector-debug-connectors';
 
-function drawZone(parent, zone, bx, by, offsetX, offsetY) {
-  const x = bx + zone.x + offsetX;
-  const y = by + zone.y + offsetY;
-
+function drawZone(parent, zone, x, y, width, height) {
   parent.appendChild(
     SvgUtils.createElement('rect', {
       x: String(x),
       y: String(y),
-      width: String(zone.width),
-      height: String(zone.height),
+      width: String(width),
+      height: String(height),
       ...CONNECTOR_ZONE_STYLE,
     })
   );
@@ -33,50 +30,57 @@ function drawZone(parent, zone, bx, by, offsetX, offsetY) {
   parent.appendChild(label);
 }
 
-// Enables a live visual overlay for all connector zones
+// Все зоны только в drag-overlay, в координатах viewport→overlay (как zoneToClientRect в hit-test).
 export function enableConnectorDebug(blockRegistry, blockContainerEl, overlayEl) {
-  if (disconnectConnectorDebug) {
-    disconnectConnectorDebug();
+  blockContainerEl?.querySelector(`g.${DEBUG_GROUP_CLASS}`)?.remove();
+
+  const createdGroups = [];
+  let g = overlayEl?.querySelector(`g.${DEBUG_GROUP_CLASS}`);
+  if (!g && overlayEl) {
+    g = SvgUtils.createElement('g', {
+      class: DEBUG_GROUP_CLASS,
+      'pointer-events': 'none',
+    });
+    overlayEl.appendChild(g);
+    createdGroups.push(g);
+  } else if (g) {
+    createdGroups.push(g);
   }
 
-  const group = SvgUtils.createElement('g', {
-    id: 'connector-debug-overlay',
-    'pointer-events': 'none',
-  });
-  overlayEl.appendChild(group);
+  let rafId = requestAnimationFrame(function tick() {
+    if (!overlayEl || !g) {
+      rafId = requestAnimationFrame(tick);
+      return;
+    }
 
-  let rafId;
-
-  function tick() {
-    while (group.firstChild) group.removeChild(group.firstChild);
-
-    const cr = blockContainerEl.getBoundingClientRect();
+    g.replaceChildren();
     const or = overlayEl.getBoundingClientRect();
-    const ox = cr.left - or.left;
-    const oy = cr.top - or.top;
 
     for (const block of blockRegistry.values()) {
-      if (!block.connectorZones?.length) continue;
-      const { x: bx, y: by } = SvgUtils.parseTranslateTransform(block.element);
-      const inWorkspaceSvg = blockContainerEl.contains(block.element);
-      const dx = inWorkspaceSvg ? ox : 0;
-      const dy = inWorkspaceSvg ? oy : 0;
+      if (!block.connectorZones?.length || !block.element) continue;
       for (const zone of block.connectorZones) {
-        drawZone(group, zone, bx, by, dx, dy);
+        let zc;
+        if (zone.type === 'middle' && zone.linkedChildUUID) {
+          const ch = blockRegistry.get(zone.linkedChildUUID);
+          zc =
+            ch && BlockConnectionCheck.middleJointBandClientRect(block, ch, zone);
+        } else {
+          zc = BlockConnectionCheck.zoneToClientRect(block.element, zone);
+        }
+        if (!zc) continue;
+        const x = zc.left - or.left;
+        const y = zc.top - or.top;
+        const w = zc.right - zc.left;
+        const h = zc.bottom - zc.top;
+        drawZone(g, zone, x, y, w, h);
       }
     }
 
     rafId = requestAnimationFrame(tick);
-  }
+  });
 
-  rafId = requestAnimationFrame(tick);
-
-  disconnectConnectorDebug = () => {
+  return () => {
     cancelAnimationFrame(rafId);
-    rafId = null;
-    group.remove();
-    disconnectConnectorDebug = null;
+    createdGroups.forEach(el => el.remove());
   };
-
-  return disconnectConnectorDebug;
 }

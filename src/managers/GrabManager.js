@@ -15,8 +15,8 @@ export class GrabManager {
     };
 
     this.moveThreshold = MOVE_THRESHOLD;
-    this.containers = this.#resolveContainers(containersConfig);
-    if (!this.containers.workspace) {
+    this.containerEls = this.#resolveContainerElements(containersConfig);
+    if (!this.containerEls.workspace) {
       logError('Workspace container is required', { context: 'GrabManager' });
       return;
     }
@@ -24,7 +24,7 @@ export class GrabManager {
     this.#initListeners();
   }
 
-  #resolveContainers(config) {
+  #resolveContainerElements(config) {
     const resolve = (val) => {
       if (!val) return null;
       if (typeof val === 'string') return document.getElementById(val) || document.querySelector(val);
@@ -39,7 +39,7 @@ export class GrabManager {
   }
 
   #initListeners() {
-    Object.entries(this.containers).forEach(([areaName, container]) => {
+    Object.entries(this.containerEls).forEach(([areaName, container]) => {
       if (!container) return;
       container.addEventListener('mousedown', (e) => {
         if (e.button !== 0 || this.state.isGrabbed) return;
@@ -160,7 +160,7 @@ export class GrabManager {
 
   // --- Helpers ---
   #getAreaByPoint(clientX, clientY) {
-    for (const [areaName, container] of Object.entries(this.containers)) {
+    for (const [areaName, container] of Object.entries(this.containerEls)) {
       if (!container) continue;
       const rect = container.getBoundingClientRect();
       if (clientX >= rect.left && clientX <= rect.right &&
@@ -172,7 +172,7 @@ export class GrabManager {
   }
 
   #getContainerByArea(areaName) {
-    return this.containers[areaName] ?? this.containers.workspace;
+    return this.containerEls[areaName] ?? this.containerEls.workspace;
   }
 
   #emit(targetElement, eventName, detail) {
@@ -192,8 +192,8 @@ export class GrabManager {
     return this.state.isGrabbed && this.state.target === 'template';
   }
 
-  // UUID of the grabbed workspace block (overlay hit-tests).
-  getWorkspaceBlockGrabKey() {
+  // UUID of grabbed workspace block (overlay may disagree with element read from DOM).
+  getWorkspaceBlockGrabUUID() {
     return this.isBlockGrabbed() ? this.state.grabKey : null;
   }
 

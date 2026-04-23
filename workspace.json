@@ -1,24 +1,3 @@
 {
-  "blocks": {
-    "+HLFkaUnXk28MLboZGWA": {
-      "opcode": "motion_move_steps",
-      "next": "ZyMzF0Cbe5BTOBU5ntuF",
-      "parent": null,
-      "inputs": {},
-      "fields": {},
-      "topLevel": true,
-      "x": 103,
-      "y": 111
-    },
-    "ZyMzF0Cbe5BTOBU5ntuF": {
-      "opcode": "motion_move_steps",
-      "next": null,
-      "parent": "+HLFkaUnXk28MLboZGWA",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false,
-      "x": 103,
-      "y": 158
-    }
-  }
+  "blocks": {}
 }

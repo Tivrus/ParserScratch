@@ -22,13 +22,14 @@ export function logError(message, options = {}) {
   }
 }
 
-// === SHRINK MS ===
+// Block delete shrink animation duration (ms).
 export const SHRINK_MS = 260;
 
 // DOM element ids (single source for selectors vs getElementById)
 export const DOM_IDS = {
   workspace: 'workspace',
   blockTemplates: 'block-templates',
+  categoryList: 'category-list',
   sidebar: 'sidebar',
   dragOverlay: 'drag-overlay',
   trashCan: 'trash-can',

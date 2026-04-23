@@ -46,15 +46,15 @@ export class BlockLogic {
 
 export class BlockRenderer {
   constructor(libraryContainerId) {
-    this.libraryContainer = document.getElementById(libraryContainerId);
+    this.libraryContainerEl = document.getElementById(libraryContainerId);
   }
 
   // --- API ---
   renderLibrary(blocksPreparedData) {
-    if (!this.libraryContainer) return;
-    this.libraryContainer.innerHTML = '';
+    if (!this.libraryContainerEl) return;
+    this.libraryContainerEl.innerHTML = '';
     blocksPreparedData.forEach(data => {
-      if (data) this.libraryContainer.appendChild(Block.createLibrarySvg(data));
+      if (data) this.libraryContainerEl.appendChild(Block.createLibrarySvg(data));
     });
   }
 

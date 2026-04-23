@@ -27,7 +27,7 @@ export class GhostBlock {
     const pathEl = sourceBlockGroup.querySelector(':scope > path');
     const d = pathEl?.getAttribute('d');
     if (!d) return this;
-
+    
     const group = SvgUtils.createElement('g', {
       transform: `translate(${x}, ${y})`,
       class: 'ghost-block',
@@ -50,12 +50,8 @@ export class GhostBlock {
     return this;
   }
 
-  detach() {
-    this.element?.remove();
-  }
-
   dispose() {
-    this.detach();
+    this.element?.remove();
     this.element = null;
   }
 }

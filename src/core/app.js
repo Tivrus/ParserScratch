@@ -7,11 +7,12 @@ import {
   attachWorkspacePersistence,
   hydrateWorkspaceFromServer,
 } from '../managers/WorkspacePersistence.js';
-import { BlockWorkspaceDrag, enableConnectorDebug } from '../interactions/blocks/index.js';
 import {
+  BlockWorkspaceDrag,
   ConnectionGhostPreview,
+  enableConnectorDebug,
   tryCommitStackConnect,
-} from '../interactions/connections/index.js';
+} from '../interactions/index.js';
 import { DOM_IDS } from '../constans/Global.js';
 
 const q = id => `#${id}`;
@@ -21,15 +22,20 @@ class ScratchEditor {
   #blockLogic;
   #blockRenderer;
   #grabManager;
-  #categoryUI;
-  #stackSnapGhost;
-  #spawner;
-  #workspaceDrag;
+  #categoryRenderer;
+  #connectionGhostPreview;
+  #blockSpawner;
+  #blockWorkspaceDrag;
   #blockContainerEl;
   #dragOverlayEl;
   #workspaceEl;
 
   constructor() {
+    this.#blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
+    this.#dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
+    this.#workspaceEl = document.getElementById(DOM_IDS.workspace);
+
+
     this.#categoryLogic = new CategoryLogic();
     this.#blockLogic = new BlockLogic(this.#categoryLogic.categoriesMap);
     this.#blockRenderer = new BlockRenderer(DOM_IDS.blockTemplates);
@@ -38,62 +44,58 @@ class ScratchEditor {
       blockTemplates: q(DOM_IDS.blockTemplates),
     });
 
-    this.#categoryUI = new CategoryRenderer('category-list', categoryId => {
+    this.#categoryRenderer = new CategoryRenderer(DOM_IDS.categoryList, categoryId => {
       if (this.#categoryLogic.setActive(categoryId)) {
-        this.#categoryUI.updateActive(categoryId);
+        this.#categoryRenderer.updateActive(categoryId);
         this.#blockRenderer.renderLibrary(this.#prepareBlocksForCategory(categoryId));
       }
     });
 
-    this.#blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
-    this.#dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
-    this.#workspaceEl = document.getElementById(DOM_IDS.workspace);
-
-    this.#stackSnapGhost = new ConnectionGhostPreview({
-      dragOverlay: this.#dragOverlayEl,
-      blockContainer: this.#blockContainerEl,
+    this.#connectionGhostPreview = new ConnectionGhostPreview({
+      dragOverlayEl: this.#dragOverlayEl,
+      blockContainerEl: this.#blockContainerEl,
     });
 
-    this.#spawner = new BlockSpawner(this.#blockLogic, this.#grabManager, {
+    this.#blockSpawner = new BlockSpawner(this.#blockLogic, this.#grabManager, {
       blockTemplatesId: DOM_IDS.blockTemplates,
       workspaceId: DOM_IDS.workspace,
       dragOverlayId: DOM_IDS.dragOverlay,
       blockContainerId: DOM_IDS.blockContainer,
       onPaletteDragMove: (block, gm) =>
-        this.#stackSnapGhost.sync(block.element, this.#spawner.blockRegistry, gm),
-      onPaletteDragEnd: () => this.#stackSnapGhost.clear(),
+        this.#connectionGhostPreview.sync(block.element, this.#blockSpawner.blockRegistry, gm),
+      onPaletteDragEnd: () => this.#connectionGhostPreview.clear(),
       tryPaletteStackConnect: (block, gm) =>
         this.#commitStackConnectAndRefresh(block.element, gm),
     });
 
-    this.#workspaceDrag = new BlockWorkspaceDrag(
+    this.#blockWorkspaceDrag = new BlockWorkspaceDrag(
       this.#blockContainerEl,
       this.#workspaceEl,
       this.#dragOverlayEl,
       this.#grabManager,
       {
         onBlockDragMove: (el, gm) =>
-          this.#stackSnapGhost.sync(el, this.#spawner.blockRegistry, gm),
-        onBlockDragEnd: () => this.#stackSnapGhost.clear(),
+          this.#connectionGhostPreview.sync(el, this.#blockSpawner.blockRegistry, gm),
+        onBlockDragEnd: () => this.#connectionGhostPreview.clear(),
         tryCommitStackConnect: (dragging, gm) =>
           this.#commitStackConnectAndRefresh(dragging.element, gm),
       }
     );
 
     new BlockDeletionManager({
-      blockRegistry: this.#spawner.blockRegistry,
+      blockRegistry: this.#blockSpawner.blockRegistry,
       workspaceEl: this.#workspaceEl,
       trashCanId: DOM_IDS.trashCan,
       sidebarId: DOM_IDS.sidebar,
-      workspaceDrag: this.#workspaceDrag,
+      blockWorkspaceDrag: this.#blockWorkspaceDrag,
       grabManager: this.#grabManager,
     });
 
-    attachWorkspacePersistence(this.#workspaceEl, () => this.#spawner.blockRegistry);
+    attachWorkspacePersistence(this.#workspaceEl, () => this.#blockSpawner.blockRegistry);
 
     this.#exposeDebugApi();
     this.#bootstrapUi();
-    void hydrateWorkspaceFromServer(this.#spawner);
+    void hydrateWorkspaceFromServer(this.#blockSpawner);
   }
 
   #prepareBlocksForCategory(categoryId) {
@@ -104,34 +106,76 @@ class ScratchEditor {
 
   #commitStackConnectAndRefresh(draggedElement, grabManager) {
     const pos = tryCommitStackConnect({
-      ghostPreview: this.#stackSnapGhost,
+      ghostPreview: this.#connectionGhostPreview,
       draggedElement,
-      blockRegistry: this.#spawner.blockRegistry,
+      blockRegistry: this.#blockSpawner.blockRegistry,
       grabManager,
     });
-    if (pos) this.#spawner.refreshWorkspaceConnectorZones();
+    if (pos) this.#blockSpawner.refreshWorkspaceConnectorZones();
     return pos;
   }
 
   #exposeDebugApi() {
-    const blockRegistry = this.#spawner.blockRegistry;
+    const blockRegistry = this.#blockSpawner.blockRegistry;
     const blockContainerEl = this.#blockContainerEl;
     const dragOverlayEl = this.#dragOverlayEl;
 
-    window.enableConnectorDebug = () => {
-      window.disableConnectorDebug = enableConnectorDebug(
-        blockRegistry,
-        blockContainerEl,
-        dragOverlayEl
-      );
+    const debug = { active: false };
+    let stopConnectorOverlay = null;
+
+    const setParserScratchDebug = (on) => {
+      const want = Boolean(on);
+      if (want === debug.active) {
+        return;
+      }
+      debug.active = want;
+      if (want) {
+        stopConnectorOverlay?.();
+        stopConnectorOverlay = enableConnectorDebug(
+          blockRegistry,
+          blockContainerEl,
+          dragOverlayEl
+        );
+      } else {
+        stopConnectorOverlay?.();
+        stopConnectorOverlay = null;
+      }
     };
+
+    window.enableConnectorDebug = () => setParserScratchDebug(true);
+    window.disableConnectorDebug = () => setParserScratchDebug(false);
+
+    const hadDebugProp = Object.prototype.hasOwnProperty.call(window, '__DEBUG__');
+    const debugInitiallyOn = hadDebugProp && window.__DEBUG__ === true;
+    if (hadDebugProp) {
+      try {
+        delete window.__DEBUG__;
+      } catch {
+        /* non-configurable */
+      }
+    }
+
+    Object.defineProperty(window, '__DEBUG__', {
+      get() {
+        return debug.active;
+      },
+      set(v) {
+        setParserScratchDebug(v);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+
+    if (debugInitiallyOn) {
+      setParserScratchDebug(true);
+    }
   }
 
   #bootstrapUi() {
     const categoriesArray = this.#categoryLogic.categoriesArray;
     const defaultCategory = categoriesArray[0]?.key;
 
-    this.#categoryUI.renderList(categoriesArray, defaultCategory);
+    this.#categoryRenderer.renderList(categoriesArray, defaultCategory);
     if (defaultCategory) {
       this.#categoryLogic.setActive(defaultCategory);
       this.#blockRenderer.renderLibrary(this.#prepareBlocksForCategory(defaultCategory));

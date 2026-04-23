@@ -7,8 +7,8 @@ class StackConnectCommit {
     const snap = ghostPreview.getActiveSnap();
     if (!snap) return null;
 
-    const draggedId = BlockConnectionCheck.resolveDraggedBlockId(draggedElement, grabManager);
-    const dragged = blockRegistry.get(draggedId);
+    const draggedUUID = BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
+    const dragged = blockRegistry.get(draggedUUID);
     if (!dragged) return null;
 
     if (snap.mode === 'middle') {
@@ -41,9 +41,9 @@ class StackConnectCommit {
   }
 
   static #resolveBlocks(draggedElement, staticUUID, blockRegistry, grabManager) {
-    const draggedId = BlockConnectionCheck.resolveDraggedBlockId(draggedElement, grabManager);
-    if (!draggedId) return null;
-    const dragged = blockRegistry.get(draggedId);
+    const draggedUUID = BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
+    if (!draggedUUID) return null;
+    const dragged = blockRegistry.get(draggedUUID);
     const anchor = blockRegistry.get(staticUUID);
     if (!dragged || !anchor) return null;
     return { dragged, anchor };

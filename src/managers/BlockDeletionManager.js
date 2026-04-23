@@ -55,20 +55,23 @@ export class BlockDeletionManager {
     workspaceEl,
     trashCanId = DOM_IDS.trashCan,
     sidebarId = DOM_IDS.sidebar,
-    workspaceDrag,
+    blockWorkspaceDrag,
     grabManager,
   }) {
     this.blockRegistry = blockRegistry;
     this.workspaceEl = workspaceEl instanceof HTMLElement ? workspaceEl : null;
     this.trashEl = document.getElementById(trashCanId);
     this.sidebarEl = document.getElementById(sidebarId);
-    this.workspaceDrag = workspaceDrag;
+    this.blockWorkspaceDrag = blockWorkspaceDrag;
     this.grabManager = grabManager;
 
-    if (!this.blockRegistry || !this.workspaceEl || !this.workspaceDrag) {
-      logError('BlockDeletionManager: blockRegistry, workspaceEl, workspaceDrag are required', {
-        context: 'BlockDeletionManager',
-      });
+    if (!this.blockRegistry || !this.workspaceEl || !this.blockWorkspaceDrag) {
+      logError(
+        'BlockDeletionManager: blockRegistry, workspaceEl, blockWorkspaceDrag are required',
+        {
+          context: 'BlockDeletionManager',
+        }
+      );
       return;
     }
 
@@ -88,7 +91,7 @@ export class BlockDeletionManager {
 
     if (!overPalette && !overTrash) return;
 
-    this.workspaceDrag.armSkipGrabEndOnce();
+    this.blockWorkspaceDrag.armSkipGrabEndOnce();
     this.#removeBlock(block);
   }
 

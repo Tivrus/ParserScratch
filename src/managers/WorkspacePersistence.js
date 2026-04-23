@@ -22,14 +22,14 @@ function serializeWorkspace(blockRegistry) {
   return { blocks };
 }
 
-function applyWorkspaceDocument(spawner, doc) {
+function applyWorkspaceDocument(blockSpawner, doc) {
   const raw = doc?.blocks;
   if (!raw || typeof raw !== 'object') return;
 
   for (const [id, rec] of Object.entries(raw)) {
     if (!rec || typeof rec !== 'object') continue;
     if (typeof rec.opcode !== 'string') continue;
-    spawner.restoreWorkspaceBlock(rec.opcode, id, Number(rec.x) || 0, Number(rec.y) || 0);
+    blockSpawner.restoreWorkspaceBlock(rec.opcode, id, Number(rec.x) || 0, Number(rec.y) || 0);
   }
 }
 
@@ -99,9 +99,9 @@ export function attachWorkspacePersistence(workspaceEl, getRegistry) {
   });
 }
 
-export async function hydrateWorkspaceFromServer(spawner) {
+export async function hydrateWorkspaceFromServer(blockSpawner) {
   const doc = await loadWorkspaceDocument();
-  applyWorkspaceDocument(spawner, doc);
-  applyWorkspaceChainLinks(spawner.blockRegistry, doc);
-  requestAnimationFrame(() => spawner.refreshWorkspaceConnectorZones());
+  applyWorkspaceDocument(blockSpawner, doc);
+  applyWorkspaceChainLinks(blockSpawner.blockRegistry, doc);
+  requestAnimationFrame(() => blockSpawner.refreshWorkspaceConnectorZones());
 }

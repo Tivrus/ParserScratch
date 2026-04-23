@@ -1,7 +1,7 @@
 import { BlockIdentity } from '../utils/MathUtils.js';
 import { logError } from '../constans/Global.js';
 import { Block } from '../constans/Block.js';
-import { StackChainMiddle } from '../interactions/blocks/ChainMiddleZone.js';
+import * as ChainMiddleZone from '../interactions/blocks/ChainMiddleZone.js';
 
 export class BlockSpawner {
   constructor(blockLogic, grabManager, config = {}) {
@@ -18,7 +18,7 @@ export class BlockSpawner {
       tryPaletteStackConnect,
     } = config;
 
-    this.containers = {
+    this.containerEls = {
       blockTemplates: this.#resolveElement(blockTemplatesId),
       workspace: this.#resolveElement(workspaceId),
       dragOverlay: this.#resolveElement(dragOverlayId),
@@ -34,8 +34,16 @@ export class BlockSpawner {
     this.onPaletteDragEnd = onPaletteDragEnd ?? null;
     this.tryPaletteStackConnect = tryPaletteStackConnect ?? null;
 
-    if (!this.containers.blockTemplates || !this.containers.workspace || !this.containers.blockContainer || !this.containers.dragOverlay) {
-      logError('Required containers not found', { context: 'BlockSpawner', containers: this.containers });
+    if (
+      !this.containerEls.blockTemplates ||
+      !this.containerEls.workspace ||
+      !this.containerEls.blockContainer ||
+      !this.containerEls.dragOverlay
+    ) {
+      logError('Required containers not found', {
+        context: 'BlockSpawner',
+        containerEls: this.containerEls,
+      });
       return;
     }
     this.#initListeners();
@@ -50,7 +58,7 @@ export class BlockSpawner {
   }
 
   #initListeners() {
-    this.containers.blockTemplates.addEventListener('grab-start', (e) => {
+    this.containerEls.blockTemplates.addEventListener('grab-start', (e) => {
       if (this.grabManager.isBlockGrabbed()) return;
       if (this.grabManager.isTemplateGrabbed() && e.detail.grabKey) {
         this.#onTemplateGrab(e.detail);
@@ -69,7 +77,7 @@ export class BlockSpawner {
   }
 
   #onTemplateGrab(grabDetail) {
-    const template = this.containers.blockTemplates.querySelector(
+    const template = this.containerEls.blockTemplates.querySelector(
       `svg.block-template[data-block-id="${grabDetail.grabKey}"]`
     );
     if (!template) {
@@ -83,7 +91,7 @@ export class BlockSpawner {
     const block = new Block(data, { blockUUID: BlockIdentity.generateUUID(), x: 0, y: 0 });
     this.#mountRegisteredBlock(block, data);
 
-    this.containers.dragOverlay.appendChild(block.element);
+    this.containerEls.dragOverlay.appendChild(block.element);
     this.paletteDragBlock = block;
 
     const templateRect = template.getBoundingClientRect();
@@ -109,11 +117,11 @@ export class BlockSpawner {
         finalX = Math.round(stackPlace.x);
         finalY = Math.round(stackPlace.y);
       } else {
-        const wr = this.containers.workspace.getBoundingClientRect();
+        const wr = this.containerEls.workspace.getBoundingClientRect();
         finalX = Math.round(grabDetail.clientX - wr.left - this.dragOffset.x);
         finalY = Math.round(grabDetail.clientY - wr.top - this.dragOffset.y);
       }
-      this.containers.blockContainer.appendChild(block.element);
+      this.containerEls.blockContainer.appendChild(block.element);
       block.setPosition(finalX, finalY);
 
       this.#rebuildConnectorZones();
@@ -122,7 +130,7 @@ export class BlockSpawner {
         this.#rebuildConnectorZones();
       });
 
-      this.containers.workspace.dispatchEvent(new CustomEvent('block-spawned', {
+      this.containerEls.workspace.dispatchEvent(new CustomEvent('block-spawned', {
         detail: { block, blockId: block.blockKey, x: finalX, y: finalY },
         bubbles: true,
       }));
@@ -147,7 +155,7 @@ export class BlockSpawner {
   #positionDraggedBlock(clientX, clientY) {
     const el = this.paletteDragBlock?.element;
     if (!el) return;
-    const overlayRect = this.containers.dragOverlay.getBoundingClientRect();
+    const overlayRect = this.containerEls.dragOverlay.getBoundingClientRect();
     const x = clientX - overlayRect.left - this.dragOffset.x;
     const y = clientY - overlayRect.top - this.dragOffset.y;
     el.setAttribute('transform', `translate(${x}, ${y})`);
@@ -164,14 +172,14 @@ export class BlockSpawner {
   }
 
   #mountRegisteredBlock(block, data) {
-    block.mount(this.containers.blockContainer);
+    block.mount(this.containerEls.blockContainer);
     this.blockRegistry.set(block.blockUUID, block);
     this.#rebuildConnectorZones();
   }
 
   // Base ConnectorZone geometry + stack joints (middle replaces parent.bottom + child.top).
   #rebuildConnectorZones() {
-    StackChainMiddle.applyStackChainMiddles(this.blockRegistry, b =>
+    ChainMiddleZone.applyStackChainMiddles(this.blockRegistry, b =>
       this.blockLogic.prepareBlockData(b.blockKey)
     );
   }
@@ -182,7 +190,7 @@ export class BlockSpawner {
   }
 
   #clearTemplateDraggingClass() {
-    this.containers.blockTemplates
+    this.containerEls.blockTemplates
       .querySelectorAll('.block-template--dragging')
       .forEach(el => el.classList.remove('block-template--dragging'));
   }

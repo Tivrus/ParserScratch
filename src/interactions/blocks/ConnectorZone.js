@@ -11,7 +11,11 @@ import {
 
 // Connector hit bands in the block group's local coordinate system.
 export class ConnectorZone {
-  constructor({ type, x, y, width, height, inCBlock, linkedParentUUID } = {}) {
+  static zoneByType(zones, type) {
+    return zones?.find(z => z.type === type) ?? null;
+  }
+
+  constructor({ type, x, y, width, height, inCBlock, linkedChildUUID } = {}) {
     this.type = type;
     this.x = x;
     this.y = y;
@@ -19,7 +23,7 @@ export class ConnectorZone {
     this.height = height;
     if (type === 'middle') {
       this.inCBlock = Boolean(inCBlock);
-      this.linkedParentUUID = linkedParentUUID ?? null;
+      this.linkedChildUUID = linkedChildUUID ?? null;
     }
   }
 
@@ -33,14 +37,19 @@ export class ConnectorZone {
   }
 
   static buildForBlock(data, blockElement) {
+    const g = ConnectorZone.#readLocalGeometry(data, blockElement);
+    const { connectorX, width, topBaseY, bottomBaseY } = g;
     switch (data.type) {
       case 'default-block':
       case 'c-block':
-        return ConnectorZone.#zonesTopAndBottom(data, blockElement);
+        return [
+          ConnectorZone.#makeTopZone(connectorX, width, topBaseY),
+          ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY),
+        ];
       case 'start-block':
-        return ConnectorZone.#zonesBottomOnly(data, blockElement);
+        return [ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY)];
       case 'stop-block':
-        return ConnectorZone.#zonesTopOnly(data, blockElement);
+        return [ConnectorZone.#makeTopZone(connectorX, width, topBaseY)];
       default:
         return [];
     }
@@ -109,24 +118,4 @@ export class ConnectorZone {
     });
   }
 
-  static #zonesTopAndBottom(data, blockElement) {
-    const { connectorX, width, topBaseY, bottomBaseY } =
-      ConnectorZone.#readLocalGeometry(data, blockElement);
-    return [
-      ConnectorZone.#makeTopZone(connectorX, width, topBaseY),
-      ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY),
-    ];
-  }
-
-  static #zonesBottomOnly(data, blockElement) {
-    const { connectorX, width, bottomBaseY } =
-      ConnectorZone.#readLocalGeometry(data, blockElement);
-    return [ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY)];
-  }
-
-  static #zonesTopOnly(data, blockElement) {
-    const { connectorX, width, topBaseY } =
-      ConnectorZone.#readLocalGeometry(data, blockElement);
-    return [ConnectorZone.#makeTopZone(connectorX, width, topBaseY)];
-  }
 }

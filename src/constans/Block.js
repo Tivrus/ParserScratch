@@ -59,10 +59,7 @@ export class Block {
     return svg;
   }
 
-  /**
-   * Appends path + label text nodes to any SVG container.
-   * Used by both workspace Block and library template <svg>.
-   */
+  // Path + label nodes for workspace <g> and library <svg> templates.
   static fillContent(container, data) {
     container.appendChild(SvgUtils.createElement('path', {
       d: data.pathData,

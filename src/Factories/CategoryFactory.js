@@ -78,16 +78,16 @@ export class CategoryLogic {
 
 export class CategoryRenderer {
     constructor(containerId, onSelect) {
-      this.container = document.getElementById(containerId);
+      this.containerEl = document.getElementById(containerId);
       this.onSelect = onSelect;
     }
   
     renderList(categories, activeId) {
-      if (!this.container) return;
-      this.container.innerHTML = '';
+      if (!this.containerEl) return;
+      this.containerEl.innerHTML = '';
       categories.forEach(cat => {
         const el = this.#createItem(cat, cat.key === activeId);
-        this.container.appendChild(el);
+        this.containerEl.appendChild(el);
       });
     }
   
@@ -108,7 +108,7 @@ export class CategoryRenderer {
     }
   
     updateActive(activeId) {
-      this.container.querySelectorAll('.category-item').forEach(el => {
+      this.containerEl.querySelectorAll('.category-item').forEach(el => {
         el.classList.toggle('category-item--active', el.dataset.key === activeId);
       });
     }

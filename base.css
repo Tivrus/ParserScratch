@@ -232,7 +232,7 @@ textarea {
     pointer-events: none;
 }
 
-#connector-debug-overlay {
+.connector-debug-connectors {
     pointer-events: none;
 }
 
