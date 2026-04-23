@@ -1,12 +1,12 @@
-// Categories data (have indentifier, color, name and flag "original")
+// Category metadata: key, color, display label, and optional flags.
 const categories_array = [
-    { key: "Motion", color: "#4C97FF", text: "Движения"},
-    { key: "Looks", color: "#9966FF", text: "Внешний вид" },
-    { key: "Sound", color: "#CF63CF", text: "Звуки" }, 
-    { key: "Events", color: "#FFBF00", text: "События"},
-    { key: "Control", color: "#FFAB19", text: "Управление" }
+  { key: 'Motion', color: '#4C97FF', text: 'Motion' },
+  { key: 'Looks', color: '#9966FF', text: 'Looks' },
+  { key: 'Sound', color: '#CF63CF', text: 'Sound' },
+  { key: 'Events', color: '#FFBF00', text: 'Events' },
+  { key: 'Control', color: '#FFAB19', text: 'Control' },
 ];
-
 
 const categories_map = new Map(categories_array.map(c => [c.key, c]));
 export { categories_array, categories_map };
+

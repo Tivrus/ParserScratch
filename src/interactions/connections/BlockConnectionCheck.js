@@ -64,7 +64,7 @@ export class BlockConnectionCheck {
     return { left: minX, top: minY, right: maxX, bottom: maxY };
   }
 
-  // Middle на parent <g>, преемник bottom; связь с нижним блоком — linkedChildUUID.
+  // Middle zone on parent <g>, replaces bottom; link to block below via linkedChildUUID.
   static middleJointOnParent(parent, child) {
     return (
       parent?.connectorZones?.find(
@@ -73,7 +73,7 @@ export class BlockConnectionCheck {
     );
   }
 
-  // Полоса стыка в viewport: следует за раздвижкой child (translate), не «прибита» только к parent.
+  // Joint band in viewport: moves with child spread (translate), not fixed to parent alone.
   static middleJointBandClientRect(parent, child, mid) {
     if (!parent?.element || !child?.element || !mid) return null;
     const horizontal = this.zoneToClientRect(parent.element, mid);
@@ -105,15 +105,25 @@ export class BlockConnectionCheck {
   static middleInsertEligibility(dragged, parent, child) {
     if (!dragged?.element || !parent?.element || !child?.element) return false;
     if (dragged.parentUUID || dragged.nextUUID) return false;
-    if (!ConnectorZone.zoneByType(dragged.connectorZones, 'top')) return false;
-    if (!ConnectorZone.zoneByType(dragged.connectorZones, 'bottom')) return false;
+
+    const hasTop = Boolean(ConnectorZone.zoneByType(dragged.connectorZones, 'top'));
+    const hasBottom = Boolean(ConnectorZone.zoneByType(dragged.connectorZones, 'bottom'));
+    const t = dragged.type;
+    if (t === 'start-block') {
+      if (!hasBottom) return false;
+    } else if (t === 'stop-block') {
+      if (!hasTop) return false;
+    } else {
+      if (!hasTop || !hasBottom) return false;
+    }
+
     if (parent.nextUUID !== child.blockUUID || child.parentUUID !== parent.blockUUID) {
       return false;
     }
     return Boolean(this.middleJointOnParent(parent, child));
   }
 
-  // Insert-between: полоса по живому шву parent↔child (учитывает spread translate на child).
+  // Insert-between: band on live parent↔child seam (includes child spread translate).
   static canInsertAtMiddleJoint(dragged, parent, child) {
     if (!this.middleInsertEligibility(dragged, parent, child)) {
       return false;
@@ -135,7 +145,9 @@ export class BlockConnectionCheck {
     if (!draggedUUID) return [];
 
     const dragged = blockRegistry.get(draggedUUID);
-    if (!dragged?.connectorZones?.length) return [];
+    const capStack =
+      dragged?.type === 'start-block' || dragged?.type === 'stop-block';
+    if (!dragged || (!dragged.connectorZones?.length && !capStack)) return [];
 
     const candidates = [];
 
@@ -230,7 +242,7 @@ export class BlockConnectionCheck {
     return null;
   }
 
-  // Hit: dragged <g> bbox ∩ зона; для middle — живая полоса шва (middlePair).
+  // Hit: dragged <g> bbox ∩ zone; for middle — live seam band (middlePair).
   static #outlineIntersectsSocket(dragged, sock) {
     const draggedOutline = dragged.element.getBoundingClientRect();
     let targetClient;

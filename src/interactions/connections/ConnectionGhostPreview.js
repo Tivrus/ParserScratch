@@ -143,7 +143,7 @@ export class ConnectionGhostPreview {
     return StackSnapLayout.translateInContainer(anchor, draggedElement, snap.mode);
   }
 
-  // Перед hit-test: если bbox перетаскиваемого пересекает узкую middle-зону стыка — визуально раздвигаем хвост.
+  // Before hit-test: if dragged bbox meets the narrow middle seam zone, visually spread the tail.
   #tryPrepareMiddleSpread(draggedElement, blockRegistry, grabManager) {
     const draggedUUID = BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
     const dragged = blockRegistry.get(draggedUUID);

@@ -101,6 +101,8 @@ export const C_BLOCK_EMPTY_INNER_SPACE = 24;
 export const CONNECTOR_THRESHOLD = 32;
 // Height of the visual connector socket
 export const CONNECTOR_SOCKET_HEIGHT = 8;
+// Hat (start-block) on a normal below/above snap: small Y nudge so hat/socket seams do not overlap.
+export const START_BLOCK_NORMAL_STACK_EXTRA_Y = 2;
 // Minimum delta to count as a drag rather than a click
 export const MOVE_THRESHOLD = 3; 
 

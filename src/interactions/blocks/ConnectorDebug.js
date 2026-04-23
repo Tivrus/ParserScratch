@@ -30,7 +30,7 @@ function drawZone(parent, zone, x, y, width, height) {
   parent.appendChild(label);
 }
 
-// Все зоны только в drag-overlay, в координатах viewport→overlay (как zoneToClientRect в hit-test).
+// All zones live in drag-overlay, viewport→overlay coords (same idea as zoneToClientRect in hit-test).
 export function enableConnectorDebug(blockRegistry, blockContainerEl, overlayEl) {
   blockContainerEl?.querySelector(`g.${DEBUG_GROUP_CLASS}`)?.remove();
 

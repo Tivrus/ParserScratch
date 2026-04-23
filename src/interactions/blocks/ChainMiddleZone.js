@@ -1,9 +1,11 @@
 import {
   CONNECTOR_SOCKET_HEIGHT,
   CONNECTOR_THRESHOLD,
+  START_BLOCK_NORMAL_STACK_EXTRA_Y,
 } from '../../constans/Global.js';
 import { clientPointToElementLocal } from '../../utils/SvgUtils.js';
 import { ConnectorZone } from './ConnectorZone.js';
+import { middleTailSpreadExtraY } from '../connections/stackSnapLayout.js';
 
 function zoneToClientRect(blockGroup, zone) {
   const svg = blockGroup.ownerSVGElement;
@@ -39,7 +41,7 @@ function zoneToClientRect(blockGroup, zone) {
   return { left: minX, top: minY, right: maxX, bottom: maxY };
 }
 
-// Шов в локальных координатах parent <g> (наследник bottom).
+// Joint seam in parent <g> local coordinates (replaces bottom successor).
 function jointSeamCenterLocalOnParent(parentEl, childEl, parentBottomZone, childTopZone) {
   const rParent = zoneToClientRect(parentEl, parentBottomZone);
   const rChild = zoneToClientRect(childEl, childTopZone);
@@ -123,7 +125,8 @@ export function setChainSpreadBelow(
     if (excludeBlockUUID != null && tailBlock.blockUUID === excludeBlockUUID) {
       continue;
     }
-    const spreadOffsetY = tailBlock.y + deltaY - CONNECTOR_SOCKET_HEIGHT + 2;
+    const spreadOffsetY =
+      tailBlock.y + deltaY - CONNECTOR_SOCKET_HEIGHT + START_BLOCK_NORMAL_STACK_EXTRA_Y;
     tailBlock.element.setAttribute(
       'transform',
       `translate(${tailBlock.x}, ${spreadOffsetY})`
@@ -131,12 +134,13 @@ export function setChainSpreadBelow(
   }
 }
 
-// Полная высота перетаскиваемого блока — сдвиг хвоста цепи при middle-preview.
+// Middle-preview tail shift: block height + extra socket gap for start/stop.
 export function ghostSpreadDeltaY(draggedElement) {
   if (!draggedElement || typeof draggedElement.getBBox !== 'function') return 0;
   try {
     const bboxHeight = draggedElement.getBBox().height;
-    return Number.isFinite(bboxHeight) && bboxHeight > 0 ? bboxHeight : 0;
+    if (!Number.isFinite(bboxHeight) || bboxHeight <= 0) return 0;
+    return bboxHeight + middleTailSpreadExtraY(draggedElement);
   } catch {
     return 0;
   }
