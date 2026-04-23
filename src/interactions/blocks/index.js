@@ -4,4 +4,5 @@ export {
   collectChainBlocksFromHead,
   collectChainUuidSetFromHead,
   isWorkspaceStackHead,
+  splitWorkspaceStackAtGrabbed,
 } from './StackChainDrag.js';

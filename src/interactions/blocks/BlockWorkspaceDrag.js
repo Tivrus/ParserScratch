@@ -1,6 +1,10 @@
-import { logError } from '../../constans/Global.js';
+import { logError, WORKSPACE_EVENTS } from '../../constans/Global.js';
 import { parseTranslateTransform } from '../../utils/SvgUtils.js';
-import { collectChainBlocksFromHead, isWorkspaceStackHead } from './StackChainDrag.js';
+import {
+  collectChainBlocksFromHead,
+  isWorkspaceStackHead,
+  splitWorkspaceStackAtGrabbed,
+} from './StackChainDrag.js';
 import { repositionFollowingStackBlocks } from '../connections/BlockStackConnect.js';
 
 export class BlockWorkspaceDrag {
@@ -26,114 +30,138 @@ export class BlockWorkspaceDrag {
   }
 
   #initListeners() {
-    this.workspaceEl.addEventListener('grab-start', (e) => {
-      if (this.grabManager.isWorkspaceBlockGrabDetail(e.detail) && e.detail.grabKey) {
-        this.#onGrabStart(e.detail);
+    this.workspaceEl.addEventListener('grab-start', (event) => {
+      const detail = event.detail;
+      if (this.grabManager.isWorkspaceBlockGrabDetail(detail) && detail.grabKey) {
+        this.#onGrabStart(detail);
       }
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (this.dragging) this.#onMove(e);
+    document.addEventListener('mousemove', (event) => {
+      if (this.dragging) {
+        this.#onMove(event);
+      }
     });
 
-    document.addEventListener('grab-end', (e) => {
+    document.addEventListener('grab-end', (event) => {
       if (this.dragging) {
-        this.#onGrabEnd(e.detail);
+        this.#onGrabEnd(event.detail);
       } else if (this.skipGrabEndOnce) {
         this.skipGrabEndOnce = false;
       }
     });
 
     document.addEventListener('grab-cancel', () => {
-      if (this.dragging) this.#cancel();
+      if (this.dragging) {
+        this.#cancel();
+      }
     });
   }
 
-  #onGrabStart(detail) {
-    const block = this.blockRegistry?.get(detail.grabKey);
-    if (!block || !isWorkspaceStackHead(block)) {
+  #onGrabStart(grabDetail) {
+    const grabbedBlock = this.blockRegistry?.get(grabDetail.grabKey);
+    if (!grabbedBlock) {
       return;
     }
 
-    const chain = collectChainBlocksFromHead(this.blockRegistry, block);
-    if (chain.length === 0) return;
+    let stackHead = grabbedBlock;
+    if (!isWorkspaceStackHead(grabbedBlock)) {
+      const splitResult = splitWorkspaceStackAtGrabbed(this.blockRegistry, grabbedBlock);
+      if (!splitResult) {
+        return;
+      }
+      stackHead = splitResult.lowerHead;
+      this.workspaceEl.dispatchEvent(
+        new CustomEvent(WORKSPACE_EVENTS.structureChanged, { bubbles: true })
+      );
+    }
 
-    const headEl = chain[0].element;
-    if (!headEl) return;
+    const stackChain = collectChainBlocksFromHead(this.blockRegistry, stackHead);
+    if (stackChain.length === 0) {
+      return;
+    }
 
-    const c = this.blockContainerEl.getBoundingClientRect();
-    const o = this.dragOverlayEl.getBoundingClientRect();
+    const headElement = stackChain[0].element;
+    if (!headElement) {
+      return;
+    }
 
-    const members = chain.map((b) => {
-      const el = b.element;
-      const { x: origX, y: origY } = parseTranslateTransform(el);
+    const containerRect = this.blockContainerEl.getBoundingClientRect();
+    const overlayRect = this.dragOverlayEl.getBoundingClientRect();
+
+    const chainMembers = stackChain.map((chainBlock) => {
+      const element = chainBlock.element;
+      const { x: originX, y: originY } = parseTranslateTransform(element);
       return {
-        block: b,
-        element: el,
-        origX,
-        origY,
-        overlayStartX: origX + c.left - o.left,
-        overlayStartY: origY + c.top - o.top,
+        block: chainBlock,
+        element,
+        originX,
+        originY,
+        overlayOriginX: originX + containerRect.left - overlayRect.left,
+        overlayOriginY: originY + containerRect.top - overlayRect.top,
       };
     });
 
-    for (const m of members) {
-      m.element.classList.add('workspace-block--dragging');
-      this.dragOverlayEl.appendChild(m.element);
-      m.element.setAttribute('transform', `translate(${m.overlayStartX}, ${m.overlayStartY})`);
+    for (const member of chainMembers) {
+      member.element.classList.add('workspace-block--dragging');
+      this.dragOverlayEl.appendChild(member.element);
+      member.element.setAttribute(
+        'transform',
+        `translate(${member.overlayOriginX}, ${member.overlayOriginY})`
+      );
     }
 
     this.dragging = {
-      members,
-      element: headEl,
-      startClientX: detail.clientX,
-      startClientY: detail.clientY,
+      chainMembers,
+      headElement,
+      startClientX: grabDetail.clientX,
+      startClientY: grabDetail.clientY,
     };
   }
 
   #onMove(event) {
-    const { members, startClientX, startClientY } = this.dragging;
-    const dx = event.clientX - startClientX;
-    const dy = event.clientY - startClientY;
-    for (const m of members) {
-      const x = m.overlayStartX + dx;
-      const y = m.overlayStartY + dy;
-      m.element.setAttribute('transform', `translate(${x}, ${y})`);
+    const { chainMembers, startClientX, startClientY } = this.dragging;
+    const deltaX = event.clientX - startClientX;
+    const deltaY = event.clientY - startClientY;
+    for (const member of chainMembers) {
+      const x = member.overlayOriginX + deltaX;
+      const y = member.overlayOriginY + deltaY;
+      member.element.setAttribute('transform', `translate(${x}, ${y})`);
     }
-    this.onBlockDragMove?.(members[0].element, this.grabManager);
+    this.onBlockDragMove?.(chainMembers[0].element, this.grabManager);
   }
 
-  #onGrabEnd(detail) {
+  #onGrabEnd(grabDetail) {
     if (this.skipGrabEndOnce) {
-      for (const m of this.dragging.members) {
-        m.element.classList.remove('workspace-block--dragging');
+      for (const member of this.dragging.chainMembers) {
+        member.element.classList.remove('workspace-block--dragging');
       }
       this.dragging = null;
       this.onBlockDragEnd?.();
       return;
     }
 
-    if (!detail.moved) {
+    if (!grabDetail.moved) {
       this.#restoreOriginalPositions();
       return;
     }
 
-    const stackPlace = this.tryCommitStackConnect?.(this.dragging, this.grabManager);
-    if (stackPlace) {
-      this.#finalizeStackSnap(stackPlace);
+    const snapPosition = this.tryCommitStackConnect?.(this.dragging, this.grabManager);
+    if (snapPosition) {
+      this.#finalizeStackSnap(snapPosition);
       return;
     }
 
-    const { deltaX, deltaY } = detail;
-    for (const m of this.dragging.members) {
-      const x = Math.round(m.origX + deltaX);
-      const y = Math.round(m.origY + deltaY);
-      m.block.setPosition(x, y);
-      this.blockContainerEl.appendChild(m.element);
-      m.element.classList.remove('workspace-block--dragging');
+    const { deltaX, deltaY } = grabDetail;
+    for (const member of this.dragging.chainMembers) {
+      const x = Math.round(member.originX + deltaX);
+      const y = Math.round(member.originY + deltaY);
+      member.block.setPosition(x, y);
+      this.blockContainerEl.appendChild(member.element);
+      member.element.classList.remove('workspace-block--dragging');
       this.workspaceEl.dispatchEvent(
         new CustomEvent('block-moved', {
-          detail: { blockUUID: m.block.blockUUID, x, y },
+          detail: { blockUUID: member.block.blockUUID, x, y },
           bubbles: true,
         })
       );
@@ -142,17 +170,17 @@ export class BlockWorkspaceDrag {
     this.onBlockDragEnd?.();
   }
 
-  #finalizeStackSnap(stackPlace) {
-    const head = this.dragging.members[0].block;
-    head.setPosition(Math.round(stackPlace.x), Math.round(stackPlace.y));
-    repositionFollowingStackBlocks(head, this.blockRegistry);
+  #finalizeStackSnap(snapPosition) {
+    const stackHeadBlock = this.dragging.chainMembers[0].block;
+    stackHeadBlock.setPosition(Math.round(snapPosition.x), Math.round(snapPosition.y));
+    repositionFollowingStackBlocks(stackHeadBlock, this.blockRegistry);
 
-    for (const m of this.dragging.members) {
-      this.blockContainerEl.appendChild(m.element);
-      m.element.classList.remove('workspace-block--dragging');
+    for (const member of this.dragging.chainMembers) {
+      this.blockContainerEl.appendChild(member.element);
+      member.element.classList.remove('workspace-block--dragging');
       this.workspaceEl.dispatchEvent(
         new CustomEvent('block-moved', {
-          detail: { blockUUID: m.block.blockUUID, x: m.block.x, y: m.block.y },
+          detail: { blockUUID: member.block.blockUUID, x: member.block.x, y: member.block.y },
           bubbles: true,
         })
       );
@@ -171,11 +199,13 @@ export class BlockWorkspaceDrag {
   }
 
   #restoreOriginalPositions() {
-    if (!this.dragging) return;
-    for (const m of this.dragging.members) {
-      this.blockContainerEl.appendChild(m.element);
-      m.element.setAttribute('transform', `translate(${m.origX}, ${m.origY})`);
-      m.element.classList.remove('workspace-block--dragging');
+    if (!this.dragging) {
+      return;
+    }
+    for (const member of this.dragging.chainMembers) {
+      this.blockContainerEl.appendChild(member.element);
+      member.element.setAttribute('transform', `translate(${member.originX}, ${member.originY})`);
+      member.element.classList.remove('workspace-block--dragging');
     }
     this.dragging = null;
     this.onBlockDragEnd?.();

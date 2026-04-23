@@ -1,4 +1,4 @@
-import { logError } from '../constans/Global.js';
+import { logError, WORKSPACE_EVENTS } from '../constans/Global.js';
 
 const SAVE_URL = '/api/save-workspace';
 const LOAD_URL = '/api/load-workspace';
@@ -91,8 +91,9 @@ export function attachWorkspacePersistence(workspaceEl, getRegistry) {
 
   workspaceEl.addEventListener('block-spawned', persist);
   workspaceEl.addEventListener('block-removed', persist);
-  workspaceEl.addEventListener('block-moved', (e) => {
-    const { blockUUID, x, y } = e.detail || {};
+  workspaceEl.addEventListener(WORKSPACE_EVENTS.structureChanged, persist);
+  workspaceEl.addEventListener('block-moved', (event) => {
+    const { blockUUID, x, y } = event.detail || {};
     if (!blockUUID) return;
     getRegistry().get(blockUUID)?.setPosition(x, y);
     persist();

@@ -36,6 +36,10 @@ export const DOM_IDS = {
   blockContainer: 'block-container',
 };
 
+// CustomEvent.type on workspace (bubbles: true)
+export const WORKSPACE_EVENTS = {
+  structureChanged: 'workspace-structure-changed',
+};
 
 // === SVG FORMS ===
 export const BLOCK_FORMS = [

@@ -13,9 +13,9 @@ import {
   enableConnectorDebug,
   tryCommitStackConnect,
 } from '../interactions/index.js';
-import { DOM_IDS } from '../constans/Global.js';
+import { DOM_IDS, WORKSPACE_EVENTS } from '../constans/Global.js';
 
-const q = id => `#${id}`;
+const q = (id) => `#${id}`;
 
 class ScratchEditor {
   #categoryLogic;
@@ -34,7 +34,6 @@ class ScratchEditor {
     this.#blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
     this.#dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
     this.#workspaceEl = document.getElementById(DOM_IDS.workspace);
-
 
     this.#categoryLogic = new CategoryLogic();
     this.#blockLogic = new BlockLogic(this.#categoryLogic.categoriesMap);
@@ -61,11 +60,11 @@ class ScratchEditor {
       workspaceId: DOM_IDS.workspace,
       dragOverlayId: DOM_IDS.dragOverlay,
       blockContainerId: DOM_IDS.blockContainer,
-      onPaletteDragMove: (block, gm) =>
-        this.#connectionGhostPreview.sync(block.element, this.#blockSpawner.blockRegistry, gm),
+      onPaletteDragMove: (block, grabManager) =>
+        this.#connectionGhostPreview.sync(block.element, this.#blockSpawner.blockRegistry, grabManager),
       onPaletteDragEnd: () => this.#connectionGhostPreview.clear(),
-      tryPaletteStackConnect: (block, gm) =>
-        this.#commitStackConnectAndRefresh(block.element, gm),
+      tryPaletteStackConnect: (block, grabManager) =>
+        this.#commitStackConnectAndRefresh(block.element, grabManager),
     });
 
     this.#blockWorkspaceDrag = new BlockWorkspaceDrag(
@@ -75,15 +74,23 @@ class ScratchEditor {
       this.#grabManager,
       {
         blockRegistry: this.#blockSpawner.blockRegistry,
-        onBlockDragMove: (el, gm) =>
-          this.#connectionGhostPreview.sync(el, this.#blockSpawner.blockRegistry, gm),
+        onBlockDragMove: (draggedElement, grabManager) =>
+          this.#connectionGhostPreview.sync(
+            draggedElement,
+            this.#blockSpawner.blockRegistry,
+            grabManager
+          ),
         onBlockDragEnd: () => {
           this.#connectionGhostPreview.clear();
           this.#blockSpawner.refreshWorkspaceConnectorZones();
         },
-        tryCommitStackConnect: (dragging, gm) =>
-          this.#commitStackConnectAndRefresh(dragging.element, gm),
+        tryCommitStackConnect: (dragging, grabManager) =>
+          this.#commitStackConnectAndRefresh(dragging.headElement, grabManager),
       }
+    );
+
+    this.#workspaceEl.addEventListener(WORKSPACE_EVENTS.structureChanged, () =>
+      this.#onWorkspaceStructureChanged()
     );
 
     new BlockDeletionManager({
@@ -105,7 +112,11 @@ class ScratchEditor {
   #prepareBlocksForCategory(categoryId) {
     return this.#blockLogic
       .getBlocksByCategory(categoryId)
-      .map(b => this.#blockLogic.prepareBlockData(b.blockKey));
+      .map((block) => this.#blockLogic.prepareBlockData(block.blockKey));
+  }
+
+  #onWorkspaceStructureChanged() {
+    this.#blockSpawner.refreshWorkspaceConnectorZones();
   }
 
   #commitStackConnectAndRefresh(draggedElement, grabManager) {

@@ -3,24 +3,28 @@ import { parseTranslateTransform } from '../utils/SvgUtils.js';
 import { collectChainBlocksFromHead } from '../interactions/blocks/StackChainDrag.js';
 
 // Axis-aligned overlap; edges touching counts. DOMRect or { left, right, top, bottom }.
-function rectsIntersect(r1, r2) {
-  if (!r1 || !r2) return false;
+function rectsIntersect(rectA, rectB) {
+  if (!rectA || !rectB) {
+    return false;
+  }
 
-  const w1 = r1.width ?? r1.right - r1.left;
-  const h1 = r1.height ?? r1.bottom - r1.top;
-  const w2 = r2.width ?? r2.right - r2.left;
-  const h2 = r2.height ?? r2.bottom - r2.top;
-  const eitherIsDegenerate = w1 <= 0 || h1 <= 0 || w2 <= 0 || h2 <= 0;
-  if (eitherIsDegenerate) return false;
+  const widthA = rectA.width ?? rectA.right - rectA.left;
+  const heightA = rectA.height ?? rectA.bottom - rectA.top;
+  const widthB = rectB.width ?? rectB.right - rectB.left;
+  const heightB = rectB.height ?? rectB.bottom - rectB.top;
+  const eitherDegenerate = widthA <= 0 || heightA <= 0 || widthB <= 0 || heightB <= 0;
+  if (eitherDegenerate) {
+    return false;
+  }
 
-  const fullyLeftOf = r1.right < r2.left;
-  const fullyRightOf = r1.left > r2.right;
-  const fullyAbove = r1.bottom < r2.top;
-  const fullyBelow = r1.top > r2.bottom;
+  const fullyLeft = rectA.right < rectB.left;
+  const fullyRight = rectA.left > rectB.right;
+  const fullyAbove = rectA.bottom < rectB.top;
+  const fullyBelow = rectA.top > rectB.bottom;
 
-  const disjointOnX = fullyLeftOf || fullyRightOf;
-  const disjointOnY = fullyAbove || fullyBelow;
-  return !disjointOnX && !disjointOnY;
+  const disjointX = fullyLeft || fullyRight;
+  const disjointY = fullyAbove || fullyBelow;
+  return !disjointX && !disjointY;
 }
 
 function unionClientRectFromElements(elements) {
@@ -28,13 +32,15 @@ function unionClientRectFromElements(elements) {
   let top = Infinity;
   let right = -Infinity;
   let bottom = -Infinity;
-  for (const el of elements) {
-    if (!el) continue;
-    const r = el.getBoundingClientRect();
-    left = Math.min(left, r.left);
-    top = Math.min(top, r.top);
-    right = Math.max(right, r.right);
-    bottom = Math.max(bottom, r.bottom);
+  for (const element of elements) {
+    if (!element) {
+      continue;
+    }
+    const bounds = element.getBoundingClientRect();
+    left = Math.min(left, bounds.left);
+    top = Math.min(top, bounds.top);
+    right = Math.max(right, bounds.right);
+    bottom = Math.max(bottom, bounds.bottom);
   }
   if (!Number.isFinite(left)) {
     return null;
@@ -42,22 +48,21 @@ function unionClientRectFromElements(elements) {
   return { left, top, right, bottom };
 }
 
-// --- Shrink animation ---
 function shrinkBlockToCenter(element, durationMs = SHRINK_MS) {
   const bbox = element.getBBox();
-  const cx = bbox.x + bbox.width / 2;
-  const cy = bbox.y + bbox.height / 2;
+  const centerX = bbox.x + bbox.width / 2;
+  const centerY = bbox.y + bbox.height / 2;
   const { x, y } = parseTranslateTransform(element);
-  const t0 = performance.now();
+  const startTime = performance.now();
 
   return new Promise((resolve) => {
     function frame(now) {
-      const t = Math.min(1, (now - t0) / durationMs);
+      const t = Math.min(1, (now - startTime) / durationMs);
       const ease = 1 - (1 - t) ** 3;
       const scale = 1 - ease;
       element.setAttribute(
         'transform',
-        `translate(${x},${y}) translate(${cx},${cy}) scale(${scale}) translate(${-cx},${-cy})`
+        `translate(${x},${y}) translate(${centerX},${centerY}) scale(${scale}) translate(${-centerX},${-centerY})`
       );
       if (t < 1) {
         requestAnimationFrame(frame);
@@ -70,21 +75,23 @@ function shrinkBlockToCenter(element, durationMs = SHRINK_MS) {
 }
 
 function unlinkChainEndsFromWorkspace(chainBlocks, blockRegistry) {
-  if (!chainBlocks.length) return;
-  const head = chainBlocks[0];
-  const tail = chainBlocks[chainBlocks.length - 1];
+  if (!chainBlocks.length) {
+    return;
+  }
+  const headBlock = chainBlocks[0];
+  const tailBlock = chainBlocks[chainBlocks.length - 1];
 
-  if (head.parentUUID) {
-    const parent = blockRegistry.get(head.parentUUID);
-    if (parent?.nextUUID === head.blockUUID) {
-      parent.nextUUID = null;
+  if (headBlock.parentUUID) {
+    const parentBlock = blockRegistry.get(headBlock.parentUUID);
+    if (parentBlock?.nextUUID === headBlock.blockUUID) {
+      parentBlock.nextUUID = null;
     }
   }
 
-  if (tail.nextUUID) {
-    const next = blockRegistry.get(tail.nextUUID);
-    if (next?.parentUUID === tail.blockUUID) {
-      next.parentUUID = null;
+  if (tailBlock.nextUUID) {
+    const nextBlock = blockRegistry.get(tailBlock.nextUUID);
+    if (nextBlock?.parentUUID === tailBlock.blockUUID) {
+      nextBlock.parentUUID = null;
     }
   }
 }
@@ -115,28 +122,39 @@ export class BlockDeletionManager {
       return;
     }
 
-    document.addEventListener('grab-end', (e) => this.#onGrabEnd(e), true);
+    document.addEventListener('grab-end', (event) => this.#onGrabEnd(event), true);
   }
 
   #onGrabEnd(event) {
-    const d = event.detail;
-    if (!this.grabManager?.isWorkspaceBlockGrabDetail?.(d)) return;
+    const grabDetail = event.detail;
+    if (!this.grabManager?.isWorkspaceBlockGrabDetail?.(grabDetail)) {
+      return;
+    }
 
-    const headBlock = this.blockRegistry.get(d.grabKey);
-    if (!headBlock?.element) return;
+    const stackHeadBlock = this.blockRegistry.get(grabDetail.grabKey);
+    if (!stackHeadBlock?.element) {
+      return;
+    }
 
-    const chainBlocks = collectChainBlocksFromHead(this.blockRegistry, headBlock);
-    if (chainBlocks.length === 0) return;
+    const chainBlocks = collectChainBlocksFromHead(this.blockRegistry, stackHeadBlock);
+    if (chainBlocks.length === 0) {
+      return;
+    }
 
-    const unionRect = unionClientRectFromElements(chainBlocks.map((b) => b.element));
-    if (!unionRect) return;
+    const chainElements = chainBlocks.map((block) => block.element);
+    const unionRect = unionClientRectFromElements(chainElements);
+    if (!unionRect) {
+      return;
+    }
 
     const paletteRect = this.sidebarEl?.getBoundingClientRect();
     const trashRect = this.trashEl?.getBoundingClientRect();
     const overPalette = rectsIntersect(unionRect, paletteRect);
     const overTrash = rectsIntersect(unionRect, trashRect);
 
-    if (!overPalette && !overTrash) return;
+    if (!overPalette && !overTrash) {
+      return;
+    }
 
     this.blockWorkspaceDrag.armSkipGrabEndOnce();
     void this.#removeChain(chainBlocks);
@@ -147,13 +165,13 @@ export class BlockDeletionManager {
 
     await Promise.all(
       chainBlocks.map(async (block) => {
-        const el = block.element;
+        const element = block.element;
         try {
           block.connectorZones = null;
-          await shrinkBlockToCenter(el, SHRINK_MS);
+          await shrinkBlockToCenter(element, SHRINK_MS);
         } finally {
           this.blockRegistry.delete(block.blockUUID);
-          el.remove();
+          element.remove();
           this.workspaceEl.dispatchEvent(
             new CustomEvent('block-removed', {
               detail: { blockUUID: block.blockUUID, blockKey: block.blockKey },
