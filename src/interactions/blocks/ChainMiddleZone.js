@@ -96,11 +96,19 @@ function getChainTailFromBlock(blockRegistry, startBlockUUID) {
   return tailBlocks;
 }
 
-// Reset tail spread: SVG translate back to model x/y; skip excludeBlockUUID (e.g. block on drag overlay).
+function isSpreadExcluded(blockUUID, exclude) {
+  if (exclude == null) return false;
+  if (typeof exclude === 'string') return blockUUID === exclude;
+  if (exclude instanceof Set) return exclude.has(blockUUID);
+  if (Array.isArray(exclude)) return exclude.includes(blockUUID);
+  return false;
+}
+
+// Reset tail spread: SVG translate back to model x/y; skip excluded UUID(s) (e.g. dragging stack on overlay).
 export function clearChainSpread(blockRegistry, excludeBlockUUID = null) {
   for (const workspaceBlock of blockRegistry.values()) {
     if (!workspaceBlock.element) continue;
-    if (excludeBlockUUID != null && workspaceBlock.blockUUID === excludeBlockUUID) continue;
+    if (isSpreadExcluded(workspaceBlock.blockUUID, excludeBlockUUID)) continue;
 
     workspaceBlock.element.setAttribute(
       'transform',
@@ -122,7 +130,7 @@ export function setChainSpreadBelow(
   }
   clearChainSpread(blockRegistry, excludeBlockUUID);
   for (const tailBlock of getChainTailFromBlock(blockRegistry, pivotChildUUID)) {
-    if (excludeBlockUUID != null && tailBlock.blockUUID === excludeBlockUUID) {
+    if (isSpreadExcluded(tailBlock.blockUUID, excludeBlockUUID)) {
       continue;
     }
     const spreadOffsetY =

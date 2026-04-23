@@ -1,6 +1,19 @@
 import { BlockConnectionCheck } from './BlockConnectionCheck.js';
 import { StackSnapLayout } from './stackSnapLayout.js';
 
+/** Recompute absolute positions for every block below `fromBlock` (via nextUUID). */
+export function repositionFollowingStackBlocks(fromBlock, blockRegistry) {
+  let cur = fromBlock;
+  while (cur.nextUUID) {
+    const next = blockRegistry.get(cur.nextUUID);
+    if (!next?.element) break;
+    const nextPos = StackSnapLayout.translateInContainer(cur, next.element, 'below');
+    if (!nextPos) break;
+    next.setPosition(nextPos.x, nextPos.y);
+    cur = next;
+  }
+}
+
 // --- Stack commit (parent/next / topLevel) ---
 class StackConnectCommit {
   static tryCommit({ ghostPreview, draggedElement, blockRegistry, grabManager }) {
@@ -32,10 +45,10 @@ class StackConnectCommit {
 
     const { dragged: d, anchor } = pair;
     if (snap.mode === 'below') {
-      return this.#commitBelow(anchor, d, draggedElement, ghostPreview) ?? null;
+      return this.#commitBelow(anchor, d, draggedElement, ghostPreview, blockRegistry) ?? null;
     }
     if (snap.mode === 'above') {
-      return this.#commitAbove(anchor, d, draggedElement, ghostPreview) ?? null;
+      return this.#commitAbove(anchor, d, draggedElement, ghostPreview, blockRegistry) ?? null;
     }
     return null;
   }
@@ -49,8 +62,8 @@ class StackConnectCommit {
     return { dragged, anchor };
   }
 
-  static #commitBelow(anchor, dragged, draggedElement, ghostPreview) {
-    if (anchor.nextUUID || dragged.parentUUID || dragged.nextUUID) return null;
+  static #commitBelow(anchor, dragged, draggedElement, ghostPreview, blockRegistry) {
+    if (anchor.nextUUID || dragged.parentUUID) return null;
 
     const pos = StackSnapLayout.translateInContainer(anchor, draggedElement, 'below');
     if (!pos) return null;
@@ -64,31 +77,26 @@ class StackConnectCommit {
     return pos;
   }
 
-  static #commitAbove(anchor, dragged, draggedElement, ghostPreview) {
-    if (anchor.parentUUID || dragged.nextUUID || dragged.parentUUID) return null;
+  static #commitAbove(anchor, dragged, draggedElement, ghostPreview, blockRegistry) {
+    if (anchor.parentUUID || dragged.parentUUID) return null;
+
+    let tail = dragged;
+    while (tail.nextUUID) {
+      const n = blockRegistry.get(tail.nextUUID);
+      if (!n) break;
+      tail = n;
+    }
 
     const pos = StackSnapLayout.translateInContainer(anchor, draggedElement, 'above');
     if (!pos) return null;
 
-    dragged.nextUUID = anchor.blockUUID;
-    anchor.parentUUID = dragged.blockUUID;
+    tail.nextUUID = anchor.blockUUID;
+    anchor.parentUUID = tail.blockUUID;
     anchor.topLevel = false;
     dragged.topLevel = true;
 
     ghostPreview.clear();
     return pos;
-  }
-
-  static #repositionStackFrom(block, blockRegistry) {
-    let cur = block;
-    while (cur.nextUUID) {
-      const next = blockRegistry.get(cur.nextUUID);
-      if (!next?.element) break;
-      const nextPos = StackSnapLayout.translateInContainer(cur, next.element, 'below');
-      if (!nextPos) break;
-      next.setPosition(nextPos.x, nextPos.y);
-      cur = next;
-    }
   }
 
   static #commitMiddleInsert(parent, dragged, child, draggedElement, ghostPreview, blockRegistry) {
@@ -108,7 +116,7 @@ class StackConnectCommit {
 
     ghostPreview.clear();
     dragged.setPosition(pos.x, pos.y);
-    this.#repositionStackFrom(dragged, blockRegistry);
+    repositionFollowingStackBlocks(dragged, blockRegistry);
     return pos;
   }
 }

@@ -1,5 +1,6 @@
 import { logError, SHRINK_MS, DOM_IDS } from '../constans/Global.js';
 import { parseTranslateTransform } from '../utils/SvgUtils.js';
+import { collectChainBlocksFromHead } from '../interactions/blocks/StackChainDrag.js';
 
 // Axis-aligned overlap; edges touching counts. DOMRect or { left, right, top, bottom }.
 function rectsIntersect(r1, r2) {
@@ -20,6 +21,25 @@ function rectsIntersect(r1, r2) {
   const disjointOnX = fullyLeftOf || fullyRightOf;
   const disjointOnY = fullyAbove || fullyBelow;
   return !disjointOnX && !disjointOnY;
+}
+
+function unionClientRectFromElements(elements) {
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const el of elements) {
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    left = Math.min(left, r.left);
+    top = Math.min(top, r.top);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  }
+  if (!Number.isFinite(left)) {
+    return null;
+  }
+  return { left, top, right, bottom };
 }
 
 // --- Shrink animation ---
@@ -47,6 +67,26 @@ function shrinkBlockToCenter(element, durationMs = SHRINK_MS) {
     }
     requestAnimationFrame(frame);
   });
+}
+
+function unlinkChainEndsFromWorkspace(chainBlocks, blockRegistry) {
+  if (!chainBlocks.length) return;
+  const head = chainBlocks[0];
+  const tail = chainBlocks[chainBlocks.length - 1];
+
+  if (head.parentUUID) {
+    const parent = blockRegistry.get(head.parentUUID);
+    if (parent?.nextUUID === head.blockUUID) {
+      parent.nextUUID = null;
+    }
+  }
+
+  if (tail.nextUUID) {
+    const next = blockRegistry.get(tail.nextUUID);
+    if (next?.parentUUID === tail.blockUUID) {
+      next.parentUUID = null;
+    }
+  }
 }
 
 export class BlockDeletionManager {
@@ -82,33 +122,46 @@ export class BlockDeletionManager {
     const d = event.detail;
     if (!this.grabManager?.isWorkspaceBlockGrabDetail?.(d)) return;
 
-    const block = this.blockRegistry.get(d.grabKey);
-    if (!block?.element) return;
+    const headBlock = this.blockRegistry.get(d.grabKey);
+    if (!headBlock?.element) return;
 
-    const blockRect = block.element.getBoundingClientRect();
-    const overPalette = rectsIntersect(blockRect, this.sidebarEl?.getBoundingClientRect());
-    const overTrash = rectsIntersect(blockRect, this.trashEl?.getBoundingClientRect());
+    const chainBlocks = collectChainBlocksFromHead(this.blockRegistry, headBlock);
+    if (chainBlocks.length === 0) return;
+
+    const unionRect = unionClientRectFromElements(chainBlocks.map((b) => b.element));
+    if (!unionRect) return;
+
+    const paletteRect = this.sidebarEl?.getBoundingClientRect();
+    const trashRect = this.trashEl?.getBoundingClientRect();
+    const overPalette = rectsIntersect(unionRect, paletteRect);
+    const overTrash = rectsIntersect(unionRect, trashRect);
 
     if (!overPalette && !overTrash) return;
 
     this.blockWorkspaceDrag.armSkipGrabEndOnce();
-    this.#removeBlock(block);
+    void this.#removeChain(chainBlocks);
   }
 
-  async #removeBlock(block) {
-    const el = block.element;
-    try {
-      block.connectorZones = null;
-      await shrinkBlockToCenter(el, SHRINK_MS);
-    } finally {
-      this.blockRegistry.delete(block.blockUUID);
-      el.remove();
-      this.workspaceEl.dispatchEvent(
-        new CustomEvent('block-removed', {
-          detail: { blockUUID: block.blockUUID, blockKey: block.blockKey },
-          bubbles: true,
-        })
-      );
-    }
+  async #removeChain(chainBlocks) {
+    unlinkChainEndsFromWorkspace(chainBlocks, this.blockRegistry);
+
+    await Promise.all(
+      chainBlocks.map(async (block) => {
+        const el = block.element;
+        try {
+          block.connectorZones = null;
+          await shrinkBlockToCenter(el, SHRINK_MS);
+        } finally {
+          this.blockRegistry.delete(block.blockUUID);
+          el.remove();
+          this.workspaceEl.dispatchEvent(
+            new CustomEvent('block-removed', {
+              detail: { blockUUID: block.blockUUID, blockKey: block.blockKey },
+              bubbles: true,
+            })
+          );
+        }
+      })
+    );
   }
 }

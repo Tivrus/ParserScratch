@@ -74,9 +74,13 @@ class ScratchEditor {
       this.#dragOverlayEl,
       this.#grabManager,
       {
+        blockRegistry: this.#blockSpawner.blockRegistry,
         onBlockDragMove: (el, gm) =>
           this.#connectionGhostPreview.sync(el, this.#blockSpawner.blockRegistry, gm),
-        onBlockDragEnd: () => this.#connectionGhostPreview.clear(),
+        onBlockDragEnd: () => {
+          this.#connectionGhostPreview.clear();
+          this.#blockSpawner.refreshWorkspaceConnectorZones();
+        },
         tryCommitStackConnect: (dragging, gm) =>
           this.#commitStackConnectAndRefresh(dragging.element, gm),
       }
@@ -105,14 +109,12 @@ class ScratchEditor {
   }
 
   #commitStackConnectAndRefresh(draggedElement, grabManager) {
-    const pos = tryCommitStackConnect({
+    return tryCommitStackConnect({
       ghostPreview: this.#connectionGhostPreview,
       draggedElement,
       blockRegistry: this.#blockSpawner.blockRegistry,
       grabManager,
     });
-    if (pos) this.#blockSpawner.refreshWorkspaceConnectorZones();
-    return pos;
   }
 
   #exposeDebugApi() {

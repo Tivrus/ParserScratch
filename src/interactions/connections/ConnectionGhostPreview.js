@@ -1,5 +1,6 @@
 import { GhostBlock } from '../GhostBlock.js';
 import * as ChainMiddleZone from '../blocks/ChainMiddleZone.js';
+import { collectChainUuidSetFromHead } from '../blocks/StackChainDrag.js';
 import { BlockConnectionCheck } from './BlockConnectionCheck.js';
 import { StackSnapLayout } from './stackSnapLayout.js';
 
@@ -11,7 +12,8 @@ export class ConnectionGhostPreview {
   #lastTargetKey;
   #activeSnap;
   #blockRegistry;
-  #spreadExcludeUUID;
+  /** @type {Set<string>|null} Blocks on the drag overlay (whole stack) — skip chain-spread reset for all of them. */
+  #spreadExcludeIds;
 
   constructor({ dragOverlayEl, blockContainerEl }) {
     this.#dragOverlayEl = dragOverlayEl;
@@ -20,7 +22,7 @@ export class ConnectionGhostPreview {
     this.#lastTargetKey = null;
     this.#activeSnap = null;
     this.#blockRegistry = null;
-    this.#spreadExcludeUUID = null;
+    this.#spreadExcludeIds = null;
   }
 
   getActiveSnap() {
@@ -36,9 +38,12 @@ export class ConnectionGhostPreview {
     }
 
     this.#blockRegistry = blockRegistry;
-    this.#spreadExcludeUUID = BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager) || null;
+    const headUuid = BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
+    this.#spreadExcludeIds = headUuid
+      ? collectChainUuidSetFromHead(blockRegistry, headUuid)
+      : null;
 
-    ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeUUID);
+    ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
     this.#tryPrepareMiddleSpread(draggedElement, blockRegistry, grabManager);
 
     const candidates = BlockConnectionCheck.listConnectionCandidates(
@@ -72,10 +77,10 @@ export class ConnectionGhostPreview {
         blockRegistry,
         snap.staticUUID,
         dy,
-        this.#spreadExcludeUUID
+        this.#spreadExcludeIds
       );
     } else {
-      ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeUUID);
+      ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
     }
 
     const { x: ox, y: oy } = this.#containerToOverlay(pos.x, pos.y);
@@ -102,17 +107,17 @@ export class ConnectionGhostPreview {
 
   clear() {
     if (this.#blockRegistry) {
-      ChainMiddleZone.clearChainSpread(this.#blockRegistry, this.#spreadExcludeUUID);
+      ChainMiddleZone.clearChainSpread(this.#blockRegistry, this.#spreadExcludeIds);
     }
     this.#blockRegistry = null;
-    this.#spreadExcludeUUID = null;
+    this.#spreadExcludeIds = null;
     this.#lastTargetKey = null;
     this.#activeSnap = null;
     this.#ghostBlock.dispose();
   }
 
   #cancelSnapPreview(blockRegistry) {
-    ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeUUID);
+    ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
     this.clear();
   }
 
@@ -176,7 +181,7 @@ export class ConnectionGhostPreview {
         continue;
       }
 
-      ChainMiddleZone.setChainSpreadBelow(blockRegistry, child.blockUUID, dy, this.#spreadExcludeUUID);
+      ChainMiddleZone.setChainSpreadBelow(blockRegistry, child.blockUUID, dy, this.#spreadExcludeIds);
       return;
     }
   }
