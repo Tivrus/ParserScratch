@@ -1,11 +1,17 @@
-import { logError, WORKSPACE_EVENTS } from '../constans/Global.js';
+import {
+  logError,
+  WORKSPACE_BLOCK_GRID_SNAP,
+  WORKSPACE_CAMERA_INERTIA,
+  WORKSPACE_EVENTS,
+} from '../constans/Global.js';
+import { applyWorkspaceModesFromDoc, syncWorkspaceModeToggleButtons } from '../background/workspaceModeToggles.js';
 
 const SAVE_URL = '/api/save-workspace';
 const LOAD_URL = '/api/load-workspace';
 
 // --- Serialize / deserialize document ---
 
-function serializeWorkspace(blockRegistry) {
+function serializeWorkspace(blockRegistry, camera) {
   const blocks = {};
   for (const block of blockRegistry.values()) {
     blocks[block.blockUUID] = {
@@ -19,7 +25,19 @@ function serializeWorkspace(blockRegistry) {
       y: Math.round(block.y),
     };
   }
-  return { blocks };
+  const cx = camera && typeof camera === 'object' ? Number(camera.x) : 0;
+  const cy = camera && typeof camera === 'object' ? Number(camera.y) : 0;
+  return {
+    blocks,
+    camera: {
+      x: Math.round(Number.isFinite(cx) ? cx : 0),
+      y: Math.round(Number.isFinite(cy) ? cy : 0),
+    },
+    modes: {
+      cameraInertia: Boolean(WORKSPACE_CAMERA_INERTIA.enabled),
+      blockGridSnap: Boolean(WORKSPACE_BLOCK_GRID_SNAP.enabled),
+    },
+  };
 }
 
 function applyWorkspaceDocument(blockSpawner, doc) {
@@ -50,12 +68,12 @@ function applyWorkspaceChainLinks(blockRegistry, doc) {
 
 // --- Network ---
 
-async function saveWorkspaceToServer(blockRegistry) {
+async function saveWorkspaceToServer(blockRegistry, camera) {
   try {
     const res = await fetch(SAVE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(serializeWorkspace(blockRegistry)),
+      body: JSON.stringify(serializeWorkspace(blockRegistry, camera)),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.success === false) {
@@ -73,25 +91,59 @@ async function loadWorkspaceDocument() {
   try {
     const res = await fetch(LOAD_URL);
     const json = await res.json();
-    if (!json.success || !json.data) return { blocks: {} };
+    if (!json.success || !json.data) {
+      return {
+        blocks: {},
+        camera: { x: 0, y: 0 },
+        modes: { cameraInertia: true, blockGridSnap: true },
+      };
+    }
     const blocks = json.data.blocks;
-    return { blocks: blocks && typeof blocks === 'object' ? blocks : {} };
+    const cam = json.data.camera;
+    const cx = cam && typeof cam === 'object' ? Number(cam.x) : 0;
+    const cy = cam && typeof cam === 'object' ? Number(cam.y) : 0;
+    const mod = json.data.modes;
+    const cameraInertia =
+      mod && typeof mod === 'object' && typeof mod.cameraInertia === 'boolean'
+        ? mod.cameraInertia
+        : true;
+    const blockGridSnap =
+      mod && typeof mod === 'object' && typeof mod.blockGridSnap === 'boolean'
+        ? mod.blockGridSnap
+        : true;
+    return {
+      blocks: blocks && typeof blocks === 'object' ? blocks : {},
+      camera: {
+        x: Number.isFinite(cx) ? cx : 0,
+        y: Number.isFinite(cy) ? cy : 0,
+      },
+      modes: { cameraInertia, blockGridSnap },
+    };
   } catch (e) {
     logError('loadWorkspaceDocument', { context: 'WorkspacePersistence', error: e });
-    return { blocks: {} };
+    return {
+      blocks: {},
+      camera: { x: 0, y: 0 },
+      modes: { cameraInertia: true, blockGridSnap: true },
+    };
   }
 }
 
 // --- Wire-up ---
 
-export function attachWorkspacePersistence(workspaceEl, getRegistry) {
+export function attachWorkspacePersistence(workspaceEl, getRegistry, getCameraOffset) {
   if (!workspaceEl || typeof getRegistry !== 'function') return;
 
-  const persist = () => saveWorkspaceToServer(getRegistry());
+  const getCam =
+    typeof getCameraOffset === 'function' ? getCameraOffset : () => ({ x: 0, y: 0 });
+
+  const persist = () => saveWorkspaceToServer(getRegistry(), getCam());
 
   workspaceEl.addEventListener('block-spawned', persist);
   workspaceEl.addEventListener('block-removed', persist);
   workspaceEl.addEventListener(WORKSPACE_EVENTS.structureChanged, persist);
+  workspaceEl.addEventListener(WORKSPACE_EVENTS.cameraOffsetChanged, persist);
+  workspaceEl.addEventListener(WORKSPACE_EVENTS.modesChanged, persist);
   workspaceEl.addEventListener('block-moved', (event) => {
     const { blockUUID, x, y } = event.detail || {};
     if (!blockUUID) return;
@@ -100,8 +152,19 @@ export function attachWorkspacePersistence(workspaceEl, getRegistry) {
   });
 }
 
-export async function hydrateWorkspaceFromServer(blockSpawner) {
+export async function hydrateWorkspaceFromServer(blockSpawner, gridPan) {
   const doc = await loadWorkspaceDocument();
+  applyWorkspaceModesFromDoc(doc);
+  syncWorkspaceModeToggleButtons();
+
+  let cam = { x: 0, y: 0 };
+  const camera = doc?.camera;
+  if (camera != null && typeof camera === 'object') {
+    cam = camera;
+  }
+  if (gridPan?.setOffset) {
+    gridPan.setOffset(cam.x, cam.y);
+  }
   applyWorkspaceDocument(blockSpawner, doc);
   applyWorkspaceChainLinks(blockSpawner.blockRegistry, doc);
   requestAnimationFrame(() => blockSpawner.refreshWorkspaceConnectorZones());

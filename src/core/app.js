@@ -13,6 +13,8 @@ import {
   enableConnectorDebug,
   tryCommitStackConnect,
 } from '../interactions/index.js';
+import { attachWorkspaceGridPan } from '../background/grid.js';
+import { attachWorkspaceModeToggles } from '../background/workspaceModeToggles.js';
 import { DOM_IDS, WORKSPACE_EVENTS } from '../constans/Global.js';
 
 const q = (id) => `#${id}`;
@@ -29,11 +31,20 @@ class ScratchEditor {
   #blockContainerEl;
   #dragOverlayEl;
   #workspaceEl;
+  #gridPan;
 
   constructor() {
     this.#blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
     this.#dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
     this.#workspaceEl = document.getElementById(DOM_IDS.workspace);
+
+    const blockWorldRootEl = document.getElementById(DOM_IDS.blockWorldRoot);
+    const blockMountParent = blockWorldRootEl ?? this.#blockContainerEl;
+    this.#gridPan = attachWorkspaceGridPan(this.#workspaceEl, document.getElementById(DOM_IDS.grid), {
+      blockWorldRootEl,
+    });
+    attachWorkspaceModeToggles(this.#workspaceEl);
+    const getWorkspaceGridOffset = () => this.#gridPan.getOffset();
 
     this.#categoryLogic = new CategoryLogic();
     this.#blockLogic = new BlockLogic(this.#categoryLogic.categoriesMap);
@@ -53,6 +64,7 @@ class ScratchEditor {
     this.#connectionGhostPreview = new ConnectionGhostPreview({
       dragOverlayEl: this.#dragOverlayEl,
       blockContainerEl: this.#blockContainerEl,
+      getWorkspaceGridOffset,
     });
 
     this.#blockSpawner = new BlockSpawner(this.#blockLogic, this.#grabManager, {
@@ -60,6 +72,8 @@ class ScratchEditor {
       workspaceId: DOM_IDS.workspace,
       dragOverlayId: DOM_IDS.dragOverlay,
       blockContainerId: DOM_IDS.blockContainer,
+      blockMountParent,
+      getWorkspaceGridOffset,
       onPaletteDragMove: (block, grabManager) =>
         this.#connectionGhostPreview.sync(block.element, this.#blockSpawner.blockRegistry, grabManager),
       onPaletteDragEnd: () => this.#connectionGhostPreview.clear(),
@@ -73,6 +87,8 @@ class ScratchEditor {
       this.#dragOverlayEl,
       this.#grabManager,
       {
+        blockMountParentEl: blockMountParent,
+        getWorkspaceGridOffset,
         blockRegistry: this.#blockSpawner.blockRegistry,
         onBlockDragMove: (draggedElement, grabManager) =>
           this.#connectionGhostPreview.sync(
@@ -102,11 +118,13 @@ class ScratchEditor {
       grabManager: this.#grabManager,
     });
 
-    attachWorkspacePersistence(this.#workspaceEl, () => this.#blockSpawner.blockRegistry);
+    attachWorkspacePersistence(this.#workspaceEl, () => this.#blockSpawner.blockRegistry, () =>
+      this.#gridPan.getOffset()
+    );
 
     this.#exposeDebugApi();
     this.#bootstrapUi();
-    void hydrateWorkspaceFromServer(this.#blockSpawner);
+    void hydrateWorkspaceFromServer(this.#blockSpawner, this.#gridPan);
   }
 
   #prepareBlocksForCategory(categoryId) {

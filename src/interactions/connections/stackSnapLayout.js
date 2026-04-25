@@ -23,7 +23,7 @@ export function middleTailSpreadExtraY(draggedElement) {
   return 0;
 }
 
-// --- Stack layout (block-container translate) ---
+// --- Stack layout (world coords under #block-world-root + grid view offset) ---
 export class StackSnapLayout {
   static translateInContainer(anchorBlock, draggedElement, mode, { isMiddleConnector = false } = {}) {
     const el = anchorBlock.element;

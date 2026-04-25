@@ -5,6 +5,7 @@
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
+    <div id="grid" aria-hidden="true"></div>
     <!-- Category panel -->
     <div id="categories">
         <div id="category-list">
@@ -19,13 +20,18 @@
     <!-- Main workspace -->
     <div id="workspace">
         <svg id="block-container" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-    
-
+            <g id="block-world-root"></g>
         </svg>
-        <div id="start-btn">
-            <svg viewBox="0 0 266 296" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M247.5 116.594C271.5 130.451 271.5 165.092 247.5 178.948L53.9999 290.665C29.9999 304.522 -1.48807e-05 287.201 -1.36693e-05 259.488L-3.90267e-06 36.0536C-2.6913e-06 8.34083 30 -8.97961 54 4.8768L247.5 116.594Z" fill="#53B120"/>
-            </svg>
+        <div id="workspace-top-actions">
+            <div id="start-btn">
+                <svg viewBox="0 0 266 296" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M247.5 116.594C271.5 130.451 271.5 165.092 247.5 178.948L53.9999 290.665C29.9999 304.522 -1.48807e-05 287.201 -1.36693e-05 259.488L-3.90267e-06 36.0536C-2.6913e-06 8.34083 30 -8.97961 54 4.8768L247.5 116.594Z" fill="#53B120"/>
+                </svg>
+            </div>
+            <button type="button" id="toggle-camera-inertia" class="workspace-mode-toggle" aria-pressed="true"
+                title="Инерция камеры (вкл/выкл)">I</button>
+            <button type="button" id="toggle-block-grid-snap" class="workspace-mode-toggle" aria-pressed="true"
+                title="Привязка блоков к сетке (вкл/выкл)">#</button>
         </div>
         <div id="trash-can">
             <svg viewBox="0 0 24 24" fill="#cc0000" xmlns="http://www.w3.org/2000/svg">
@@ -37,10 +43,7 @@
             </svg>
         </div>
     </div>
-    
-    
     <svg id="drag-overlay" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"></svg>
-    
     <script type="module" src="./src/core/app.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@ import { StackSnapLayout } from './stackSnapLayout.js';
 export class ConnectionGhostPreview {
   #dragOverlayEl;
   #blockContainerEl;
+  #getWorkspaceGridOffset;
   #ghostBlock;
   #lastTargetKey;
   #activeSnap;
@@ -15,9 +16,10 @@ export class ConnectionGhostPreview {
   /** @type {Set<string>|null} Blocks on the drag overlay (whole stack) — skip chain-spread reset for all of them. */
   #spreadExcludeIds;
 
-  constructor({ dragOverlayEl, blockContainerEl }) {
+  constructor({ dragOverlayEl, blockContainerEl, getWorkspaceGridOffset }) {
     this.#dragOverlayEl = dragOverlayEl;
     this.#blockContainerEl = blockContainerEl;
+    this.#getWorkspaceGridOffset = getWorkspaceGridOffset ?? (() => ({ x: 0, y: 0 }));
     this.#ghostBlock = new GhostBlock();
     this.#lastTargetKey = null;
     this.#activeSnap = null;
@@ -189,9 +191,10 @@ export class ConnectionGhostPreview {
   #containerToOverlay(x, y) {
     const c = this.#blockContainerEl.getBoundingClientRect();
     const o = this.#dragOverlayEl.getBoundingClientRect();
+    const { x: vx, y: vy } = this.#getWorkspaceGridOffset();
     return {
-      x: x + c.left - o.left,
-      y: y + c.top - o.top,
+      x: x + vx + c.left - o.left,
+      y: y + vy + c.top - o.top,
     };
   }
 

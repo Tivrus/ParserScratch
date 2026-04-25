@@ -148,7 +148,7 @@ textarea {
 #workspace {
     flex: 1;
     position: relative;
-    background-color: #1e252f;
+    background-color: transparent;
     z-index: 100;
 }
 
@@ -177,18 +177,56 @@ textarea {
     cursor: grabbing;
 }
 
-#start-btn {
+#workspace-top-actions {
     position: absolute;
     top: 20px;
     right: 20px;
-    width: 25px;
-    cursor: pointer;
-    transition: transform 0.2s ease;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 8px;
     z-index: 1000;
 }
 
-#start-btn:hover {
+#workspace-top-actions #start-btn {
+    position: static;
+    width: 25px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+#workspace-top-actions #start-btn:hover {
     transform: scale(1.1);
+}
+
+.workspace-mode-toggle {
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #34495e;
+    background: #2c3e50;
+    color: #ecf0f1;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.workspace-mode-toggle:hover {
+    border-color: #59afe8;
+}
+
+.workspace-mode-toggle--active {
+    background: #54668b;
+    border-color: #59afe8;
+}
+
+.workspace-mode-toggle:not(.workspace-mode-toggle--active) {
+    opacity: 0.55;
 }
 
 #trash-can {
@@ -254,3 +292,19 @@ textarea {
     pointer-events: none;
     z-index: 10000;
 }
+
+#workspace.workspace--grid-panning {
+    cursor: grabbing;
+}
+
+#grid {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-color: transparent;
+    background-image:
+      radial-gradient(circle, rgb(48, 67, 87) 1px, transparent 1px);
+    background-repeat: repeat;
+    background-position: 0 0;
+  }

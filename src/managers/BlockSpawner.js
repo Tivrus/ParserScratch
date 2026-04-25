@@ -1,3 +1,4 @@
+import { snapWorldCoordsToGrid } from '../background/grid.js';
 import { BlockIdentity } from '../utils/MathUtils.js';
 import { logError } from '../constans/Global.js';
 import { Block } from '../constans/Block.js';
@@ -13,6 +14,8 @@ export class BlockSpawner {
       workspaceId,
       dragOverlayId,
       blockContainerId,
+      blockMountParent,
+      getWorkspaceGridOffset,
       onPaletteDragMove,
       onPaletteDragEnd,
       tryPaletteStackConnect,
@@ -27,6 +30,11 @@ export class BlockSpawner {
 
     this.blockRegistry = new Map();
     this.dragOffset = { x: 0, y: 0 };
+    this.blockMountParent =
+      blockMountParent instanceof SVGElement || blockMountParent instanceof HTMLElement
+        ? blockMountParent
+        : this.#resolveElement(blockMountParent) ?? this.containerEls.blockContainer;
+    this.getWorkspaceGridOffset = getWorkspaceGridOffset ?? (() => ({ x: 0, y: 0 }));
     // Library drag: set on template grab-start, cleared on grab-end / blur.
     this.paletteDragBlock;
     // Optional hooks — same stack snap as BlockWorkspaceDrag (see app.js).
@@ -118,10 +126,14 @@ export class BlockSpawner {
         finalY = Math.round(stackPlace.y);
       } else {
         const wr = this.containerEls.workspace.getBoundingClientRect();
-        finalX = Math.round(grabDetail.clientX - wr.left - this.dragOffset.x);
-        finalY = Math.round(grabDetail.clientY - wr.top - this.dragOffset.y);
+        const { x: vx, y: vy } = this.getWorkspaceGridOffset();
+        finalX = Math.round(grabDetail.clientX - wr.left - this.dragOffset.x - vx);
+        finalY = Math.round(grabDetail.clientY - wr.top - this.dragOffset.y - vy);
+        const snapped = snapWorldCoordsToGrid(finalX, finalY);
+        finalX = snapped.x;
+        finalY = snapped.y;
       }
-      this.containerEls.blockContainer.appendChild(block.element);
+      this.blockMountParent.appendChild(block.element);
       block.setPosition(finalX, finalY);
 
       this.#rebuildConnectorZones();
@@ -172,7 +184,7 @@ export class BlockSpawner {
   }
 
   #mountRegisteredBlock(block, data) {
-    block.mount(this.containerEls.blockContainer);
+    block.mount(this.blockMountParent);
     this.blockRegistry.set(block.blockUUID, block);
     this.#rebuildConnectorZones();
   }

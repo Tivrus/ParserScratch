@@ -1,3 +1,6 @@
+//window.__DEBUG__ = true;
+
+
 export function logError(message, options = {}) {
   const { error = null, context = null, throwAfter = false } = options;
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -34,11 +37,19 @@ export const DOM_IDS = {
   dragOverlay: 'drag-overlay',
   trashCan: 'trash-can',
   blockContainer: 'block-container',
+  blockWorldRoot: 'block-world-root',
+  grid: 'grid',
+  toggleCameraInertia: 'toggle-camera-inertia',
+  toggleBlockGridSnap: 'toggle-block-grid-snap',
 };
 
 // CustomEvent.type on workspace (bubbles: true)
 export const WORKSPACE_EVENTS = {
   structureChanged: 'workspace-structure-changed',
+  /** Fired on `workspace` after grid pan ends (`detail`: `{ x, y }` view offset). */
+  cameraOffsetChanged: 'workspace-camera-offset-changed',
+  /** Toolbar modes (inertia / grid snap) changed — triggers workspace save. */
+  modesChanged: 'workspace-modes-changed',
 };
 
 // === SVG FORMS ===
@@ -128,3 +139,28 @@ export const CONNECTOR_ZONE_STYLE = {
 export const SVG_NS = 'http://www.w3.org/2000/svg';
 export const FALLBACK_DARK = 'rgba(0,0,0,0.7)';
 export const UUID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/%+';
+export const WORKSPACE_GRID_CELL_PX = 24;
+
+/** Runtime: when false, block positions round to 1px instead of snapping to the grid cell. */
+export const WORKSPACE_BLOCK_GRID_SNAP = {
+  enabled: true,
+};
+
+// === WORKSPACE CAMERA INERTIA (after empty-workspace grid pan) ===
+// Uses GrabManager grab-end `duration` (ms) and `deltaX`/`deltaY` (px, pointer displacement).
+// `enabled` is toggled at runtime (e.g. workspace toolbar).
+export const WORKSPACE_CAMERA_INERTIA = {
+  enabled: true,
+  /** Do not start coasting for very long drags (px/ms becomes tiny). */
+  maxDurationForImpulseMs: 320,
+  /** Floor for duration (ms) when computing release speed. */
+  minDurationMs: 700,
+  /** Minimum release speed (px per ms) to start inertial glide. */
+  minImpulsePxPerMs: 0.01,
+  /** Scales how much of the release velocity becomes coast velocity (0–1+). */
+  impulseGain: 1.0,
+  /** Per-ms velocity decay: each frame v *= frictionPerMs ** dt. Lower = quicker stop. */
+  frictionPerMs: 0.9978,
+  /** End glide when speed (px/ms) falls below this. */
+  minVelocityCutoffPxPerMs: 0.016,
+};
