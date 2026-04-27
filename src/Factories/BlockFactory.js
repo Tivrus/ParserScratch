@@ -1,8 +1,8 @@
-import * as BlocksData from '../data/BlocksData.js';
-import * as MathUtils from '../utils/MathUtils.js';
-import * as Global from '../constans/Global.js';
-import * as SvgUtils from '../utils/SvgUtils.js';
-import * as BlockModule from '../constans/Block.js';
+﻿import * as BlocksData from '../data/BlocksData.js';
+import * as MathUtils from '../infrastructure/math/MathUtils.js';
+import * as Global from '../constants/Global.js';
+import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
+import * as BlockModule from '../constants/Block.js';
 
 export class BlockLogic {
   constructor(categoriesMap) {
@@ -15,7 +15,7 @@ export class BlockLogic {
     return BlocksData.blocks_list.filter(b => b.category === categoryId);
   }
 
-  // --- Prepare (blockKey → data for Block / library SVG) ---
+  // --- Prepare (blockKey тЖТ data for Block / library SVG) ---
   prepareBlockData(categoryId) {
     const config = this.blocksMap.get(categoryId);
     if (!config) return null;
