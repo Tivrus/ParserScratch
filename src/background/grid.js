@@ -1,16 +1,11 @@
-import {
-  logError,
-  WORKSPACE_GRID_CELL_PX,
-  WORKSPACE_EVENTS,
-  WORKSPACE_BLOCK_GRID_SNAP,
-} from '../constans/Global.js';
-import { createWorkspaceCameraInertia } from './workspaceCameraInertia.js';
+import * as Global from '../constans/Global.js';
+import * as WorkspaceCameraInertia from './workspaceCameraInertia.js';
 
-/** Snap world-space coordinates to the workspace grid (or 1px when {@link WORKSPACE_BLOCK_GRID_SNAP} is off). */
-export function snapWorldCoordsToGrid(x, y, cellPx = WORKSPACE_GRID_CELL_PX) {
+/** Snap world-space coordinates to the workspace grid (or 1px when grid snap is off). */
+export function snapWorldCoordsToGrid(x, y, cellPx = Global.WORKSPACE_GRID_CELL_PX) {
   const rx = Math.round(Number(x)) || 0;
   const ry = Math.round(Number(y)) || 0;
-  if (!WORKSPACE_BLOCK_GRID_SNAP.enabled) {
+  if (!Global.WORKSPACE_BLOCK_GRID_SNAP.enabled) {
     return { x: rx, y: ry };
   }
   return {
@@ -30,12 +25,12 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   };
 
   if (!workspaceEl || !gridEl) {
-    logError('workspaceEl and gridEl are required', { context: 'attachWorkspaceGridPan' });
+    Global.logError('workspaceEl and gridEl are required', { context: 'attachWorkspaceGridPan' });
     return noop;
   }
 
   const { blockWorldRootEl = null } = options;
-  const cellPx = WORKSPACE_GRID_CELL_PX;
+  const cellPx = Global.WORKSPACE_GRID_CELL_PX;
   gridEl.style.backgroundSize = `${cellPx}px ${cellPx}px`;
 
   let offsetX = 0;
@@ -55,14 +50,14 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
 
   const notifyCameraPersist = () => {
     workspaceEl.dispatchEvent(
-      new CustomEvent(WORKSPACE_EVENTS.cameraOffsetChanged, {
+      new CustomEvent(Global.WORKSPACE_EVENTS.cameraOffsetChanged, {
         bubbles: true,
         detail: { x: offsetX, y: offsetY },
       })
     );
   };
 
-  const inertia = createWorkspaceCameraInertia({
+  const inertia = WorkspaceCameraInertia.createWorkspaceCameraInertia({
     addOffset(dx, dy) {
       offsetX += dx;
       offsetY += dy;
@@ -91,12 +86,12 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   };
 
   workspaceEl.addEventListener('grab-start', (event) => {
-    const d = event.detail;
-    if (d.area !== 'workspace' || d.target !== 'empty') return;
+    const grabDetail = event.detail;
+    if (grabDetail.area !== 'workspace' || grabDetail.target !== 'empty') return;
     inertia.stopRunningCoastAndSettle();
     isPanning = true;
-    panPointerStartX = d.clientX;
-    panPointerStartY = d.clientY;
+    panPointerStartX = grabDetail.clientX;
+    panPointerStartY = grabDetail.clientY;
     panOffsetStartX = offsetX;
     panOffsetStartY = offsetY;
     workspaceEl.classList.add('workspace--grid-panning');

@@ -1,5 +1,5 @@
-import { logError, MOVE_THRESHOLD } from '../constans/Global.js';
-import { readWorkspaceBlockUUID } from '../utils/SvgUtils.js';
+import * as Global from '../constans/Global.js';
+import * as SvgUtils from '../utils/SvgUtils.js';
 
 // Pointer grab: workspace vs palette, grab-start / grab-end payloads.
 export class GrabManager {
@@ -14,10 +14,10 @@ export class GrabManager {
       end: { x: 0, y: 0, clientX: 0, clientY: 0, timestamp: 0 },
     };
 
-    this.moveThreshold = MOVE_THRESHOLD;
+    this.moveThreshold = Global.MOVE_THRESHOLD;
     this.containerEls = this.#resolveContainerElements(containersConfig);
     if (!this.containerEls.workspace) {
-      logError('Workspace container is required', { context: 'GrabManager' });
+      Global.logError('Workspace container is required', { context: 'GrabManager' });
       return;
     }
 
@@ -61,7 +61,7 @@ export class GrabManager {
     if (areaName === 'workspace') {
       const block = event.target.closest('.workspace-block');
       return block
-        ? { target: 'block', element: block, grabKey: readWorkspaceBlockUUID(block) }
+        ? { target: 'block', element: block, grabKey: SvgUtils.readWorkspaceBlockUUID(block) }
         : { target: 'empty', element: container, grabKey: null };
     }
 

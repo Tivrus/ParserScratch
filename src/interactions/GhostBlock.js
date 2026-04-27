@@ -1,5 +1,5 @@
 import * as SvgUtils from '../utils/SvgUtils.js';
-import { GHOST_BLOCK } from '../constans/Global.js';
+import * as Global from '../constans/Global.js';
 
 // Monotone silhouette of a block (labels omitted). Used for snap preview / drag hints.
 export class GhostBlock {
@@ -12,8 +12,8 @@ export class GhostBlock {
     group.appendChild(
       SvgUtils.createElement('path', {
         d: pathD,
-        fill: GHOST_BLOCK.FILL_COLOR,
-        stroke: GHOST_BLOCK.STROKE_COLOR,
+        fill: Global.GHOST_BLOCK.FILL_COLOR,
+        stroke: Global.GHOST_BLOCK.STROKE_COLOR,
         'stroke-width': 2,
         'stroke-linejoin': 'round',
       })

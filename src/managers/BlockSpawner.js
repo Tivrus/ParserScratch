@@ -1,7 +1,7 @@
-import { snapWorldCoordsToGrid } from '../background/grid.js';
-import { BlockIdentity } from '../utils/MathUtils.js';
-import { logError } from '../constans/Global.js';
-import { Block } from '../constans/Block.js';
+import * as Grid from '../background/grid.js';
+import * as MathUtils from '../utils/MathUtils.js';
+import * as Global from '../constans/Global.js';
+import * as BlockModule from '../constans/Block.js';
 import * as ChainMiddleZone from '../interactions/blocks/ChainMiddleZone.js';
 
 export class BlockSpawner {
@@ -48,7 +48,7 @@ export class BlockSpawner {
       !this.containerEls.blockContainer ||
       !this.containerEls.dragOverlay
     ) {
-      logError('Required containers not found', {
+      Global.logError('Required containers not found', {
         context: 'BlockSpawner',
         containerEls: this.containerEls,
       });
@@ -89,14 +89,14 @@ export class BlockSpawner {
       `svg.block-template[data-block-id="${grabDetail.grabKey}"]`
     );
     if (!template) {
-      logError(`Template SVG not found for blockId: ${grabDetail.grabKey}`, { context: 'BlockSpawner' });
+      Global.logError(`Template SVG not found for blockId: ${grabDetail.grabKey}`, { context: 'BlockSpawner' });
       return;
     }
 
     const data = this.blockLogic.prepareBlockData(grabDetail.grabKey);
     if (!data) return;
 
-    const block = new Block(data, { blockUUID: BlockIdentity.generateUUID(), x: 0, y: 0 });
+    const block = new BlockModule.Block(data, { blockUUID: MathUtils.BlockIdentity.generateUUID(), x: 0, y: 0 });
     this.#mountRegisteredBlock(block, data);
 
     this.containerEls.dragOverlay.appendChild(block.element);
@@ -129,7 +129,7 @@ export class BlockSpawner {
         const { x: vx, y: vy } = this.getWorkspaceGridOffset();
         finalX = Math.round(grabDetail.clientX - wr.left - this.dragOffset.x - vx);
         finalY = Math.round(grabDetail.clientY - wr.top - this.dragOffset.y - vy);
-        const snapped = snapWorldCoordsToGrid(finalX, finalY);
+        const snapped = Grid.snapWorldCoordsToGrid(finalX, finalY);
         finalX = snapped.x;
         finalY = snapped.y;
       }
@@ -178,7 +178,7 @@ export class BlockSpawner {
   restoreWorkspaceBlock(opcode, blockUUID, x, y) {
     const data = this.blockLogic.prepareBlockData(opcode);
     if (!data) return null;
-    const block = new Block(data, { blockUUID, x, y });
+    const block = new BlockModule.Block(data, { blockUUID, x, y });
     this.#mountRegisteredBlock(block, data);
     return block;
   }

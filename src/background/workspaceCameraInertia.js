@@ -1,8 +1,8 @@
-import { WORKSPACE_CAMERA_INERTIA } from '../constans/Global.js';
+import * as Global from '../constans/Global.js';
 
 /**
  * Inertial glide after empty-workspace pan, from grab-end `duration` (ms) and `deltaX`/`deltaY` (px).
- * Tuning: {@link WORKSPACE_CAMERA_INERTIA} in `Global.js`.
+ * Tuning: {@link Global.WORKSPACE_CAMERA_INERTIA} in `Global.js`.
  *
  * @param {{ addOffset: (dx: number, dy: number) => void, settle: () => void }} hooks
  */
@@ -30,7 +30,7 @@ export function createWorkspaceCameraInertia({ addOffset, settle }) {
    */
   function onPanGrabEnd(detail) {
     abortCoastSilently();
-    const cfg = WORKSPACE_CAMERA_INERTIA;
+    const cfg = Global.WORKSPACE_CAMERA_INERTIA;
 
     if (!cfg.enabled) {
       settle();
@@ -58,7 +58,7 @@ export function createWorkspaceCameraInertia({ addOffset, settle }) {
     let last = performance.now();
 
     const step = (now) => {
-      const live = WORKSPACE_CAMERA_INERTIA;
+      const live = Global.WORKSPACE_CAMERA_INERTIA;
       if (!live.enabled) {
         rafId = null;
         settle();

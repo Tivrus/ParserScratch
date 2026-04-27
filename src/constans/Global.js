@@ -52,6 +52,13 @@ export const WORKSPACE_EVENTS = {
   modesChanged: 'workspace-modes-changed',
 };
 
+/** POST body → `workspace.json` (see `server.js`). */
+export const WORKSPACE_SAVE_URL = '/api/save-workspace';
+/** GET → parsed workspace document. */
+export const WORKSPACE_LOAD_URL = '/api/load-workspace';
+/** Debounce window (ms) before sending a save after rapid workspace events. */
+export const WORKSPACE_SAVE_DEBOUNCE_MS = 320;
+
 // === SVG FORMS ===
 export const BLOCK_FORMS = [
     {

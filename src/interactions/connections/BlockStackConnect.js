@@ -1,53 +1,30 @@
-import {
-  DOM_IDS,
-  START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET,
-  STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET,
-  WORKSPACE_EVENTS,
-} from '../../constans/Global.js';
-import { parseTranslateTransform } from '../../utils/SvgUtils.js';
-import { ConnectorZone } from '../blocks/ConnectorZone.js';
-import { BlockConnectionCheck } from './BlockConnectionCheck.js';
-import { StackSnapLayout } from './stackSnapLayout.js';
-
-function findStackHeadBlock(blockRegistry, block) {
-  let cur = block;
-  while (cur?.parentUUID) {
-    const p = blockRegistry.get(cur.parentUUID);
-    if (!p) break;
-    cur = p;
-  }
-  return cur;
-}
-
-/** Ordered blocks from `head` along nextUUID until `tailInclusive` is included. */
-function collectChainFromHeadToInclusive(blockRegistry, head, tailInclusive) {
-  const out = [];
-  let cur = head;
-  while (cur) {
-    out.push(cur);
-    if (cur.blockUUID === tailInclusive.blockUUID) break;
-    if (!cur.nextUUID) break;
-    cur = blockRegistry.get(cur.nextUUID) ?? null;
-  }
-  return out;
-}
+import * as Global from '../../constans/Global.js';
+import * as SvgUtils from '../../utils/SvgUtils.js';
+import * as ConnectorZoneModule from '../blocks/ConnectorZone.js';
+import * as BlockConnectionCheckModule from './BlockConnectionCheck.js';
+import * as SnapLayout from './stackSnapLayout.js';
+import * as StackChainGraph from './stackChainGraph.js';
 
 function dispatchWorkspaceStructureChanged() {
-  document.getElementById(DOM_IDS.workspace)?.dispatchEvent(
-    new CustomEvent(WORKSPACE_EVENTS.structureChanged, { bubbles: true })
+  document.getElementById(Global.DOM_IDS.workspace)?.dispatchEvent(
+    new CustomEvent(Global.WORKSPACE_EVENTS.structureChanged, { bubbles: true })
   );
 }
 
-/** Recompute absolute positions for every block below `fromBlock` (via nextUUID). */
+/** Recompute absolute positions for every block below `fromBlock` (via `nextUUID`). */
 export function repositionFollowingStackBlocks(fromBlock, blockRegistry) {
-  let cur = fromBlock;
-  while (cur.nextUUID) {
-    const next = blockRegistry.get(cur.nextUUID);
-    if (!next?.element) break;
-    const nextPos = StackSnapLayout.translateInContainer(cur, next.element, 'below');
-    if (!nextPos) break;
-    next.setPosition(nextPos.x, nextPos.y);
-    cur = next;
+  let currentBlock = fromBlock;
+  while (currentBlock.nextUUID) {
+    const nextBlock = blockRegistry.get(currentBlock.nextUUID);
+    if (!nextBlock?.element) break;
+    const nextWorldPosition = SnapLayout.StackSnapLayout.translateInContainer(
+      currentBlock,
+      nextBlock.element,
+      'below'
+    );
+    if (!nextWorldPosition) break;
+    nextBlock.setPosition(nextWorldPosition.x, nextWorldPosition.y);
+    currentBlock = nextBlock;
   }
 }
 
@@ -57,19 +34,19 @@ class StackConnectCommit {
     const snap = ghostPreview.getActiveSnap();
     if (!snap) return null;
 
-    const draggedUUID = BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
-    const dragged = blockRegistry.get(draggedUUID);
-    if (!dragged) return null;
+    const draggedBlockUUID = BlockConnectionCheckModule.BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
+    const draggedBlock = blockRegistry.get(draggedBlockUUID);
+    if (!draggedBlock) return null;
 
     if (snap.mode === 'middle') {
-      const parent = blockRegistry.get(snap.parentUUID);
-      const child = blockRegistry.get(snap.staticUUID);
-      if (!parent || !child) return null;
+      const parentBlock = blockRegistry.get(snap.parentUUID);
+      const childBlock = blockRegistry.get(snap.staticUUID);
+      if (!parentBlock || !childBlock) return null;
       return (
         this.#commitMiddleInsert(
-          parent,
-          dragged,
-          child,
+          parentBlock,
+          draggedBlock,
+          childBlock,
           draggedElement,
           ghostPreview,
           blockRegistry
@@ -77,202 +54,263 @@ class StackConnectCommit {
       );
     }
 
-    const pair = this.#resolveBlocks(draggedElement, snap.staticUUID, blockRegistry, grabManager);
-    if (!pair) return null;
+    const anchorAndDragged = this.#resolveBlocks(
+      draggedElement,
+      snap.staticUUID,
+      blockRegistry,
+      grabManager
+    );
+    if (!anchorAndDragged) return null;
 
-    const { dragged: d, anchor } = pair;
+    const { dragged: draggedStackHead, anchor: anchorBlock } = anchorAndDragged;
     if (snap.mode === 'prefixOnHead') {
       return (
-        this.#commitPrefixOnHead(anchor, d, draggedElement, ghostPreview, blockRegistry) ?? null
+        this.#commitPrefixOnHead(
+          anchorBlock,
+          draggedStackHead,
+          draggedElement,
+          ghostPreview,
+          blockRegistry
+        ) ?? null
       );
     }
     if (snap.mode === 'below') {
-      return this.#commitBelow(anchor, d, draggedElement, ghostPreview, blockRegistry) ?? null;
+      return (
+        this.#commitBelow(anchorBlock, draggedStackHead, draggedElement, ghostPreview, blockRegistry) ??
+        null
+      );
     }
     if (snap.mode === 'above') {
-      return this.#commitAbove(anchor, d, draggedElement, ghostPreview, blockRegistry) ?? null;
+      return (
+        this.#commitAbove(anchorBlock, draggedStackHead, draggedElement, ghostPreview, blockRegistry) ??
+        null
+      );
     }
     return null;
   }
 
-  static #resolveBlocks(draggedElement, staticUUID, blockRegistry, grabManager) {
-    const draggedUUID = BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
-    if (!draggedUUID) return null;
-    const dragged = blockRegistry.get(draggedUUID);
-    const anchor = blockRegistry.get(staticUUID);
-    if (!dragged || !anchor) return null;
-    return { dragged, anchor };
+  static #resolveBlocks(draggedElement, anchorStaticUUID, blockRegistry, grabManager) {
+    const draggedBlockUUID = BlockConnectionCheckModule.BlockConnectionCheck.resolveDraggedBlockUUID(draggedElement, grabManager);
+    if (!draggedBlockUUID) return null;
+    const draggedBlock = blockRegistry.get(draggedBlockUUID);
+    const anchorBlock = blockRegistry.get(anchorStaticUUID);
+    if (!draggedBlock || !anchorBlock) return null;
+    return { dragged: draggedBlock, anchor: anchorBlock };
   }
 
-  static #commitBelow(anchor, dragged, draggedElement, ghostPreview, blockRegistry) {
-    if (anchor.nextUUID || dragged.parentUUID) return null;
+  static #commitBelow(anchorBlock, draggedBlock, draggedElement, ghostPreview, blockRegistry) {
+    if (anchorBlock.nextUUID || draggedBlock.parentUUID) return null;
 
-    const pos = StackSnapLayout.translateInContainer(anchor, draggedElement, 'below');
-    if (!pos) return null;
+    const snapWorldPosition = SnapLayout.StackSnapLayout.translateInContainer(
+      anchorBlock,
+      draggedElement,
+      'below'
+    );
+    if (!snapWorldPosition) return null;
 
-    anchor.nextUUID = dragged.blockUUID;
-    dragged.parentUUID = anchor.blockUUID;
-    dragged.topLevel = false;
-    anchor.topLevel = anchor.parentUUID == null;
+    anchorBlock.nextUUID = draggedBlock.blockUUID;
+    draggedBlock.parentUUID = anchorBlock.blockUUID;
+    draggedBlock.topLevel = false;
+    anchorBlock.topLevel = anchorBlock.parentUUID == null;
 
     ghostPreview.clear();
-    return pos;
+    return snapWorldPosition;
   }
 
-  static #commitAbove(anchor, dragged, draggedElement, ghostPreview, blockRegistry) {
-    if (anchor.parentUUID || dragged.parentUUID) return null;
+  static #commitAbove(anchorBlock, draggedBlock, draggedElement, ghostPreview, blockRegistry) {
+    if (anchorBlock.parentUUID || draggedBlock.parentUUID) return null;
 
-    let tail = dragged;
-    while (tail.nextUUID) {
-      const n = blockRegistry.get(tail.nextUUID);
-      if (!n) break;
-      tail = n;
+    let tailBlock = draggedBlock;
+    while (tailBlock.nextUUID) {
+      const nextInChain = blockRegistry.get(tailBlock.nextUUID);
+      if (!nextInChain) break;
+      tailBlock = nextInChain;
     }
 
-    const pos = StackSnapLayout.translateInContainer(anchor, draggedElement, 'above');
-    if (!pos) return null;
+    const snapWorldPosition = SnapLayout.StackSnapLayout.translateInContainer(
+      anchorBlock,
+      draggedElement,
+      'above'
+    );
+    if (!snapWorldPosition) return null;
 
-    tail.nextUUID = anchor.blockUUID;
-    anchor.parentUUID = tail.blockUUID;
-    anchor.topLevel = false;
-    dragged.topLevel = true;
+    tailBlock.nextUUID = anchorBlock.blockUUID;
+    anchorBlock.parentUUID = tailBlock.blockUUID;
+    anchorBlock.topLevel = false;
+    draggedBlock.topLevel = true;
 
     ghostPreview.clear();
-    return pos;
+    return snapWorldPosition;
   }
 
   /**
    * Same links as {@link #commitAbove}: other stack hangs under held tail.
    * Held head snaps to the other head's former (x,y).
    */
-  static #commitPrefixOnHead(anchor, dragged, draggedElement, ghostPreview, blockRegistry) {
-    if (anchor.parentUUID || dragged.parentUUID) return null;
-    if (!dragged.nextUUID) return null;
-    if (!ConnectorZone.zoneByType(anchor.connectorZones, 'top')) return null;
+  static #commitPrefixOnHead(anchorBlock, draggedBlock, draggedElement, ghostPreview, blockRegistry) {
+    if (anchorBlock.parentUUID || draggedBlock.parentUUID) return null;
+    if (!draggedBlock.nextUUID) return null;
+    if (!ConnectorZoneModule.ConnectorZone.zoneByType(anchorBlock.connectorZones, 'top')) return null;
 
-    const tail = BlockConnectionCheck.stackTailBlock(blockRegistry, dragged);
-    if (!tail || tail.type === 'stop-block') return null;
+    const heldChainTail = StackChainGraph.stackTailBlock(blockRegistry, draggedBlock);
+    if (!heldChainTail || heldChainTail.type === 'stop-block') return null;
 
-    const { x, y } = parseTranslateTransform(anchor.element);
-    const pos = { x: Math.round(x), y: Math.round(y) };
+    const { x: anchorHeadX, y: anchorHeadY } = SvgUtils.parseTranslateTransform(anchorBlock.element);
+    const snapWorldPosition = { x: Math.round(anchorHeadX), y: Math.round(anchorHeadY) };
 
-    tail.nextUUID = anchor.blockUUID;
-    anchor.parentUUID = tail.blockUUID;
-    anchor.topLevel = false;
-    dragged.topLevel = true;
+    heldChainTail.nextUUID = anchorBlock.blockUUID;
+    anchorBlock.parentUUID = heldChainTail.blockUUID;
+    anchorBlock.topLevel = false;
+    draggedBlock.topLevel = true;
 
     ghostPreview.clear();
     requestAnimationFrame(() => dispatchWorkspaceStructureChanged());
-    return pos;
+    return snapWorldPosition;
   }
 
-  static #commitMiddleInsert(parent, dragged, child, draggedElement, ghostPreview, blockRegistry) {
-    if (parent.nextUUID !== child.blockUUID || child.parentUUID !== parent.blockUUID) return null;
-    if (dragged.parentUUID || dragged.nextUUID) return null;
+  static #commitMiddleInsert(
+    parentBlock,
+    draggedBlock,
+    childBlock,
+    draggedElement,
+    ghostPreview,
+    blockRegistry
+  ) {
+    if (
+      parentBlock.nextUUID !== childBlock.blockUUID ||
+      childBlock.parentUUID !== parentBlock.blockUUID
+    ) {
+      return null;
+    }
+    if (draggedBlock.parentUUID || draggedBlock.nextUUID) return null;
 
-    const pos = StackSnapLayout.translateMiddleInsert(parent, draggedElement);
-    if (!pos) return null;
+    const insertWorldPosition = SnapLayout.StackSnapLayout.translateMiddleInsert(parentBlock, draggedElement);
+    if (!insertWorldPosition) return null;
 
-    if (dragged.type === 'start-block') {
+    if (draggedBlock.type === 'start-block') {
       return this.#commitStartBlockMiddleChainSplit(
-        parent,
-        dragged,
-        child,
-        pos,
+        parentBlock,
+        draggedBlock,
+        childBlock,
+        insertWorldPosition,
         ghostPreview,
         blockRegistry
       );
     }
-    if (dragged.type === 'stop-block') {
+    if (draggedBlock.type === 'stop-block') {
       return this.#commitStopBlockMiddleChainSplit(
-        parent,
-        dragged,
-        child,
-        pos,
+        parentBlock,
+        draggedBlock,
+        childBlock,
+        insertWorldPosition,
         ghostPreview,
         blockRegistry
       );
     }
 
-    parent.nextUUID = dragged.blockUUID;
-    dragged.parentUUID = parent.blockUUID;
-    dragged.nextUUID = child.blockUUID;
-    child.parentUUID = dragged.blockUUID;
-    dragged.topLevel = false;
-    parent.topLevel = parent.parentUUID == null;
-    child.topLevel = false;
+    parentBlock.nextUUID = draggedBlock.blockUUID;
+    draggedBlock.parentUUID = parentBlock.blockUUID;
+    draggedBlock.nextUUID = childBlock.blockUUID;
+    childBlock.parentUUID = draggedBlock.blockUUID;
+    draggedBlock.topLevel = false;
+    parentBlock.topLevel = parentBlock.parentUUID == null;
+    childBlock.topLevel = false;
 
     ghostPreview.clear();
-    dragged.setPosition(pos.x, pos.y);
-    repositionFollowingStackBlocks(dragged, blockRegistry);
-    return pos;
+    draggedBlock.setPosition(insertWorldPosition.x, insertWorldPosition.y);
+    repositionFollowingStackBlocks(draggedBlock, blockRegistry);
+    return insertWorldPosition;
   }
 
   /**
    * Upper chain (head … parent) detaches; start becomes hat of the lower chain (child…).
    * Upper segment shifts right/up.
    */
-  static #commitStartBlockMiddleChainSplit(parent, dragged, child, pos, ghostPreview, blockRegistry) {
+  static #commitStartBlockMiddleChainSplit(
+    parentBlock,
+    draggedBlock,
+    childBlock,
+    insertWorldPosition,
+    ghostPreview,
+    blockRegistry
+  ) {
     ghostPreview.clear();
 
-    const head = findStackHeadBlock(blockRegistry, parent);
-    const upper = collectChainFromHeadToInclusive(blockRegistry, head, parent);
-    const { x: ox, y: oy } = START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET;
+    const detachedHead = StackChainGraph.findStackHeadBlock(blockRegistry, parentBlock);
+    const upperSegmentBlocks = StackChainGraph.collectChainFromHeadToInclusive(
+      blockRegistry,
+      detachedHead,
+      parentBlock
+    );
+    const { x: splitOffsetX, y: splitOffsetY } = Global.START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET;
 
-    parent.nextUUID = null;
-    dragged.parentUUID = null;
-    dragged.topLevel = true;
-    dragged.nextUUID = child.blockUUID;
-    child.parentUUID = dragged.blockUUID;
-    child.topLevel = false;
-    parent.topLevel = parent.parentUUID == null;
+    parentBlock.nextUUID = null;
+    draggedBlock.parentUUID = null;
+    draggedBlock.topLevel = true;
+    draggedBlock.nextUUID = childBlock.blockUUID;
+    childBlock.parentUUID = draggedBlock.blockUUID;
+    childBlock.topLevel = false;
+    parentBlock.topLevel = parentBlock.parentUUID == null;
 
-    dragged.setPosition(pos.x, pos.y);
+    draggedBlock.setPosition(insertWorldPosition.x, insertWorldPosition.y);
 
-    for (const b of upper) {
-      b.setPosition(Math.round(b.x + ox), Math.round(b.y + oy));
+    for (const blockInUpperSegment of upperSegmentBlocks) {
+      blockInUpperSegment.setPosition(
+        Math.round(blockInUpperSegment.x + splitOffsetX),
+        Math.round(blockInUpperSegment.y + splitOffsetY)
+      );
     }
 
-    repositionFollowingStackBlocks(dragged, blockRegistry);
+    repositionFollowingStackBlocks(draggedBlock, blockRegistry);
     dispatchWorkspaceStructureChanged();
-    return pos;
+    return insertWorldPosition;
   }
 
   /**
    * Lower chain (child … tail) detaches; stop stays under parent; cap has no successor.
    * Lower segment shifts right/down.
    */
-  static #commitStopBlockMiddleChainSplit(parent, dragged, child, pos, ghostPreview, blockRegistry) {
+  static #commitStopBlockMiddleChainSplit(
+    parentBlock,
+    draggedBlock,
+    childBlock,
+    insertWorldPosition,
+    ghostPreview,
+    blockRegistry
+  ) {
     ghostPreview.clear();
 
-    const lower = [];
-    let cur = child;
-    const seen = new Set();
-    while (cur && !seen.has(cur.blockUUID)) {
-      seen.add(cur.blockUUID);
-      lower.push(cur);
-      cur = cur.nextUUID ? blockRegistry.get(cur.nextUUID) ?? null : null;
+    const lowerSegmentBlocks = [];
+    let currentBlock = childBlock;
+    const visitedUUIDs = new Set();
+    while (currentBlock && !visitedUUIDs.has(currentBlock.blockUUID)) {
+      visitedUUIDs.add(currentBlock.blockUUID);
+      lowerSegmentBlocks.push(currentBlock);
+      currentBlock = currentBlock.nextUUID ? blockRegistry.get(currentBlock.nextUUID) ?? null : null;
     }
-    const { x: ox, y: oy } = STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET;
+    const { x: splitOffsetX, y: splitOffsetY } = Global.STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET;
 
-    parent.nextUUID = dragged.blockUUID;
-    dragged.parentUUID = parent.blockUUID;
-    dragged.nextUUID = null;
-    dragged.topLevel = false;
-    parent.topLevel = parent.parentUUID == null;
+    parentBlock.nextUUID = draggedBlock.blockUUID;
+    draggedBlock.parentUUID = parentBlock.blockUUID;
+    draggedBlock.nextUUID = null;
+    draggedBlock.topLevel = false;
+    parentBlock.topLevel = parentBlock.parentUUID == null;
 
-    child.parentUUID = null;
-    child.topLevel = true;
+    childBlock.parentUUID = null;
+    childBlock.topLevel = true;
 
-    dragged.setPosition(pos.x, pos.y);
+    draggedBlock.setPosition(insertWorldPosition.x, insertWorldPosition.y);
 
-    for (const b of lower) {
-      b.setPosition(Math.round(b.x + ox), Math.round(b.y + oy));
+    for (const blockInLowerSegment of lowerSegmentBlocks) {
+      blockInLowerSegment.setPosition(
+        Math.round(blockInLowerSegment.x + splitOffsetX),
+        Math.round(blockInLowerSegment.y + splitOffsetY)
+      );
     }
 
-    repositionFollowingStackBlocks(child, blockRegistry);
+    repositionFollowingStackBlocks(childBlock, blockRegistry);
     dispatchWorkspaceStructureChanged();
-    return pos;
+    return insertWorldPosition;
   }
 }
 

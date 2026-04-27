@@ -1,6 +1,7 @@
 import * as SvgUtils from '../../utils/SvgUtils.js';
-import { CONNECTOR_ZONE_STYLE } from '../../constans/Global.js';
-import { BlockConnectionCheck } from '../connections/BlockConnectionCheck.js';
+import * as Global from '../../constans/Global.js';
+import * as ConnectorClientGeometry from '../connections/connectorClientGeometry.js';
+import * as StackMiddleJoint from '../connections/stackMiddleJoint.js';
 
 const DEBUG_GROUP_CLASS = 'connector-debug-connectors';
 
@@ -11,7 +12,7 @@ function drawZone(parent, zone, x, y, width, height) {
       y: String(y),
       width: String(width),
       height: String(height),
-      ...CONNECTOR_ZONE_STYLE,
+      ...Global.CONNECTOR_ZONE_STYLE,
     })
   );
 
@@ -62,10 +63,9 @@ export function enableConnectorDebug(blockRegistry, blockContainerEl, overlayEl)
         let zc;
         if (zone.type === 'middle' && zone.linkedChildUUID) {
           const ch = blockRegistry.get(zone.linkedChildUUID);
-          zc =
-            ch && BlockConnectionCheck.middleJointBandClientRect(block, ch, zone);
+          zc = ch && StackMiddleJoint.middleJointBandClientRect(block, ch, zone);
         } else {
-          zc = BlockConnectionCheck.zoneToClientRect(block.element, zone);
+          zc = ConnectorClientGeometry.zoneToClientRect(block.element, zone);
         }
         if (!zc) continue;
         const x = zc.left - or.left;

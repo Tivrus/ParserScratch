@@ -1,11 +1,7 @@
-import {
-  CONNECTOR_SOCKET_HEIGHT,
-  CONNECTOR_THRESHOLD,
-  START_BLOCK_NORMAL_STACK_EXTRA_Y,
-} from '../../constans/Global.js';
-import { clientPointToElementLocal } from '../../utils/SvgUtils.js';
-import { ConnectorZone } from './ConnectorZone.js';
-import { middleTailSpreadExtraY } from '../connections/stackSnapLayout.js';
+import * as Global from '../../constans/Global.js';
+import * as SvgUtils from '../../utils/SvgUtils.js';
+import * as ConnectorZoneModule from './ConnectorZone.js';
+import * as StackSnapLayout from '../connections/stackSnapLayout.js';
 
 function zoneToClientRect(blockGroup, zone) {
   const svg = blockGroup.ownerSVGElement;
@@ -53,7 +49,7 @@ function jointSeamCenterLocalOnParent(parentEl, childEl, parentBottomZone, child
   const seamClientY = (centerParentY + centerChildY) / 2;
   const parentRect = parentEl.getBoundingClientRect();
   const seamClientX = (parentRect.left + parentRect.right) / 2;
-  const pt = clientPointToElementLocal(parentEl, seamClientX, seamClientY);
+  const pt = SvgUtils.clientPointToElementLocal(parentEl, seamClientX, seamClientY);
   return pt?.y ?? null;
 }
 
@@ -61,7 +57,7 @@ export function applyStackChainMiddles(blockRegistry, getDataForBlock) {
   for (const block of blockRegistry.values()) {
     const data = getDataForBlock(block);
     if (!data || !block.element) continue;
-    block.connectorZones = ConnectorZone.buildForBlock(data, block.element);
+    block.connectorZones = ConnectorZoneModule.ConnectorZone.buildForBlock(data, block.element);
   }
 
   for (const child of blockRegistry.values()) {
@@ -134,7 +130,10 @@ export function setChainSpreadBelow(
       continue;
     }
     const spreadOffsetY =
-      tailBlock.y + deltaY - CONNECTOR_SOCKET_HEIGHT + START_BLOCK_NORMAL_STACK_EXTRA_Y;
+      tailBlock.y +
+        deltaY -
+        Global.CONNECTOR_SOCKET_HEIGHT +
+        Global.START_BLOCK_NORMAL_STACK_EXTRA_Y;
     tailBlock.element.setAttribute(
       'transform',
       `translate(${tailBlock.x}, ${spreadOffsetY})`
@@ -148,15 +147,15 @@ export function ghostSpreadDeltaY(draggedElement) {
   try {
     const bboxHeight = draggedElement.getBBox().height;
     if (!Number.isFinite(bboxHeight) || bboxHeight <= 0) return 0;
-    return bboxHeight + middleTailSpreadExtraY(draggedElement);
+    return bboxHeight + StackSnapLayout.middleTailSpreadExtraY(draggedElement);
   } catch {
     return 0;
   }
 }
 
 function buildMiddleZone(parent, child, parentData, childData) {
-  const childTop = ConnectorZone.zoneByType(child.connectorZones, 'top');
-  const parentBottom = ConnectorZone.zoneByType(parent.connectorZones, 'bottom');
+  const childTop = ConnectorZoneModule.ConnectorZone.zoneByType(child.connectorZones, 'top');
+  const parentBottom = ConnectorZoneModule.ConnectorZone.zoneByType(parent.connectorZones, 'bottom');
   if (!childTop || !parentBottom) {
     return null;
   }
@@ -173,12 +172,12 @@ function buildMiddleZone(parent, child, parentData, childData) {
 
   const inCBlock = parentData.type === 'c-block' || childData.type === 'c-block';
 
-  return new ConnectorZone({
+  return new ConnectorZoneModule.ConnectorZone({
     type: 'middle',
     x: parentBottom.x,
-    y: seamY - CONNECTOR_THRESHOLD / 2,
+    y: seamY - Global.CONNECTOR_THRESHOLD / 2,
     width: parentBottom.width,
-    height: CONNECTOR_THRESHOLD,
+    height: Global.CONNECTOR_THRESHOLD,
     inCBlock,
     linkedChildUUID: child.blockUUID,
   });

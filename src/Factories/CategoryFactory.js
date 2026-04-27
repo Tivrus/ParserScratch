@@ -1,10 +1,10 @@
-import { categories_array, categories_map } from '../data/CategoriesData.js';
-import { logError } from '../constans/Global.js';
+import * as CategoriesData from '../data/CategoriesData.js';
+import * as Global from '../constans/Global.js';
 
 export class CategoryLogic {
   constructor() {
     this.categoriesArray = this.#parseCategories();
-    this.categoriesMap = categories_map
+    this.categoriesMap = CategoriesData.categories_map;
     this.activeCategoryId = null;
   }
 
@@ -34,7 +34,7 @@ export class CategoryLogic {
   }
 
   #parseCategories() {
-    const raw = Array.isArray(categories_array) ? categories_array : [];
+    const raw = Array.isArray(CategoriesData.categories_array) ? CategoriesData.categories_array : [];
     const originalKeys = this.#collectOriginalCategoryKeys(raw);
     const seenNonOriginalKeys = new Set();
     const result = [];
@@ -45,7 +45,7 @@ export class CategoryLogic {
         seenNonOriginalKeys
       );
       if (!isValid) {
-        logError(`Invalid category (${errorReason}): ${cat.key}`, {
+        Global.logError(`Invalid category (${errorReason}): ${cat.key}`, {
           context: 'CategoryLogic',
           category: cat
         });

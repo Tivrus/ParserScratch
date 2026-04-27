@@ -1,18 +1,18 @@
-import { blocks_list } from '../data/BlocksData.js';
-import { ColorMath } from '../utils/MathUtils.js';
+import * as BlocksData from '../data/BlocksData.js';
+import * as MathUtils from '../utils/MathUtils.js';
 import * as Global from '../constans/Global.js';
 import * as SvgUtils from '../utils/SvgUtils.js';
-import { Block } from '../constans/Block.js';
+import * as BlockModule from '../constans/Block.js';
 
 export class BlockLogic {
   constructor(categoriesMap) {
-    this.blocksMap = new Map(blocks_list.map(b => [b.blockKey, b]));
+    this.blocksMap = new Map(BlocksData.blocks_list.map(b => [b.blockKey, b]));
     this.blockForms = new Map(Global.BLOCK_FORMS.map(b => [b.type, b]));
     this.categoriesMap = categoriesMap;
   }
 
   getBlocksByCategory(categoryId) {
-    return blocks_list.filter(b => b.category === categoryId);
+    return BlocksData.blocks_list.filter(b => b.category === categoryId);
   }
 
   // --- Prepare (blockKey → data for Block / library SVG) ---
@@ -40,7 +40,15 @@ export class BlockLogic {
     }
     const viewBox = vb.join(' ');
     const fillColor = this.categoriesMap.get(config.category)?.color || Global.DEFAULT_BLOCK_COLOR;
-    return { ...config, pathData, width, height, viewBox, fillColor, strokeColor: ColorMath.darken(fillColor) };
+    return {
+      ...config,
+      pathData,
+      width,
+      height,
+      viewBox,
+      fillColor,
+      strokeColor: MathUtils.ColorMath.darken(fillColor),
+    };
   }
 }
 
@@ -54,11 +62,11 @@ export class BlockRenderer {
     if (!this.libraryContainerEl) return;
     this.libraryContainerEl.innerHTML = '';
     blocksPreparedData.forEach(data => {
-      if (data) this.libraryContainerEl.appendChild(Block.createLibrarySvg(data));
+      if (data) this.libraryContainerEl.appendChild(BlockModule.Block.createLibrarySvg(data));
     });
   }
 
   createWorkspaceBlock(data, { blockUUID, x = 0, y = 0 } = {}) {
-    return new Block(data, { blockUUID, x, y });
+    return new BlockModule.Block(data, { blockUUID, x, y });
   }
 }

@@ -1,21 +1,13 @@
-import { CategoryLogic, CategoryRenderer } from '../Factories/CategoryFactory.js';
-import { BlockLogic, BlockRenderer } from '../Factories/BlockFactory.js';
-import { GrabManager } from '../managers/GrabManager.js';
-import { BlockSpawner } from '../managers/BlockSpawner.js';
-import { BlockDeletionManager } from '../managers/BlockDeletionManager.js';
-import {
-  attachWorkspacePersistence,
-  hydrateWorkspaceFromServer,
-} from '../managers/WorkspacePersistence.js';
-import {
-  BlockWorkspaceDrag,
-  ConnectionGhostPreview,
-  enableConnectorDebug,
-  tryCommitStackConnect,
-} from '../interactions/index.js';
-import { attachWorkspaceGridPan } from '../background/grid.js';
-import { attachWorkspaceModeToggles } from '../background/workspaceModeToggles.js';
-import { DOM_IDS, WORKSPACE_EVENTS } from '../constans/Global.js';
+import * as CategoryFactory from '../factories/CategoryFactory.js';
+import * as BlockFactory from '../Factories/BlockFactory.js';
+import * as GrabManagerModule from '../managers/GrabManager.js';
+import * as BlockSpawnerModule from '../managers/BlockSpawner.js';
+import * as BlockDeletionManagerModule from '../managers/BlockDeletionManager.js';
+import * as WorkspacePersistence from '../managers/WorkspacePersistence.js';
+import * as Interactions from '../interactions/index.js';
+import * as Grid from '../background/grid.js';
+import * as WorkspaceModeToggles from '../background/workspaceModeToggles.js';
+import * as Global from '../constans/Global.js';
 
 const q = (id) => `#${id}`;
 
@@ -34,44 +26,48 @@ class ScratchEditor {
   #gridPan;
 
   constructor() {
-    this.#blockContainerEl = document.getElementById(DOM_IDS.blockContainer);
-    this.#dragOverlayEl = document.getElementById(DOM_IDS.dragOverlay);
-    this.#workspaceEl = document.getElementById(DOM_IDS.workspace);
+    this.#blockContainerEl = document.getElementById(Global.DOM_IDS.blockContainer);
+    this.#dragOverlayEl = document.getElementById(Global.DOM_IDS.dragOverlay);
+    this.#workspaceEl = document.getElementById(Global.DOM_IDS.workspace);
 
-    const blockWorldRootEl = document.getElementById(DOM_IDS.blockWorldRoot);
+    const blockWorldRootEl = document.getElementById(Global.DOM_IDS.blockWorldRoot);
     const blockMountParent = blockWorldRootEl ?? this.#blockContainerEl;
-    this.#gridPan = attachWorkspaceGridPan(this.#workspaceEl, document.getElementById(DOM_IDS.grid), {
-      blockWorldRootEl,
-    });
-    attachWorkspaceModeToggles(this.#workspaceEl);
+    this.#gridPan = Grid.attachWorkspaceGridPan(
+      this.#workspaceEl,
+      document.getElementById(Global.DOM_IDS.grid),
+      {
+        blockWorldRootEl,
+      }
+    );
+    WorkspaceModeToggles.attachWorkspaceModeToggles(this.#workspaceEl);
     const getWorkspaceGridOffset = () => this.#gridPan.getOffset();
 
-    this.#categoryLogic = new CategoryLogic();
-    this.#blockLogic = new BlockLogic(this.#categoryLogic.categoriesMap);
-    this.#blockRenderer = new BlockRenderer(DOM_IDS.blockTemplates);
-    this.#grabManager = new GrabManager({
-      workspace: q(DOM_IDS.workspace),
-      blockTemplates: q(DOM_IDS.blockTemplates),
+    this.#categoryLogic = new CategoryFactory.CategoryLogic();
+    this.#blockLogic = new BlockFactory.BlockLogic(this.#categoryLogic.categoriesMap);
+    this.#blockRenderer = new BlockFactory.BlockRenderer(Global.DOM_IDS.blockTemplates);
+    this.#grabManager = new GrabManagerModule.GrabManager({
+      workspace: q(Global.DOM_IDS.workspace),
+      blockTemplates: q(Global.DOM_IDS.blockTemplates),
     });
 
-    this.#categoryRenderer = new CategoryRenderer(DOM_IDS.categoryList, categoryId => {
+    this.#categoryRenderer = new CategoryFactory.CategoryRenderer(Global.DOM_IDS.categoryList, categoryId => {
       if (this.#categoryLogic.setActive(categoryId)) {
         this.#categoryRenderer.updateActive(categoryId);
         this.#blockRenderer.renderLibrary(this.#prepareBlocksForCategory(categoryId));
       }
     });
 
-    this.#connectionGhostPreview = new ConnectionGhostPreview({
+    this.#connectionGhostPreview = new Interactions.ConnectionGhostPreview({
       dragOverlayEl: this.#dragOverlayEl,
       blockContainerEl: this.#blockContainerEl,
       getWorkspaceGridOffset,
     });
 
-    this.#blockSpawner = new BlockSpawner(this.#blockLogic, this.#grabManager, {
-      blockTemplatesId: DOM_IDS.blockTemplates,
-      workspaceId: DOM_IDS.workspace,
-      dragOverlayId: DOM_IDS.dragOverlay,
-      blockContainerId: DOM_IDS.blockContainer,
+    this.#blockSpawner = new BlockSpawnerModule.BlockSpawner(this.#blockLogic, this.#grabManager, {
+      blockTemplatesId: Global.DOM_IDS.blockTemplates,
+      workspaceId: Global.DOM_IDS.workspace,
+      dragOverlayId: Global.DOM_IDS.dragOverlay,
+      blockContainerId: Global.DOM_IDS.blockContainer,
       blockMountParent,
       getWorkspaceGridOffset,
       onPaletteDragMove: (block, grabManager) =>
@@ -81,7 +77,7 @@ class ScratchEditor {
         this.#commitStackConnectAndRefresh(block.element, grabManager),
     });
 
-    this.#blockWorkspaceDrag = new BlockWorkspaceDrag(
+    this.#blockWorkspaceDrag = new Interactions.BlockWorkspaceDrag(
       this.#blockContainerEl,
       this.#workspaceEl,
       this.#dragOverlayEl,
@@ -105,26 +101,28 @@ class ScratchEditor {
       }
     );
 
-    this.#workspaceEl.addEventListener(WORKSPACE_EVENTS.structureChanged, () =>
+    this.#workspaceEl.addEventListener(Global.WORKSPACE_EVENTS.structureChanged, () =>
       this.#onWorkspaceStructureChanged()
     );
 
-    new BlockDeletionManager({
+    new BlockDeletionManagerModule.BlockDeletionManager({
       blockRegistry: this.#blockSpawner.blockRegistry,
       workspaceEl: this.#workspaceEl,
-      trashCanId: DOM_IDS.trashCan,
-      sidebarId: DOM_IDS.sidebar,
+      trashCanId: Global.DOM_IDS.trashCan,
+      sidebarId: Global.DOM_IDS.sidebar,
       blockWorkspaceDrag: this.#blockWorkspaceDrag,
       grabManager: this.#grabManager,
     });
 
-    attachWorkspacePersistence(this.#workspaceEl, () => this.#blockSpawner.blockRegistry, () =>
-      this.#gridPan.getOffset()
+    WorkspacePersistence.attachWorkspacePersistence(
+      this.#workspaceEl,
+      () => this.#blockSpawner.blockRegistry,
+      () => this.#gridPan.getOffset()
     );
 
     this.#exposeDebugApi();
     this.#bootstrapUi();
-    void hydrateWorkspaceFromServer(this.#blockSpawner, this.#gridPan);
+    void WorkspacePersistence.hydrateWorkspaceFromServer(this.#blockSpawner, this.#gridPan);
   }
 
   #prepareBlocksForCategory(categoryId) {
@@ -138,7 +136,7 @@ class ScratchEditor {
   }
 
   #commitStackConnectAndRefresh(draggedElement, grabManager) {
-    return tryCommitStackConnect({
+    return Interactions.tryCommitStackConnect({
       ghostPreview: this.#connectionGhostPreview,
       draggedElement,
       blockRegistry: this.#blockSpawner.blockRegistry,
@@ -162,7 +160,7 @@ class ScratchEditor {
       debug.active = want;
       if (want) {
         stopConnectorOverlay?.();
-        stopConnectorOverlay = enableConnectorDebug(
+        stopConnectorOverlay = Interactions.enableConnectorDebug(
           blockRegistry,
           blockContainerEl,
           dragOverlayEl

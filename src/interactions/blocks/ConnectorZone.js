@@ -1,13 +1,5 @@
-import {
-  CONNECTOR_THRESHOLD,
-  CONNECTOR_OFFSETS,
-  CONNECTOR_SOCKET_HEIGHT,
-  DEFAULT_BLOCK_HEIGHT,
-} from '../../constans/Global.js';
-import {
-  getBoundingClientRectRounded,
-  clientPointToElementLocal,
-} from '../../utils/SvgUtils.js';
+import * as Global from '../../constans/Global.js';
+import * as SvgUtils from '../../utils/SvgUtils.js';
 
 // Connector hit bands in the block group's local coordinate system.
 export class ConnectorZone {
@@ -58,7 +50,7 @@ export class ConnectorZone {
   // --- Geometry from DOM (fallback uses data.width / data.height) ---
 
   static #bboxFallback(data) {
-    const h = data.height ?? DEFAULT_BLOCK_HEIGHT;
+    const h = data.height ?? Global.DEFAULT_BLOCK_HEIGHT;
     return {
       connectorX: 0,
       width: data.width ?? 0,
@@ -81,17 +73,17 @@ export class ConnectorZone {
     }
     if (b.width <= 0 || b.height <= 0) return fallback;
 
-    const r = getBoundingClientRectRounded(blockElement);
-    const topLeft = clientPointToElementLocal(blockElement, r.left, r.top);
-    const topRight = clientPointToElementLocal(blockElement, r.right, r.top);
-    const bottomLeft = clientPointToElementLocal(blockElement, r.left, r.bottom);
+    const r = SvgUtils.getBoundingClientRectRounded(blockElement);
+    const topLeft = SvgUtils.clientPointToElementLocal(blockElement, r.left, r.top);
+    const topRight = SvgUtils.clientPointToElementLocal(blockElement, r.right, r.top);
+    const bottomLeft = SvgUtils.clientPointToElementLocal(blockElement, r.left, r.bottom);
     if (!topLeft || !topRight || !bottomLeft) return fallback;
 
     const widthFromClient = Math.abs(topRight.x - topLeft.x);
     return {
       connectorX: topLeft.x,
       width: widthFromClient > 0 ? widthFromClient : b.width,
-      topBaseY: topLeft.y - CONNECTOR_THRESHOLD,
+      topBaseY: topLeft.y - Global.CONNECTOR_THRESHOLD,
       bottomBaseY: bottomLeft.y,
     };
   }
@@ -102,9 +94,9 @@ export class ConnectorZone {
     return new ConnectorZone({
       type: 'top',
       x: connectorX,
-      y: topBaseY + CONNECTOR_OFFSETS.TOP_Y,
+      y: topBaseY + Global.CONNECTOR_OFFSETS.TOP_Y,
       width,
-      height: CONNECTOR_THRESHOLD,
+      height: Global.CONNECTOR_THRESHOLD,
     });
   }
 
@@ -112,9 +104,9 @@ export class ConnectorZone {
     return new ConnectorZone({
       type: 'bottom',
       x: connectorX,
-      y: bottomBaseY - CONNECTOR_SOCKET_HEIGHT + CONNECTOR_OFFSETS.BOTTOM_Y,
+      y: bottomBaseY - Global.CONNECTOR_SOCKET_HEIGHT + Global.CONNECTOR_OFFSETS.BOTTOM_Y,
       width,
-      height: CONNECTOR_THRESHOLD,
+      height: Global.CONNECTOR_THRESHOLD,
     });
   }
 

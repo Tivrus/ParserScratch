@@ -1,213 +1,144 @@
-// --- Stack snap hit-test (no graph mutations) ---
+// --- Stack snap rules (no graph mutations) ---
 
-import { readWorkspaceBlockUUID } from '../../utils/SvgUtils.js';
-import { ConnectorZone } from '../blocks/ConnectorZone.js';
+import * as SvgUtils from '../../utils/SvgUtils.js';
+import * as ConnectorZoneModule from '../blocks/ConnectorZone.js';
+import * as ConnectorClientGeometry from './connectorClientGeometry.js';
+import * as StackMiddleJoint from './stackMiddleJoint.js';
+import * as StackSocketHit from './stackSocketHit.js';
+import * as StackChainGraph from './stackChainGraph.js';
 
 export class BlockConnectionCheck {
-  // UUID of the dragged workspace block; grab manager wins if the block is grabbed.
   static resolveDraggedBlockUUID(draggedElement, grabManager) {
-    const fromGrab = grabManager?.getWorkspaceBlockGrabUUID?.();
-    if (fromGrab) {
-      return fromGrab;
+    const grabWorkspaceBlockUUID = grabManager?.getWorkspaceBlockGrabUUID?.();
+    if (grabWorkspaceBlockUUID) {
+      return grabWorkspaceBlockUUID;
     }
-
-    return readWorkspaceBlockUUID(draggedElement) || '';
+    return SvgUtils.readWorkspaceBlockUUID(draggedElement) || '';
   }
 
-  // Axis-aligned overlap in viewport (client) coordinates.
-  static rectsIntersectClient(clientRectA, clientRectB) {
-    const separated =
-      clientRectA.right <= clientRectB.left ||
-      clientRectA.left >= clientRectB.right ||
-      clientRectA.bottom <= clientRectB.top ||
-      clientRectA.top >= clientRectB.bottom;
-    return !separated;
+  static canConnectStackBelow(draggedBlock, targetBlock, blockRegistry = null) {
+    if (!ConnectorZoneModule.ConnectorZone.zoneByType(draggedBlock.connectorZones, 'top')) return false;
+    if (targetBlock?.nextUUID) return false;
+    const resolvedSocket = StackSocketHit.getStackSocketBelow(targetBlock, blockRegistry);
+    if (!resolvedSocket) return false;
+    return StackSocketHit.draggedOutlineIntersectsSocket(draggedBlock, resolvedSocket);
   }
 
-  // Connector zone rect in block local space → AABB in client pixels (getScreenCTM).
-  static zoneToClientRect(blockGroup, zone) {
-    const svg = blockGroup.ownerSVGElement;
-    if (!svg?.createSVGPoint || typeof blockGroup.getScreenCTM !== 'function') {
-      return null;
-    }
-
-    const ctm = blockGroup.getScreenCTM();
-    if (!ctm) return null;
-
-    const pt = svg.createSVGPoint();
-    const corners = [
-      [zone.x, zone.y],
-      [zone.x + zone.width, zone.y],
-      [zone.x + zone.width, zone.y + zone.height],
-      [zone.x, zone.y + zone.height],
-    ];
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const [lx, ly] of corners) {
-      pt.x = lx;
-      pt.y = ly;
-      try {
-        const p = pt.matrixTransform(ctm);
-        minX = Math.min(minX, p.x);
-        minY = Math.min(minY, p.y);
-        maxX = Math.max(maxX, p.x);
-        maxY = Math.max(maxY, p.y);
-      } catch {
-        return null;
-      }
-    }
-
-    return { left: minX, top: minY, right: maxX, bottom: maxY };
-  }
-
-  // Middle zone on parent <g>, replaces bottom; link to block below via linkedChildUUID.
-  static middleJointOnParent(parent, child) {
-    return (
-      parent?.connectorZones?.find(
-        z => z.type === 'middle' && z.linkedChildUUID === child.blockUUID
-      ) ?? null
-    );
-  }
-
-  // Joint band in viewport: moves with child spread (translate), not fixed to parent alone.
-  static middleJointBandClientRect(parent, child, mid) {
-    if (!parent?.element || !child?.element || !mid) return null;
-    const horizontal = this.zoneToClientRect(parent.element, mid);
-    if (!horizontal) return null;
-    const pr = parent.element.getBoundingClientRect();
-    const cr = child.element.getBoundingClientRect();
-    const seamY = (pr.bottom + cr.top) / 2;
-    const halfH = mid.height / 2;
-    return {
-      left: horizontal.left,
-      right: horizontal.right,
-      top: seamY - halfH,
-      bottom: seamY + halfH,
-    };
-  }
-
-  static canConnectStackBelow(dragged, other, blockRegistry = null) {
-    if (!ConnectorZone.zoneByType(dragged.connectorZones, 'top')) return false;
-    // Below this block only when it has no stack successor; otherwise use middle (between) or below the tail.
-    if (other?.nextUUID) return false;
-    return this.#canConnectStackBelowGeometry(dragged, other, blockRegistry);
-  }
-
-  static canConnectStackAbove(dragged, other, blockRegistry = null) {
-    if (!ConnectorZone.zoneByType(dragged.connectorZones, 'bottom')) return false;
-    return this.#canConnectStackAboveGeometry(dragged, other, blockRegistry);
-  }
-
-  /** Last block along `nextUUID` from `headBlock`, or `headBlock` if no successor. */
-  static stackTailBlock(blockRegistry, headBlock) {
-    if (!headBlock?.blockUUID || !blockRegistry) return null;
-    let cur = headBlock;
-    const seen = new Set();
-    while (cur?.nextUUID && !seen.has(cur.blockUUID)) {
-      seen.add(cur.blockUUID);
-      cur = blockRegistry.get(cur.nextUUID) ?? null;
-    }
-    return cur;
+  static canConnectStackAbove(draggedBlock, targetBlock, blockRegistry = null) {
+    if (!ConnectorZoneModule.ConnectorZone.zoneByType(draggedBlock.connectorZones, 'bottom')) return false;
+    const resolvedSocket = StackSocketHit.getStackSocketAbove(targetBlock, blockRegistry);
+    if (!resolvedSocket) return false;
+    return StackSocketHit.draggedOutlineIntersectsSocket(draggedBlock, resolvedSocket);
   }
 
   /**
    * Held **chain** (≥2 blocks) head overlaps other stack head's **top** socket: prefix held chain, then other.
-   * Other must be a stack head with a top connector; held tail must not be `stop-block`.
    * Single-block drags use normal `above` snap instead.
    */
-  static canPrefixHeldChainOnOtherHead(dragged, other, blockRegistry) {
-    if (!dragged?.element || !other?.element || !blockRegistry) return false;
-    if (!dragged.nextUUID) return false;
-    if (other.parentUUID) return false;
-    const top = ConnectorZone.zoneByType(other.connectorZones, 'top');
-    if (!top) return false;
+  static canPrefixHeldChainOnOtherHead(draggedBlock, otherHeadBlock, blockRegistry) {
+    if (!draggedBlock?.element || !otherHeadBlock?.element || !blockRegistry) return false;
+    if (!draggedBlock.nextUUID) return false;
+    if (otherHeadBlock.parentUUID) return false;
+    const topSocketZone = ConnectorZoneModule.ConnectorZone.zoneByType(otherHeadBlock.connectorZones, 'top');
+    if (!topSocketZone) return false;
 
-    const tail = this.stackTailBlock(blockRegistry, dragged);
-    if (!tail || tail.type === 'stop-block') return false;
+    const heldChainTail = StackChainGraph.stackTailBlock(blockRegistry, draggedBlock);
+    if (!heldChainTail || heldChainTail.type === 'stop-block') return false;
 
-    const draggedOutline = dragged.element.getBoundingClientRect();
-    const targetClient = this.zoneToClientRect(other.element, top);
-    if (!targetClient) return false;
-    return this.rectsIntersectClient(draggedOutline, targetClient);
+    const draggedClientRect = draggedBlock.element.getBoundingClientRect();
+    const topSocketClientRect = ConnectorClientGeometry.zoneToClientRect(otherHeadBlock.element, topSocketZone);
+    if (!topSocketClientRect) return false;
+    return ConnectorClientGeometry.rectsIntersectClient(draggedClientRect, topSocketClientRect);
   }
 
-  static middleInsertEligibility(dragged, parent, child) {
-    if (!dragged?.element || !parent?.element || !child?.element) return false;
-    if (dragged.parentUUID || dragged.nextUUID) return false;
+  static middleInsertEligibility(draggedBlock, parentBlock, childBlock) {
+    if (!draggedBlock?.element || !parentBlock?.element || !childBlock?.element) return false;
+    if (draggedBlock.parentUUID || draggedBlock.nextUUID) return false;
 
-    const hasTop = Boolean(ConnectorZone.zoneByType(dragged.connectorZones, 'top'));
-    const hasBottom = Boolean(ConnectorZone.zoneByType(dragged.connectorZones, 'bottom'));
-    const t = dragged.type;
-    if (t === 'start-block') {
-      if (!hasBottom) return false;
-    } else if (t === 'stop-block') {
-      if (!hasTop) return false;
+    const draggedHasTopSocket = Boolean(
+      ConnectorZoneModule.ConnectorZone.zoneByType(draggedBlock.connectorZones, 'top')
+    );
+    const draggedHasBottomSocket = Boolean(
+      ConnectorZoneModule.ConnectorZone.zoneByType(draggedBlock.connectorZones, 'bottom')
+    );
+    const draggedBlockType = draggedBlock.type;
+    if (draggedBlockType === 'start-block') {
+      if (!draggedHasBottomSocket) return false;
+    } else if (draggedBlockType === 'stop-block') {
+      if (!draggedHasTopSocket) return false;
     } else {
-      if (!hasTop || !hasBottom) return false;
+      if (!draggedHasTopSocket || !draggedHasBottomSocket) return false;
     }
 
-    if (parent.nextUUID !== child.blockUUID || child.parentUUID !== parent.blockUUID) {
+    if (
+      parentBlock.nextUUID !== childBlock.blockUUID ||
+      childBlock.parentUUID !== parentBlock.blockUUID
+    ) {
       return false;
     }
-    return Boolean(this.middleJointOnParent(parent, child));
+    return Boolean(StackMiddleJoint.middleJointOnParent(parentBlock, childBlock));
   }
 
-  // Insert-between: band on live parent↔child seam (includes child spread translate).
-  static canInsertAtMiddleJoint(dragged, parent, child) {
-    if (!this.middleInsertEligibility(dragged, parent, child)) {
+  static canInsertAtMiddleJoint(draggedBlock, parentBlock, childBlock) {
+    if (!this.middleInsertEligibility(draggedBlock, parentBlock, childBlock)) {
       return false;
     }
-    const mid = this.middleJointOnParent(parent, child);
-    if (!mid) {
+    const middleZone = StackMiddleJoint.middleJointOnParent(parentBlock, childBlock);
+    if (!middleZone) {
       return false;
     }
-    const draggedOutline = dragged.element.getBoundingClientRect();
-    const zoneClient = this.middleJointBandClientRect(parent, child, mid);
-    if (!zoneClient) {
+    const draggedClientRect = draggedBlock.element.getBoundingClientRect();
+    const middleBandClientRect = StackMiddleJoint.middleJointBandClientRect(
+      parentBlock,
+      childBlock,
+      middleZone
+    );
+    if (!middleBandClientRect) {
       return false;
     }
-    return this.rectsIntersectClient(draggedOutline, zoneClient);
+    return ConnectorClientGeometry.rectsIntersectClient(draggedClientRect, middleBandClientRect);
   }
 
   static listConnectionCandidates(draggedElement, blockRegistry, grabManager) {
-    const draggedUUID = this.resolveDraggedBlockUUID(draggedElement, grabManager);
-    if (!draggedUUID) return [];
+    const draggedBlockUUID = this.resolveDraggedBlockUUID(draggedElement, grabManager);
+    if (!draggedBlockUUID) return [];
 
-    const dragged = blockRegistry.get(draggedUUID);
-    const capStack =
-      dragged?.type === 'start-block' || dragged?.type === 'stop-block';
-    if (!dragged || (!dragged.connectorZones?.length && !capStack)) return [];
+    const draggedBlock = blockRegistry.get(draggedBlockUUID);
+    const isCapStackBlock =
+      draggedBlock?.type === 'start-block' || draggedBlock?.type === 'stop-block';
+    if (!draggedBlock || (!draggedBlock.connectorZones?.length && !isCapStackBlock)) return [];
 
     const candidates = [];
 
-    for (const [otherUUID, other] of blockRegistry) {
-      if (otherUUID === draggedUUID) continue;
-      if (!other?.element || !other.connectorZones?.length) continue;
+    for (const [otherBlockUUID, otherBlock] of blockRegistry) {
+      if (otherBlockUUID === draggedBlockUUID) continue;
+      if (!otherBlock?.element || !otherBlock.connectorZones?.length) continue;
 
-      const prefixOnHead =
-        blockRegistry && this.canPrefixHeldChainOnOtherHead(dragged, other, blockRegistry);
-      const below =
-        !prefixOnHead && this.canConnectStackBelow(dragged, other, blockRegistry);
-      const above =
-        !prefixOnHead && this.canConnectStackAbove(dragged, other, blockRegistry);
-      if (prefixOnHead || below || above) {
-        candidates.push({ staticUUID: otherUUID, below, above, prefixOnHead });
+      const prefixChainOnOtherHead =
+        blockRegistry && this.canPrefixHeldChainOnOtherHead(draggedBlock, otherBlock, blockRegistry);
+      const canSnapBelow =
+        !prefixChainOnOtherHead && this.canConnectStackBelow(draggedBlock, otherBlock, blockRegistry);
+      const canSnapAbove =
+        !prefixChainOnOtherHead && this.canConnectStackAbove(draggedBlock, otherBlock, blockRegistry);
+      if (prefixChainOnOtherHead || canSnapBelow || canSnapAbove) {
+        candidates.push({
+          staticUUID: otherBlockUUID,
+          below: canSnapBelow,
+          above: canSnapAbove,
+          prefixOnHead: prefixChainOnOtherHead,
+        });
       }
     }
 
-    for (const child of blockRegistry.values()) {
-      if (child.blockUUID === draggedUUID || !child.parentUUID) continue;
-      const parent = blockRegistry.get(child.parentUUID);
-      if (!parent?.element || !child.element) continue;
+    for (const childBlock of blockRegistry.values()) {
+      if (childBlock.blockUUID === draggedBlockUUID || !childBlock.parentUUID) continue;
+      const parentBlock = blockRegistry.get(childBlock.parentUUID);
+      if (!parentBlock?.element || !childBlock.element) continue;
 
-      if (this.canInsertAtMiddleJoint(dragged, parent, child)) {
+      if (this.canInsertAtMiddleJoint(draggedBlock, parentBlock, childBlock)) {
         candidates.push({
-          staticUUID: child.blockUUID,
-          parentUUID: parent.blockUUID,
+          staticUUID: childBlock.blockUUID,
+          parentUUID: parentBlock.blockUUID,
           middle: true,
           below: false,
           above: false,
@@ -218,90 +149,37 @@ export class BlockConnectionCheck {
     return this.#dropBelowAboveThatDuplicateMiddleJoint(candidates);
   }
 
-  // Middle and below(parent)/above(child) share one seam; strip duplicate below/above when middle exists.
   static #dropBelowAboveThatDuplicateMiddleJoint(candidates) {
-    const middleChildByParent = new Map();
-    for (const c of candidates) {
-      if (c.middle && c.parentUUID != null) {
-        middleChildByParent.set(c.parentUUID, c.staticUUID);
+    const middleChildUUIDByParentUUID = new Map();
+    for (const candidate of candidates) {
+      if (candidate.middle && candidate.parentUUID != null) {
+        middleChildUUIDByParentUUID.set(candidate.parentUUID, candidate.staticUUID);
       }
     }
-    if (middleChildByParent.size === 0) {
+    if (middleChildUUIDByParentUUID.size === 0) {
       return candidates;
     }
 
-    const middleChildUUIDs = new Set(middleChildByParent.values());
+    const middleChildUUIDSet = new Set(middleChildUUIDByParentUUID.values());
 
-    const next = [];
-    for (const c of candidates) {
-      if (c.middle) {
-        next.push(c);
+    const filteredCandidates = [];
+    for (const candidate of candidates) {
+      if (candidate.middle) {
+        filteredCandidates.push(candidate);
         continue;
       }
-      let below = c.below;
-      let above = c.above;
-      if (below && middleChildByParent.has(c.staticUUID)) {
-        below = false;
+      let keepBelow = candidate.below;
+      let keepAbove = candidate.above;
+      if (keepBelow && middleChildUUIDByParentUUID.has(candidate.staticUUID)) {
+        keepBelow = false;
       }
-      if (above && middleChildUUIDs.has(c.staticUUID)) {
-        above = false;
+      if (keepAbove && middleChildUUIDSet.has(candidate.staticUUID)) {
+        keepAbove = false;
       }
-      if (below || above || c.prefixOnHead) {
-        next.push({ ...c, below, above });
-      }
-    }
-    return next;
-  }
-
-  static #getSocketBelow(other, blockRegistry) {
-    const bottom = ConnectorZone.zoneByType(other.connectorZones, 'bottom');
-    if (bottom) return { el: other.element, zone: bottom };
-    if (blockRegistry && other.nextUUID) {
-      const child = blockRegistry.get(other.nextUUID);
-      const mid = child ? this.middleJointOnParent(other, child) : null;
-      if (mid && other?.element) {
-        return { el: other.element, zone: mid, middlePair: { parent: other, child } };
+      if (keepBelow || keepAbove || candidate.prefixOnHead) {
+        filteredCandidates.push({ ...candidate, below: keepBelow, above: keepAbove });
       }
     }
-    return null;
-  }
-
-  static #getSocketAbove(other, blockRegistry) {
-    const top = ConnectorZone.zoneByType(other.connectorZones, 'top');
-    if (top) return { el: other.element, zone: top };
-    if (blockRegistry && other.parentUUID) {
-      const parent = blockRegistry.get(other.parentUUID);
-      const mid = parent ? this.middleJointOnParent(parent, other) : null;
-      if (mid && parent?.element) {
-        return { el: parent.element, zone: mid, middlePair: { parent, child: other } };
-      }
-    }
-    return null;
-  }
-
-  // Hit: dragged <g> bbox ∩ zone; for middle — live seam band (middlePair).
-  static #outlineIntersectsSocket(dragged, sock) {
-    const draggedOutline = dragged.element.getBoundingClientRect();
-    let targetClient;
-    if (sock.zone?.type === 'middle' && sock.middlePair) {
-      const { parent, child } = sock.middlePair;
-      targetClient = this.middleJointBandClientRect(parent, child, sock.zone);
-    } else {
-      targetClient = this.zoneToClientRect(sock.el, sock.zone);
-    }
-    if (!targetClient) return false;
-    return this.rectsIntersectClient(draggedOutline, targetClient);
-  }
-
-  static #canConnectStackBelowGeometry(dragged, other, blockRegistry) {
-    const sock = this.#getSocketBelow(other, blockRegistry);
-    if (!sock) return false;
-    return this.#outlineIntersectsSocket(dragged, sock);
-  }
-
-  static #canConnectStackAboveGeometry(dragged, other, blockRegistry) {
-    const sock = this.#getSocketAbove(other, blockRegistry);
-    if (!sock) return false;
-    return this.#outlineIntersectsSocket(dragged, sock);
+    return filteredCandidates;
   }
 }

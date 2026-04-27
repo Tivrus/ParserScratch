@@ -1,6 +1,6 @@
-import { logError, SHRINK_MS, DOM_IDS } from '../constans/Global.js';
-import { parseTranslateTransform } from '../utils/SvgUtils.js';
-import { collectChainBlocksFromHead } from '../interactions/blocks/StackChainDrag.js';
+import * as Global from '../constans/Global.js';
+import * as SvgUtils from '../utils/SvgUtils.js';
+import * as StackChainDrag from '../interactions/blocks/StackChainDrag.js';
 
 // Axis-aligned overlap; edges touching counts. DOMRect or { left, right, top, bottom }.
 function rectsIntersect(rectA, rectB) {
@@ -48,11 +48,11 @@ function unionClientRectFromElements(elements) {
   return { left, top, right, bottom };
 }
 
-function shrinkBlockToCenter(element, durationMs = SHRINK_MS) {
+function shrinkBlockToCenter(element, durationMs = Global.SHRINK_MS) {
   const bbox = element.getBBox();
   const centerX = bbox.x + bbox.width / 2;
   const centerY = bbox.y + bbox.height / 2;
-  const { x, y } = parseTranslateTransform(element);
+  const { x, y } = SvgUtils.parseTranslateTransform(element);
   const startTime = performance.now();
 
   return new Promise((resolve) => {
@@ -100,8 +100,8 @@ export class BlockDeletionManager {
   constructor({
     blockRegistry,
     workspaceEl,
-    trashCanId = DOM_IDS.trashCan,
-    sidebarId = DOM_IDS.sidebar,
+    trashCanId = Global.DOM_IDS.trashCan,
+    sidebarId = Global.DOM_IDS.sidebar,
     blockWorkspaceDrag,
     grabManager,
   }) {
@@ -113,7 +113,7 @@ export class BlockDeletionManager {
     this.grabManager = grabManager;
 
     if (!this.blockRegistry || !this.workspaceEl || !this.blockWorkspaceDrag) {
-      logError(
+      Global.logError(
         'BlockDeletionManager: blockRegistry, workspaceEl, blockWorkspaceDrag are required',
         {
           context: 'BlockDeletionManager',
@@ -136,7 +136,7 @@ export class BlockDeletionManager {
       return;
     }
 
-    const chainBlocks = collectChainBlocksFromHead(this.blockRegistry, stackHeadBlock);
+    const chainBlocks = StackChainDrag.collectChainBlocksFromHead(this.blockRegistry, stackHeadBlock);
     if (chainBlocks.length === 0) {
       return;
     }
@@ -168,7 +168,7 @@ export class BlockDeletionManager {
         const element = block.element;
         try {
           block.connectorZones = null;
-          await shrinkBlockToCenter(element, SHRINK_MS);
+          await shrinkBlockToCenter(element, Global.SHRINK_MS);
         } finally {
           this.blockRegistry.delete(block.blockUUID);
           element.remove();
