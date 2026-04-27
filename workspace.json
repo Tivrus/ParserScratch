@@ -1,8 +1,9 @@
 {
-  "blocks": {},
+  "blocks": {
+  },
   "camera": {
-    "x": -775,
-    "y": 373
+    "x": 416,
+    "y": 107
   },
   "modes": {
     "cameraInertia": false,

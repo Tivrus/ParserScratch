@@ -1,5 +1,40 @@
+import {
+  DOM_IDS,
+  START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET,
+  STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET,
+  WORKSPACE_EVENTS,
+} from '../../constans/Global.js';
 import { BlockConnectionCheck } from './BlockConnectionCheck.js';
 import { StackSnapLayout } from './stackSnapLayout.js';
+
+function findStackHeadBlock(blockRegistry, block) {
+  let cur = block;
+  while (cur?.parentUUID) {
+    const p = blockRegistry.get(cur.parentUUID);
+    if (!p) break;
+    cur = p;
+  }
+  return cur;
+}
+
+/** Ordered blocks from `head` along nextUUID until `tailInclusive` is included. */
+function collectChainFromHeadToInclusive(blockRegistry, head, tailInclusive) {
+  const out = [];
+  let cur = head;
+  while (cur) {
+    out.push(cur);
+    if (cur.blockUUID === tailInclusive.blockUUID) break;
+    if (!cur.nextUUID) break;
+    cur = blockRegistry.get(cur.nextUUID) ?? null;
+  }
+  return out;
+}
+
+function dispatchWorkspaceStructureChanged() {
+  document.getElementById(DOM_IDS.workspace)?.dispatchEvent(
+    new CustomEvent(WORKSPACE_EVENTS.structureChanged, { bubbles: true })
+  );
+}
 
 /** Recompute absolute positions for every block below `fromBlock` (via nextUUID). */
 export function repositionFollowingStackBlocks(fromBlock, blockRegistry) {
@@ -106,6 +141,27 @@ class StackConnectCommit {
     const pos = StackSnapLayout.translateMiddleInsert(parent, draggedElement);
     if (!pos) return null;
 
+    if (dragged.type === 'start-block') {
+      return this.#commitStartBlockMiddleChainSplit(
+        parent,
+        dragged,
+        child,
+        pos,
+        ghostPreview,
+        blockRegistry
+      );
+    }
+    if (dragged.type === 'stop-block') {
+      return this.#commitStopBlockMiddleChainSplit(
+        parent,
+        dragged,
+        child,
+        pos,
+        ghostPreview,
+        blockRegistry
+      );
+    }
+
     parent.nextUUID = dragged.blockUUID;
     dragged.parentUUID = parent.blockUUID;
     dragged.nextUUID = child.blockUUID;
@@ -117,6 +173,73 @@ class StackConnectCommit {
     ghostPreview.clear();
     dragged.setPosition(pos.x, pos.y);
     repositionFollowingStackBlocks(dragged, blockRegistry);
+    return pos;
+  }
+
+  /**
+   * Upper chain (head … parent) detaches; start becomes hat of the lower chain (child…).
+   * Upper segment shifts right/up.
+   */
+  static #commitStartBlockMiddleChainSplit(parent, dragged, child, pos, ghostPreview, blockRegistry) {
+    ghostPreview.clear();
+
+    const head = findStackHeadBlock(blockRegistry, parent);
+    const upper = collectChainFromHeadToInclusive(blockRegistry, head, parent);
+    const { x: ox, y: oy } = START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET;
+
+    parent.nextUUID = null;
+    dragged.parentUUID = null;
+    dragged.topLevel = true;
+    dragged.nextUUID = child.blockUUID;
+    child.parentUUID = dragged.blockUUID;
+    child.topLevel = false;
+    parent.topLevel = parent.parentUUID == null;
+
+    dragged.setPosition(pos.x, pos.y);
+
+    for (const b of upper) {
+      b.setPosition(Math.round(b.x + ox), Math.round(b.y + oy));
+    }
+
+    repositionFollowingStackBlocks(dragged, blockRegistry);
+    dispatchWorkspaceStructureChanged();
+    return pos;
+  }
+
+  /**
+   * Lower chain (child … tail) detaches; stop stays under parent; cap has no successor.
+   * Lower segment shifts right/down.
+   */
+  static #commitStopBlockMiddleChainSplit(parent, dragged, child, pos, ghostPreview, blockRegistry) {
+    ghostPreview.clear();
+
+    const lower = [];
+    let cur = child;
+    const seen = new Set();
+    while (cur && !seen.has(cur.blockUUID)) {
+      seen.add(cur.blockUUID);
+      lower.push(cur);
+      cur = cur.nextUUID ? blockRegistry.get(cur.nextUUID) ?? null : null;
+    }
+    const { x: ox, y: oy } = STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET;
+
+    parent.nextUUID = dragged.blockUUID;
+    dragged.parentUUID = parent.blockUUID;
+    dragged.nextUUID = null;
+    dragged.topLevel = false;
+    parent.topLevel = parent.parentUUID == null;
+
+    child.parentUUID = null;
+    child.topLevel = true;
+
+    dragged.setPosition(pos.x, pos.y);
+
+    for (const b of lower) {
+      b.setPosition(Math.round(b.x + ox), Math.round(b.y + oy));
+    }
+
+    repositionFollowingStackBlocks(child, blockRegistry);
+    dispatchWorkspaceStructureChanged();
     return pos;
   }
 }

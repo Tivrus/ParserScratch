@@ -146,6 +146,11 @@ export const WORKSPACE_BLOCK_GRID_SNAP = {
   enabled: true,
 };
 
+/** When a start-block is inserted in the middle of a stack: upper segment (chain above it) shifts by this (px). */
+export const START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET = { x: 48, y: -56 };
+/** When a stop-block is inserted in the middle: lower segment (chain below it) shifts by this (px). */
+export const STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET = { x: 48, y: 56 };
+
 // === WORKSPACE CAMERA INERTIA (after empty-workspace grid pan) ===
 // Uses GrabManager grab-end `duration` (ms) and `deltaX`/`deltaY` (px, pointer displacement).
 // `enabled` is toggled at runtime (e.g. workspace toolbar).
