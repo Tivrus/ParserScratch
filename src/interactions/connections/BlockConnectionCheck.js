@@ -102,6 +102,39 @@ export class BlockConnectionCheck {
     return this.#canConnectStackAboveGeometry(dragged, other, blockRegistry);
   }
 
+  /** Last block along `nextUUID` from `headBlock`, or `headBlock` if no successor. */
+  static stackTailBlock(blockRegistry, headBlock) {
+    if (!headBlock?.blockUUID || !blockRegistry) return null;
+    let cur = headBlock;
+    const seen = new Set();
+    while (cur?.nextUUID && !seen.has(cur.blockUUID)) {
+      seen.add(cur.blockUUID);
+      cur = blockRegistry.get(cur.nextUUID) ?? null;
+    }
+    return cur;
+  }
+
+  /**
+   * Held **chain** (≥2 blocks) head overlaps other stack head's **top** socket: prefix held chain, then other.
+   * Other must be a stack head with a top connector; held tail must not be `stop-block`.
+   * Single-block drags use normal `above` snap instead.
+   */
+  static canPrefixHeldChainOnOtherHead(dragged, other, blockRegistry) {
+    if (!dragged?.element || !other?.element || !blockRegistry) return false;
+    if (!dragged.nextUUID) return false;
+    if (other.parentUUID) return false;
+    const top = ConnectorZone.zoneByType(other.connectorZones, 'top');
+    if (!top) return false;
+
+    const tail = this.stackTailBlock(blockRegistry, dragged);
+    if (!tail || tail.type === 'stop-block') return false;
+
+    const draggedOutline = dragged.element.getBoundingClientRect();
+    const targetClient = this.zoneToClientRect(other.element, top);
+    if (!targetClient) return false;
+    return this.rectsIntersectClient(draggedOutline, targetClient);
+  }
+
   static middleInsertEligibility(dragged, parent, child) {
     if (!dragged?.element || !parent?.element || !child?.element) return false;
     if (dragged.parentUUID || dragged.nextUUID) return false;
@@ -155,10 +188,14 @@ export class BlockConnectionCheck {
       if (otherUUID === draggedUUID) continue;
       if (!other?.element || !other.connectorZones?.length) continue;
 
-      const below = this.canConnectStackBelow(dragged, other, blockRegistry);
-      const above = this.canConnectStackAbove(dragged, other, blockRegistry);
-      if (below || above) {
-        candidates.push({ staticUUID: otherUUID, below, above });
+      const prefixOnHead =
+        blockRegistry && this.canPrefixHeldChainOnOtherHead(dragged, other, blockRegistry);
+      const below =
+        !prefixOnHead && this.canConnectStackBelow(dragged, other, blockRegistry);
+      const above =
+        !prefixOnHead && this.canConnectStackAbove(dragged, other, blockRegistry);
+      if (prefixOnHead || below || above) {
+        candidates.push({ staticUUID: otherUUID, below, above, prefixOnHead });
       }
     }
 
@@ -209,7 +246,7 @@ export class BlockConnectionCheck {
       if (above && middleChildUUIDs.has(c.staticUUID)) {
         above = false;
       }
-      if (below || above) {
+      if (below || above || c.prefixOnHead) {
         next.push({ ...c, below, above });
       }
     }

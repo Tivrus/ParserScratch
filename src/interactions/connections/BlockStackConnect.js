@@ -4,6 +4,8 @@ import {
   STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET,
   WORKSPACE_EVENTS,
 } from '../../constans/Global.js';
+import { parseTranslateTransform } from '../../utils/SvgUtils.js';
+import { ConnectorZone } from '../blocks/ConnectorZone.js';
 import { BlockConnectionCheck } from './BlockConnectionCheck.js';
 import { StackSnapLayout } from './stackSnapLayout.js';
 
@@ -79,6 +81,11 @@ class StackConnectCommit {
     if (!pair) return null;
 
     const { dragged: d, anchor } = pair;
+    if (snap.mode === 'prefixOnHead') {
+      return (
+        this.#commitPrefixOnHead(anchor, d, draggedElement, ghostPreview, blockRegistry) ?? null
+      );
+    }
     if (snap.mode === 'below') {
       return this.#commitBelow(anchor, d, draggedElement, ghostPreview, blockRegistry) ?? null;
     }
@@ -131,6 +138,31 @@ class StackConnectCommit {
     dragged.topLevel = true;
 
     ghostPreview.clear();
+    return pos;
+  }
+
+  /**
+   * Same links as {@link #commitAbove}: other stack hangs under held tail.
+   * Held head snaps to the other head's former (x,y).
+   */
+  static #commitPrefixOnHead(anchor, dragged, draggedElement, ghostPreview, blockRegistry) {
+    if (anchor.parentUUID || dragged.parentUUID) return null;
+    if (!dragged.nextUUID) return null;
+    if (!ConnectorZone.zoneByType(anchor.connectorZones, 'top')) return null;
+
+    const tail = BlockConnectionCheck.stackTailBlock(blockRegistry, dragged);
+    if (!tail || tail.type === 'stop-block') return null;
+
+    const { x, y } = parseTranslateTransform(anchor.element);
+    const pos = { x: Math.round(x), y: Math.round(y) };
+
+    tail.nextUUID = anchor.blockUUID;
+    anchor.parentUUID = tail.blockUUID;
+    anchor.topLevel = false;
+    dragged.topLevel = true;
+
+    ghostPreview.clear();
+    requestAnimationFrame(() => dispatchWorkspaceStructureChanged());
     return pos;
   }
 

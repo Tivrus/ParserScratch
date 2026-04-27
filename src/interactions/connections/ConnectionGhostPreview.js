@@ -1,6 +1,12 @@
 import { GhostBlock } from '../GhostBlock.js';
 import * as ChainMiddleZone from '../blocks/ChainMiddleZone.js';
 import { collectChainUuidSetFromHead } from '../blocks/StackChainDrag.js';
+import {
+  CONNECTOR_SOCKET_HEIGHT,
+  DEFAULT_BLOCK_HEIGHT,
+  START_BLOCK_NORMAL_STACK_EXTRA_Y,
+} from '../../constans/Global.js';
+import { parseTranslateTransform } from '../../utils/SvgUtils.js';
 import { BlockConnectionCheck } from './BlockConnectionCheck.js';
 import { StackSnapLayout } from './stackSnapLayout.js';
 
@@ -131,6 +137,9 @@ export class ConnectionGhostPreview {
         parentUUID: snap.parentUUID,
       };
     }
+    if (snap.mode === 'prefixOnHead') {
+      return { staticUUID: snap.staticUUID, mode: 'prefixOnHead' };
+    }
     return { staticUUID: snap.staticUUID, mode: snap.mode };
   }
 
@@ -142,6 +151,23 @@ export class ConnectionGhostPreview {
         return null;
       }
       return StackSnapLayout.translateMiddleInsert(parent, draggedElement);
+    }
+    if (snap.mode === 'prefixOnHead') {
+      const anchor = blockRegistry.get(snap.staticUUID);
+      if (!anchor?.element) {
+        return null;
+      }
+      const { x, y } = parseTranslateTransform(anchor.element);
+      let headH = DEFAULT_BLOCK_HEIGHT;
+      try {
+        headH = draggedElement.getBBox().height;
+      } catch {
+        /* keep default */
+      }
+      return {
+        x,
+        y: y - headH + CONNECTOR_SOCKET_HEIGHT - START_BLOCK_NORMAL_STACK_EXTRA_Y,
+      };
     }
     const anchor = blockRegistry.get(snap.staticUUID);
     if (!anchor?.element) {
@@ -206,6 +232,10 @@ export class ConnectionGhostPreview {
         parentUUID: joint.parentUUID,
         mode: 'middle',
       };
+    }
+    const prefix = candidates.find(c => c.prefixOnHead);
+    if (prefix) {
+      return { staticUUID: prefix.staticUUID, mode: 'prefixOnHead' };
     }
     const under = candidates.find(c => c.below);
     if (under) {
