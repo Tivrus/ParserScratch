@@ -5,28 +5,38 @@ import * as BlockConnectionCheckModule from '../hit-test/BlockConnectionCheck.js
 import * as StackSnapPositions from '../layout/stackSnapPositions.js';
 import * as StackMiddleJoint from '../hit-test/stackMiddleJoint.js';
 import * as ConnectorClientGeometry from '../hit-test/connectorClientGeometry.js';
+import * as CBlockInnerSnap from '../../c-block/innerSnapPriorities.js';
+import * as CBlockPathStretch from '../../c-block/cBlockPathStretchPreview.js';
 
 // Silhouette preview at stack snap target (see tryCommitStackConnect).
 export class ConnectionGhostPreview {
   #dragOverlayEl;
   #blockContainerEl;
   #getWorkspaceGridOffset;
+  #refreshConnectorZones;
   #ghostBlock;
   #lastTargetKey;
   #activeSnap;
   #blockRegistry;
   /** @type {Set<string>|null} Blocks on the drag overlay (whole stack) — skip chain-spread reset for all of them. */
   #spreadExcludeIds;
+  /** @type {string|null} */
+  #stretchAppliedUuid;
+  /** @type {Map<string, string>} */
+  #stretchBaseDByUuid;
 
-  constructor({ dragOverlayEl, blockContainerEl, getWorkspaceGridOffset }) {
+  constructor({ dragOverlayEl, blockContainerEl, getWorkspaceGridOffset, refreshConnectorZones } = {}) {
     this.#dragOverlayEl = dragOverlayEl;
     this.#blockContainerEl = blockContainerEl;
     this.#getWorkspaceGridOffset = getWorkspaceGridOffset ?? (() => ({ x: 0, y: 0 }));
+    this.#refreshConnectorZones = typeof refreshConnectorZones === 'function' ? refreshConnectorZones : null;
     this.#ghostBlock = new GhostBlockModule.GhostBlock();
     this.#lastTargetKey = null;
     this.#activeSnap = null;
     this.#blockRegistry = null;
     this.#spreadExcludeIds = null;
+    this.#stretchAppliedUuid = null;
+    this.#stretchBaseDByUuid = new Map();
   }
 
   getActiveSnap() {
@@ -59,11 +69,24 @@ export class ConnectionGhostPreview {
       grabManager
     );
 
-    const pickedSnap = StackSnapPositions.pickStackSnapFromCandidates(candidates);
+    const draggedBlock = draggedStackHeadUUID ? blockRegistry.get(draggedStackHeadUUID) : null;
+    const pickedSnap = CBlockInnerSnap.resolveGhostSnapWithTopInnerPriority(
+      candidates,
+      draggedBlock,
+      draggedElement,
+      blockRegistry
+    );
 
     if (!pickedSnap) {
+      this.#exitTopInnerStretchIfAny();
       this.#cancelSnapPreview(blockRegistry);
       return;
+    }
+
+    if (pickedSnap.mode === 'topInner' && draggedBlock) {
+      this.#syncTopInnerPathStretch(blockRegistry.get(pickedSnap.staticUUID), draggedElement);
+    } else {
+      this.#exitTopInnerStretchIfAny();
     }
 
     const ghostWorldPosition = StackSnapPositions.workspacePositionForGhostSnap(
@@ -72,6 +95,7 @@ export class ConnectionGhostPreview {
       draggedElement
     );
     if (!ghostWorldPosition) {
+      this.#exitTopInnerStretchIfAny();
       this.#cancelSnapPreview(blockRegistry);
       return;
     }
@@ -90,6 +114,19 @@ export class ConnectionGhostPreview {
         chainSpreadDeltaY,
         this.#spreadExcludeIds
       );
+    } else if (pickedSnap.mode === 'topInner') {
+      const cBlock = blockRegistry.get(pickedSnap.staticUUID);
+      const chainSpreadDeltaY = CBlockPathStretch.cBlockTopInnerStretchDeltaY(draggedElement);
+      if (cBlock?.nextUUID && chainSpreadDeltaY) {
+        ChainMiddleZone.setChainSpreadBelow(
+          blockRegistry,
+          cBlock.nextUUID,
+          chainSpreadDeltaY,
+          this.#spreadExcludeIds
+        );
+      } else {
+        ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
+      }
     } else {
       ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
     }
@@ -120,6 +157,7 @@ export class ConnectionGhostPreview {
   }
 
   clear() {
+    this.#exitTopInnerStretchIfAny();
     if (this.#blockRegistry) {
       ChainMiddleZone.clearChainSpread(this.#blockRegistry, this.#spreadExcludeIds);
     }
@@ -135,6 +173,44 @@ export class ConnectionGhostPreview {
     this.clear();
   }
 
+  #syncTopInnerPathStretch(cBlock, draggedElement) {
+    if (!cBlock?.element) return;
+    const pathEl = CBlockPathStretch.getWorkspaceBlockPathElement(cBlock);
+    if (!pathEl) return;
+
+    const uuid = cBlock.blockUUID;
+    if (!this.#stretchBaseDByUuid.has(uuid)) {
+      this.#stretchBaseDByUuid.set(uuid, pathEl.getAttribute('d') ?? '');
+    }
+    const baseD = this.#stretchBaseDByUuid.get(uuid);
+    const delta = CBlockPathStretch.cBlockTopInnerStretchDeltaY(draggedElement);
+    if (!delta) {
+      pathEl.setAttribute('d', baseD);
+      this.#refreshConnectorZones?.();
+      return;
+    }
+    pathEl.setAttribute('d', CBlockPathStretch.buildStretchedCBlockPathD(baseD, delta));
+    this.#stretchAppliedUuid = uuid;
+    this.#refreshConnectorZones?.();
+  }
+
+  #exitTopInnerStretchIfAny() {
+    if (!this.#stretchAppliedUuid || !this.#blockRegistry) {
+      this.#stretchAppliedUuid = null;
+      return;
+    }
+    const uuid = this.#stretchAppliedUuid;
+    const block = this.#blockRegistry.get(uuid);
+    const baseD = this.#stretchBaseDByUuid.get(uuid);
+    const pathEl = CBlockPathStretch.getWorkspaceBlockPathElement(block);
+    if (pathEl && baseD != null) {
+      pathEl.setAttribute('d', baseD);
+    }
+    this.#stretchBaseDByUuid.delete(uuid);
+    this.#stretchAppliedUuid = null;
+    this.#refreshConnectorZones?.();
+  }
+
   #activeSnapPayload(snap) {
     if (snap.mode === 'middle') {
       return {
@@ -145,6 +221,9 @@ export class ConnectionGhostPreview {
     }
     if (snap.mode === 'prefixOnHead') {
       return { staticUUID: snap.staticUUID, mode: 'prefixOnHead' };
+    }
+    if (snap.mode === 'topInner') {
+      return { staticUUID: snap.staticUUID, mode: 'topInner' };
     }
     return { staticUUID: snap.staticUUID, mode: snap.mode };
   }

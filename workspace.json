@@ -7,13 +7,43 @@
       "inputs": {},
       "fields": {},
       "topLevel": true,
-      "x": 138,
-      "y": 458
+      "x": 60,
+      "y": 347
+    },
+    "EWk1H6V0wXaNiqwUUBof": {
+      "opcode": "turn_left_steps",
+      "next": null,
+      "parent": null,
+      "inputs": {},
+      "fields": {},
+      "topLevel": true,
+      "x": 231,
+      "y": 526
+    },
+    "dTu31y%op64SiJBmfyjY": {
+      "opcode": "control_repeat",
+      "next": null,
+      "parent": null,
+      "inputs": {},
+      "fields": {},
+      "topLevel": true,
+      "x": 381,
+      "y": 278
+    },
+    "fghM6troH6Mvy8+F%DCu": {
+      "opcode": "control_stop",
+      "next": null,
+      "parent": null,
+      "inputs": {},
+      "fields": {},
+      "topLevel": true,
+      "x": 454,
+      "y": 601
     }
   },
   "camera": {
-    "x": -49,
-    "y": -3
+    "x": -28,
+    "y": 42
   },
   "modes": {
     "cameraInertia": false,

@@ -3,11 +3,17 @@
 import * as Global from '../../constants/Global.js';
 import * as SvgUtils from '../../infrastructure/svg/SvgUtils.js';
 import * as SnapLayout from './stackSnapLayout.js';
+import * as CBlockInnerGhostLayout from '../../c-block/innerGhostLayout.js';
 
 /**
  * World coordinates under `#block-world-root` (+ grid offset applied later in overlay).
  */
 export function workspacePositionForGhostSnap(snap, blockRegistry, draggedElement) {
+  if (snap.mode === 'topInner') {
+    const cBlock = blockRegistry.get(snap.staticUUID);
+    return CBlockInnerGhostLayout.computeTopInnerGhostWorldPosition(cBlock, draggedElement);
+  }
+
   if (snap.mode === 'middle') {
     const parentBlock = blockRegistry.get(snap.parentUUID);
     const childBlock = blockRegistry.get(snap.staticUUID);

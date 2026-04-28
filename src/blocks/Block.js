@@ -61,13 +61,16 @@ export class Block {
 
   // Path + label nodes for workspace <g> and library <svg> templates.
   static fillContent(container, data) {
-    container.appendChild(SvgUtils.createElement('path', {
-      d: data.pathData,
-      fill: data.fillColor,
-      stroke: data.strokeColor,
-      'stroke-width': 2,
-      'stroke-linejoin': 'round',
-    }));
+    container.appendChild(
+      SvgUtils.createElement('path', {
+        d: data.pathData,
+        fill: data.fillColor,
+        stroke: data.strokeColor,
+        'stroke-width': 2,
+        'stroke-linejoin': 'round',
+        'data-block-type': data.type,
+      })
+    );
 
     data.labels?.forEach(label => {
       const text = SvgUtils.createElement('text', {

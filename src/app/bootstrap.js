@@ -61,6 +61,7 @@ class ScratchEditor {
       dragOverlayEl: this.#dragOverlayEl,
       blockContainerEl: this.#blockContainerEl,
       getWorkspaceGridOffset,
+      refreshConnectorZones: () => this.#blockSpawner.refreshWorkspaceConnectorZones(),
     });
 
     this.#blockSpawner = new BlockSpawnerModule.BlockSpawner(this.#blockLogic, this.#grabManager, {
