@@ -2,7 +2,7 @@
 import * as MathUtils from '../infrastructure/math/MathUtils.js';
 import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
-import * as BlockModule from '../constants/Block.js';
+import * as BlockModule from '../blocks/Block.js';
 
 export class BlockLogic {
   constructor(categoriesMap) {

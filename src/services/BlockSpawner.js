@@ -1,7 +1,7 @@
 import * as Grid from '../workspace/grid.js';
 import * as MathUtils from '../infrastructure/math/MathUtils.js';
 import * as Global from '../constants/Global.js';
-import * as BlockModule from '../constants/Block.js';
+import * as BlockModule from '../blocks/Block.js';
 import * as ChainMiddleZone from '../blocks/ChainMiddleZone.js';
 
 export class BlockSpawner {

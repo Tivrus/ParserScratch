@@ -1,5 +1,6 @@
 import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
+import * as CBlockTopInner from '../c-block/topInnerConnector.js';
 
 // Connector hit bands in the block group's local coordinate system.
 export class ConnectorZone {
@@ -33,11 +34,18 @@ export class ConnectorZone {
     const { connectorX, width, topBaseY, bottomBaseY } = g;
     switch (data.type) {
       case 'default-block':
-      case 'c-block':
         return [
           ConnectorZone.#makeTopZone(connectorX, width, topBaseY),
           ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY),
         ];
+      case 'c-block': {
+        const zones = [
+          ConnectorZone.#makeTopZone(connectorX, width, topBaseY),
+          ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY),
+        ];
+        zones.push(new ConnectorZone(CBlockTopInner.computeCBlockTopInnerRect(g)));
+        return zones;
+      }
       case 'start-block':
         return [ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY)];
       case 'stop-block':

@@ -51,7 +51,7 @@ export function getBoundingClientRectRounded(element) {
   };
 }
 
-// Client (viewport) coordinates → this element's local user space (inverse of getScreenCTM).
+// Client (viewport) coordinates -> this element's local user space (inverse of getScreenCTM).
 export function clientPointToElementLocal(element, clientX, clientY) {
   const svg = element.ownerSVGElement;
   if (!svg?.createSVGPoint || typeof element.getScreenCTM !== 'function') return null;
