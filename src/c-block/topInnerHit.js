@@ -19,21 +19,19 @@ export function findCBlockTopInnerHit(draggedBlock, draggedElement, blockRegistr
     if (!zone) continue;
 
     const zoneClient = ConnectorClientGeometry.zoneToClientRect(block.element, zone);
-    if (
-      zoneClient &&
-      ConnectorClientGeometry.rectsIntersectClient(draggedRect, zoneClient)
-    ) {
+    if (zoneClient && ConnectorClientGeometry.rectsIntersectClient(draggedRect, zoneClient)) {
       return { cBlock: block, zone };
     }
   }
   return null;
 }
 
-/** Внутренний превью — только одиночный блок с верхним коннектором. */
+/**
+ * Inner-stack ghost: dragged stack head must expose a top connector (not start-block).
+ * Chains are allowed; start-block heads are excluded explicitly and have no top zone anyway.
+ */
 export function isTopInnerGhostEligible(draggedBlock) {
   if (!draggedBlock?.element) return false;
-  if (draggedBlock.nextUUID) return false;
-  return Boolean(
-    ConnectorZoneModule.ConnectorZone.zoneByType(draggedBlock.connectorZones, 'top')
-  );
+  if (draggedBlock.type === 'start-block') return false;
+  return Boolean(ConnectorZoneModule.ConnectorZone.zoneByType(draggedBlock.connectorZones, 'top'));
 }

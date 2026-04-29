@@ -18,7 +18,7 @@ export class ConnectionGhostPreview {
   #lastTargetKey;
   #activeSnap;
   #blockRegistry;
-  /** @type {Set<string>|null} Blocks on the drag overlay (whole stack) — skip chain-spread reset for all of them. */
+  /** @type {Set<string>|null} UUIDs on the drag overlay (whole dragged stack); excluded from chain-spread clears. */
   #spreadExcludeIds;
   /** @type {string|null} */
   #stretchAppliedUuid;
@@ -84,7 +84,11 @@ export class ConnectionGhostPreview {
     }
 
     if (pickedSnap.mode === 'topInner' && draggedBlock) {
-      this.#syncTopInnerPathStretch(blockRegistry.get(pickedSnap.staticUUID), draggedElement);
+      this.#syncTopInnerPathStretch(
+        blockRegistry.get(pickedSnap.staticUUID),
+        draggedElement,
+        draggedBlock.type
+      );
     } else {
       this.#exitTopInnerStretchIfAny();
     }
@@ -173,12 +177,15 @@ export class ConnectionGhostPreview {
     this.clear();
   }
 
-  #syncTopInnerPathStretch(cBlock, draggedElement) {
+  #syncTopInnerPathStretch(cBlock, draggedElement, draggedBlockType) {
     if (!cBlock?.element) return;
     const pathEl = CBlockPathStretch.getWorkspaceBlockPathElement(cBlock);
     if (!pathEl) return;
 
     const uuid = cBlock.blockUUID;
+    if (this.#stretchAppliedUuid && this.#stretchAppliedUuid !== uuid) {
+      this.#restoreTopInnerStretchForUuid(this.#stretchAppliedUuid);
+    }
     if (!this.#stretchBaseDByUuid.has(uuid)) {
       this.#stretchBaseDByUuid.set(uuid, pathEl.getAttribute('d') ?? '');
     }
@@ -186,28 +193,47 @@ export class ConnectionGhostPreview {
     const delta = CBlockPathStretch.cBlockTopInnerStretchDeltaY(draggedElement);
     if (!delta) {
       pathEl.setAttribute('d', baseD);
+      if (this.#stretchAppliedUuid === uuid) {
+        this.#stretchAppliedUuid = null;
+      }
       this.#refreshConnectorZones?.();
       return;
     }
-    pathEl.setAttribute('d', CBlockPathStretch.buildStretchedCBlockPathD(baseD, delta));
+    pathEl.setAttribute('d', CBlockPathStretch.buildStretchedCBlockPathD(baseD, delta, draggedBlockType));
     this.#stretchAppliedUuid = uuid;
     this.#refreshConnectorZones?.();
   }
 
   #exitTopInnerStretchIfAny() {
-    if (!this.#stretchAppliedUuid || !this.#blockRegistry) {
-      this.#stretchAppliedUuid = null;
+    if (!this.#stretchAppliedUuid) {
       return;
     }
-    const uuid = this.#stretchAppliedUuid;
-    const block = this.#blockRegistry.get(uuid);
+    this.#restoreTopInnerStretchForUuid(this.#stretchAppliedUuid);
+  }
+
+  /** Restores `d` from the snapshot for this workspace block UUID (must match the stretched c-block). */
+  #restoreTopInnerStretchForUuid(uuid) {
+    if (!uuid) {
+      return;
+    }
     const baseD = this.#stretchBaseDByUuid.get(uuid);
+    const block = this.#blockRegistry?.get(uuid);
+    if (block?.blockUUID !== uuid) {
+      this.#stretchBaseDByUuid.delete(uuid);
+      if (this.#stretchAppliedUuid === uuid) {
+        this.#stretchAppliedUuid = null;
+      }
+      this.#refreshConnectorZones?.();
+      return;
+    }
     const pathEl = CBlockPathStretch.getWorkspaceBlockPathElement(block);
-    if (pathEl && baseD != null) {
+    if (pathEl != null && baseD != null) {
       pathEl.setAttribute('d', baseD);
     }
     this.#stretchBaseDByUuid.delete(uuid);
-    this.#stretchAppliedUuid = null;
+    if (this.#stretchAppliedUuid === uuid) {
+      this.#stretchAppliedUuid = null;
+    }
     this.#refreshConnectorZones?.();
   }
 
@@ -228,7 +254,7 @@ export class ConnectionGhostPreview {
     return { staticUUID: snap.staticUUID, mode: snap.mode };
   }
 
-  // Before hit-test: if dragged bbox meets the narrow middle seam zone, visually spread the tail.
+  // Pre-hit-test: if the dragged bbox overlaps a middle seam band, spread the chain below that joint.
   #tryPrepareMiddleSpread(draggedElement, blockRegistry, grabManager) {
     const draggedBlockUUID = BlockConnectionCheckModule.BlockConnectionCheck.resolveDraggedBlockUUID(
       draggedElement,

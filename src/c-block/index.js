@@ -1,7 +1,4 @@
-/**
- * Логика редактора для c-block (вложенный стек, внутренняя область, зоны middle и т.д.).
- * Подключайте новые модули отсюда по мере разработки.
- */
+// C-block editor helpers (nested stack, inner zones, top-inner snap / path stretch).
 
 export { computeCBlockTopInnerRect } from './topInnerConnector.js';
 export { findCBlockTopInnerHit, isTopInnerGhostEligible } from './topInnerHit.js';
@@ -9,7 +6,7 @@ export { computeTopInnerGhostWorldPosition } from './innerGhostLayout.js';
 export {
   buildStretchedCBlockPathD,
   cBlockTopInnerStretchDeltaY,
-  cBlockVerticalStretchPerVCommand,
   getWorkspaceBlockPathElement,
 } from './cBlockPathStretchPreview.js';
+export { buildCBlockInnerStackStretchedPathD } from './cBlockInnerStackPathStretch.js';
 export { resolveGhostSnapWithTopInnerPriority } from './innerSnapPriorities.js';

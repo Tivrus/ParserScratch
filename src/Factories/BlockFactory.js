@@ -15,7 +15,7 @@ export class BlockLogic {
     return BlocksData.blocks_list.filter(b => b.category === categoryId);
   }
 
-  // --- Prepare (blockKey тЖТ data for Block / library SVG) ---
+  // --- Prepare (blockKey → data for Block / library SVG) ---
   prepareBlockData(categoryId) {
     const config = this.blocksMap.get(categoryId);
     if (!config) return null;

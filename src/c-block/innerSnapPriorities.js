@@ -2,7 +2,7 @@ import { pickStackSnapFromCandidates } from '../stack-connect/layout/stackSnapPo
 import { findCBlockTopInnerHit, isTopInnerGhostEligible } from './topInnerHit.js';
 
 /**
- * Middle остаётся приоритетнее; затем hit по `top-inner` у c-block; иначе обычный выбор.
+ * Middle insert wins; else c-block `top-inner` overlap when the held head is eligible (chain OK, not start-block); else default stack snap.
  */
 export function resolveGhostSnapWithTopInnerPriority(
   candidates,

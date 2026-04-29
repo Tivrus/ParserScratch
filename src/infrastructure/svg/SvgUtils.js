@@ -68,8 +68,8 @@ export function clientPointToElementLocal(element, clientX, clientY) {
   }
 }
 
-// Parse SVG path string to array of commands
-function parseSvgPath(pathString) {
+// Parse SVG path string to array of commands `{ command, args }[]`
+export function parseSvgPath(pathString) {
   const commands = [];
   const regex = /([a-zA-Z])([^a-zA-Z]*)/g;
   let match;
@@ -86,7 +86,7 @@ function parseSvgPath(pathString) {
 }
 
 // Stringify array of commands to SVG path string
-function stringifyPath(commands) {
+export function stringifyPath(commands) {
   return commands
     .map(cmd => cmd.args.length === 0 
       ? cmd.command 
@@ -102,7 +102,7 @@ function findCommandsByType(commands, type) {
 }
 
 // Adjust value with sign preservation (for resize)
-function adjustValue(value, delta) {
+export function adjustValue(value, delta) {
   if (delta === 0) return value;
   const sign = Math.sign(value) || Math.sign(delta) || 1;
   const magnitude = Math.max(0, Math.abs(value) + delta);
