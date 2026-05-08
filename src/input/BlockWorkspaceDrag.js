@@ -5,20 +5,52 @@ import * as StackChainDrag from '../blocks/StackChainDrag.js';
 import * as BlockStackConnect from '../stack-connect/commit/BlockStackConnect.js';
 
 export class BlockWorkspaceDrag {
-  constructor(blockContainerEl, workspaceEl, dragOverlayEl, grabManager, options = {}) {
+  constructor(
+    blockContainerEl,
+    workspaceEl,
+    dragOverlayEl,
+    grabManager,
+    options = {}
+  ) {
     this.blockContainerEl = blockContainerEl;
     this.workspaceEl = workspaceEl;
     this.dragOverlayEl = dragOverlayEl;
     this.grabManager = grabManager;
-    this.blockRegistry = options.blockRegistry ?? null;
-    this.blockMountParentEl = options.blockMountParentEl ?? blockContainerEl;
-    this.getWorkspaceGridOffset = options.getWorkspaceGridOffset ?? (() => ({ x: 0, y: 0 }));
-    this.onBlockDragMove = options.onBlockDragMove ?? null;
-    this.onBlockDragEnd = options.onBlockDragEnd ?? null;
-    this.tryCommitStackConnect = options.tryCommitStackConnect ?? null;
+    if (options.blockRegistry != null) {
+      this.blockRegistry = options.blockRegistry;
+    } else {
+      this.blockRegistry = null;
+    }
+    if (options.blockMountParentEl != null) {
+      this.blockMountParentEl = options.blockMountParentEl;
+    } else {
+      this.blockMountParentEl = blockContainerEl;
+    }
+    if (options.getWorkspaceGridOffset != null) {
+      this.getWorkspaceGridOffset = options.getWorkspaceGridOffset;
+    } else {
+      this.getWorkspaceGridOffset = () => ({ x: 0, y: 0 });
+    }
+    if (options.onBlockDragMove != null) {
+      this.onBlockDragMove = options.onBlockDragMove;
+    } else {
+      this.onBlockDragMove = null;
+    }
+    if (options.onBlockDragEnd != null) {
+      this.onBlockDragEnd = options.onBlockDragEnd;
+    } else {
+      this.onBlockDragEnd = null;
+    }
+    if (options.tryCommitStackConnect != null) {
+      this.tryCommitStackConnect = options.tryCommitStackConnect;
+    } else {
+      this.tryCommitStackConnect = null;
+    }
 
     if (!this.dragOverlayEl) {
-      Global.logError('dragOverlayEl is required for workspace drag', { context: 'BlockWorkspaceDrag' });
+      Global.logError('dragOverlayEl is required for workspace drag', {
+        context: 'BlockWorkspaceDrag',
+      });
       return;
     }
 
@@ -29,20 +61,23 @@ export class BlockWorkspaceDrag {
   }
 
   #initListeners() {
-    this.workspaceEl.addEventListener('grab-start', (event) => {
+    this.workspaceEl.addEventListener('grab-start', event => {
       const detail = event.detail;
-      if (this.grabManager.isWorkspaceBlockGrabDetail(detail) && detail.grabKey) {
+      if (
+        this.grabManager.isWorkspaceBlockGrabDetail(detail) &&
+        detail.grabKey
+      ) {
         this.#onGrabStart(detail);
       }
     });
 
-    document.addEventListener('mousemove', (event) => {
+    document.addEventListener('mousemove', event => {
       if (this.dragging) {
         this.#onMove(event);
       }
     });
 
-    document.addEventListener('grab-end', (event) => {
+    document.addEventListener('grab-end', event => {
       if (this.dragging) {
         this.#onGrabEnd(event.detail);
       } else if (this.skipGrabEndOnce) {
@@ -58,24 +93,36 @@ export class BlockWorkspaceDrag {
   }
 
   #onGrabStart(grabDetail) {
-    const grabbedBlock = this.blockRegistry?.get(grabDetail.grabKey);
+    let grabbedBlock = null;
+    if (this.blockRegistry && typeof this.blockRegistry.get === 'function') {
+      grabbedBlock = this.blockRegistry.get(grabDetail.grabKey);
+    }
     if (!grabbedBlock) {
       return;
     }
 
     let stackHead = grabbedBlock;
     if (!StackChainDrag.isWorkspaceStackHead(grabbedBlock)) {
-      const splitResult = StackChainDrag.splitWorkspaceStackAtGrabbed(this.blockRegistry, grabbedBlock);
+      const splitResult = StackChainDrag.splitWorkspaceStackAtGrabbed(
+        this.blockRegistry,
+        grabbedBlock
+      );
       if (!splitResult) {
         return;
       }
       stackHead = splitResult.lowerHead;
       this.workspaceEl.dispatchEvent(
-        new CustomEvent(Global.WORKSPACE_EVENTS.structureChanged, { bubbles: true })
+        new CustomEvent(Global.WORKSPACE_EVENTS.structureChanged, {
+          bubbles: true,
+        })
       );
     }
 
-    const stackChain = StackChainDrag.collectChainBlocksFromHead(this.blockRegistry, stackHead);
+    const stackChain =
+      StackChainDrag.collectChainBlocksFromHeadForWorkspaceDrag(
+        this.blockRegistry,
+        stackHead
+      );
     if (stackChain.length === 0) {
       return;
     }
@@ -89,9 +136,10 @@ export class BlockWorkspaceDrag {
     const overlayRect = this.dragOverlayEl.getBoundingClientRect();
     const { x: vx, y: vy } = this.getWorkspaceGridOffset();
 
-    const chainMembers = stackChain.map((chainBlock) => {
+    const chainMembers = stackChain.map(chainBlock => {
       const element = chainBlock.element;
-      const { x: originX, y: originY } = SvgUtils.parseTranslateTransform(element);
+      const { x: originX, y: originY } =
+        SvgUtils.parseTranslateTransform(element);
       return {
         block: chainBlock,
         element,
@@ -128,7 +176,9 @@ export class BlockWorkspaceDrag {
       const y = member.overlayOriginY + deltaY;
       member.element.setAttribute('transform', `translate(${x}, ${y})`);
     }
-    this.onBlockDragMove?.(chainMembers[0].element, this.grabManager);
+    if (this.onBlockDragMove) {
+      this.onBlockDragMove(chainMembers[0].element, this.grabManager);
+    }
   }
 
   #onGrabEnd(grabDetail) {
@@ -137,7 +187,9 @@ export class BlockWorkspaceDrag {
         member.element.classList.remove('workspace-block--dragging');
       }
       this.dragging = null;
-      this.onBlockDragEnd?.();
+      if (this.onBlockDragEnd) {
+        this.onBlockDragEnd();
+      }
       return;
     }
 
@@ -146,7 +198,13 @@ export class BlockWorkspaceDrag {
       return;
     }
 
-    const snapPosition = this.tryCommitStackConnect?.(this.dragging, this.grabManager);
+    let snapPosition = null;
+    if (typeof this.tryCommitStackConnect === 'function') {
+      snapPosition = this.tryCommitStackConnect(
+        this.dragging,
+        this.grabManager
+      );
+    }
     if (snapPosition) {
       this.#finalizeStackSnap(snapPosition);
       return;
@@ -174,26 +232,46 @@ export class BlockWorkspaceDrag {
       );
     }
     this.dragging = null;
-    this.onBlockDragEnd?.();
+    if (this.onBlockDragEnd) {
+      this.onBlockDragEnd();
+    }
   }
 
   #finalizeStackSnap(snapPosition) {
     const stackHeadBlock = this.dragging.chainMembers[0].block;
-    stackHeadBlock.setPosition(Math.round(snapPosition.x), Math.round(snapPosition.y));
-    BlockStackConnect.repositionFollowingStackBlocks(stackHeadBlock, this.blockRegistry);
+    stackHeadBlock.setPosition(
+      Math.round(snapPosition.x),
+      Math.round(snapPosition.y)
+    );
+    BlockStackConnect.repositionFollowingStackBlocks(
+      stackHeadBlock,
+      this.blockRegistry
+    );
+    this.workspaceEl.dispatchEvent(
+      new CustomEvent(Global.WORKSPACE_EVENTS.structureChanged, {
+        bubbles: true,
+      })
+    );
+    BlockStackConnect.layoutAllCBlockInnerStacks(this.blockRegistry);
 
     for (const member of this.dragging.chainMembers) {
       this.blockMountParentEl.appendChild(member.element);
       member.element.classList.remove('workspace-block--dragging');
       this.workspaceEl.dispatchEvent(
         new CustomEvent('block-moved', {
-          detail: { blockUUID: member.block.blockUUID, x: member.block.x, y: member.block.y },
+          detail: {
+            blockUUID: member.block.blockUUID,
+            x: member.block.x,
+            y: member.block.y,
+          },
           bubbles: true,
         })
       );
     }
     this.dragging = null;
-    this.onBlockDragEnd?.();
+    if (this.onBlockDragEnd) {
+      this.onBlockDragEnd();
+    }
   }
 
   #cancel() {
@@ -211,10 +289,15 @@ export class BlockWorkspaceDrag {
     }
     for (const member of this.dragging.chainMembers) {
       this.blockMountParentEl.appendChild(member.element);
-      member.element.setAttribute('transform', `translate(${member.originX}, ${member.originY})`);
+      member.element.setAttribute(
+        'transform',
+        `translate(${member.originX}, ${member.originY})`
+      );
       member.element.classList.remove('workspace-block--dragging');
     }
     this.dragging = null;
-    this.onBlockDragEnd?.();
+    if (this.onBlockDragEnd) {
+      this.onBlockDragEnd();
+    }
   }
 }

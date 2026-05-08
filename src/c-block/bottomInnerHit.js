@@ -3,12 +3,12 @@ import * as ConnectorClientGeometry from '../stack-connect/hit-test/connectorCli
 import * as StackChainGraph from '../stack-connect/layout/stackChainGraph.js';
 
 /** @returns {{ cBlock: object, zone: object }|null} */
-export function findCBlockTopInnerHit(
+export function findCBlockBottomInnerHit(
   draggedBlock,
   draggedElement,
   blockRegistry
 ) {
-  if (!draggedBlock || !draggedBlock.element || !draggedElement || !blockRegistry) return null;
+  if (!draggedBlock || !draggedElement || !blockRegistry) return null;
   let draggedRect;
   try {
     draggedRect = draggedElement.getBoundingClientRect();
@@ -37,7 +37,7 @@ export function findCBlockTopInnerHit(
 
     const zone = ConnectorZoneModule.ConnectorZone.zoneByType(
       block.connectorZones,
-      'top-inner'
+      'bottom-inner'
     );
     if (!zone) continue;
 
@@ -53,19 +53,4 @@ export function findCBlockTopInnerHit(
     }
   }
   return null;
-}
-
-/**
- * Призрак внутреннего стека: у головы перетаскиваемой цепочки должен быть верхний коннектор (не start-block).
- * Цепочки разрешены; головы start-block исключены и без верхней зоны.
- */
-export function isTopInnerGhostEligible(draggedBlock) {
-  if (!draggedBlock || !draggedBlock.element) return false;
-  if (draggedBlock.type === 'start-block') return false;
-  return Boolean(
-    ConnectorZoneModule.ConnectorZone.zoneByType(
-      draggedBlock.connectorZones,
-      'top'
-    )
-  );
 }

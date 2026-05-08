@@ -1,7 +1,6 @@
-/**
- * Aggregated app constants (backward-compatible barrel).
- * Prefer importing from the smaller modules in this folder when adding new code.
- */
+//window.__DEBUG__ = true;
+
+import { CONSTANTS } from './constantsDefaults.js';
 
 export {
   logError,
@@ -15,15 +14,12 @@ export {
 
 export { BLOCK_FORMS } from './blockShapes.js';
 
-export {
+export const {
   DEFAULT_BLOCK_COLOR,
   GHOST_BLOCK,
   DEFAULT_BLOCK_HEIGHT,
   CBLOCK_NESTED_X_OFFSET,
   C_BLOCK_EMPTY_INNER_SPACE,
-} from './blockTheme.js';
-
-export {
   CONNECTOR_THRESHOLD,
   CONNECTOR_SOCKET_HEIGHT,
   START_BLOCK_NORMAL_STACK_EXTRA_Y,
@@ -32,8 +28,12 @@ export {
   CONNECTOR_ZONE_STYLE,
   START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET,
   STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET,
-} from './connectors.js';
-
-export { SVG_NS, FALLBACK_DARK, UUID_ALPHABET, WORKSPACE_GRID_CELL_PX } from './svgConstants.js';
-
-export { WORKSPACE_BLOCK_GRID_SNAP, WORKSPACE_CAMERA_INERTIA } from './workspaceLayout.js';
+  SVG_NS,
+  FALLBACK_DARK,
+  UUID_ALPHABET,
+  WORKSPACE_GRID_CELL_PX,
+  WORKSPACE_BLOCK_GRID_SNAP,
+  WORKSPACE_CAMERA_INERTIA,
+  C_BLOCK_CANONICAL_PATH_EXPECTED_V_COUNT,
+  C_BLOCK_INNER_STACK_VERTICAL_LEG_INDICES,
+} = CONSTANTS;

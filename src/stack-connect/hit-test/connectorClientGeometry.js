@@ -1,6 +1,6 @@
-// --- Connector zones: viewport (client) geometry for hit-tests ---
+/** Геометрия зон коннекторов в viewport (клиент) для hit-test. */
 
-/** Axis-aligned overlap in viewport (client) coordinates. */
+/** Пересечение осевых прямоугольников в координатах клиента. */
 export function rectsIntersectClient(clientRectA, clientRectB) {
   const separated =
     clientRectA.right <= clientRectB.left ||
@@ -10,10 +10,14 @@ export function rectsIntersectClient(clientRectA, clientRectB) {
   return !separated;
 }
 
-/** Connector zone rect in block local space → AABB in client pixels (`getScreenCTM`). */
+/** Локальный rect зоны → AABB в пикселях клиента (`getScreenCTM`). */
 export function zoneToClientRect(blockGroup, zone) {
   const svg = blockGroup.ownerSVGElement;
-  if (!svg?.createSVGPoint || typeof blockGroup.getScreenCTM !== 'function') {
+  if (
+    !svg ||
+    typeof svg.createSVGPoint !== 'function' ||
+    typeof blockGroup.getScreenCTM !== 'function'
+  ) {
     return null;
   }
 

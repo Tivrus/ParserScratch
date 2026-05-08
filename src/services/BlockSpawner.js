@@ -3,6 +3,8 @@ import * as MathUtils from '../infrastructure/math/MathUtils.js';
 import * as Global from '../constants/Global.js';
 import * as BlockModule from '../blocks/Block.js';
 import * as ChainMiddleZone from '../blocks/ChainMiddleZone.js';
+import * as BlockStackConnect from '../stack-connect/commit/BlockStackConnect.js';
+import * as CBlockPathStretch from '../c-block/cBlockPathStretchPreview.js';
 
 export class BlockSpawner {
   constructor(blockLogic, grabManager, config = {}) {
@@ -30,17 +32,43 @@ export class BlockSpawner {
 
     this.blockRegistry = new Map();
     this.dragOffset = { x: 0, y: 0 };
-    this.blockMountParent =
-      blockMountParent instanceof SVGElement || blockMountParent instanceof HTMLElement
-        ? blockMountParent
-        : this.#resolveElement(blockMountParent) ?? this.containerEls.blockContainer;
-    this.getWorkspaceGridOffset = getWorkspaceGridOffset ?? (() => ({ x: 0, y: 0 }));
-    // Library drag: set on template grab-start, cleared on grab-end / blur.
+    let resolvedMountParent;
+    if (
+      blockMountParent instanceof SVGElement ||
+      blockMountParent instanceof HTMLElement
+    ) {
+      resolvedMountParent = blockMountParent;
+    } else {
+      const fromSelector = this.#resolveElement(blockMountParent);
+      if (fromSelector) {
+        resolvedMountParent = fromSelector;
+      } else {
+        resolvedMountParent = this.containerEls.blockContainer;
+      }
+    }
+    this.blockMountParent = resolvedMountParent;
+    if (getWorkspaceGridOffset) {
+      this.getWorkspaceGridOffset = getWorkspaceGridOffset;
+    } else {
+      this.getWorkspaceGridOffset = () => ({ x: 0, y: 0 });
+    }
+    // Перетаскивание с палитры: выставляется на grab-start шаблона, сбрасывается на grab-end / blur.
     this.paletteDragBlock;
-    // Optional hooks — same stack snap as BlockWorkspaceDrag (see app.js).
-    this.onPaletteDragMove = onPaletteDragMove ?? null;
-    this.onPaletteDragEnd = onPaletteDragEnd ?? null;
-    this.tryPaletteStackConnect = tryPaletteStackConnect ?? null;
+    if (onPaletteDragMove != null) {
+      this.onPaletteDragMove = onPaletteDragMove;
+    } else {
+      this.onPaletteDragMove = null;
+    }
+    if (onPaletteDragEnd != null) {
+      this.onPaletteDragEnd = onPaletteDragEnd;
+    } else {
+      this.onPaletteDragEnd = null;
+    }
+    if (tryPaletteStackConnect != null) {
+      this.tryPaletteStackConnect = tryPaletteStackConnect;
+    } else {
+      this.tryPaletteStackConnect = null;
+    }
 
     if (
       !this.containerEls.blockTemplates ||
@@ -60,25 +88,38 @@ export class BlockSpawner {
   #resolveElement(selectorOrElement) {
     if (!selectorOrElement) return;
     if (typeof selectorOrElement === 'string') {
-      return document.getElementById(selectorOrElement) || document.querySelector(selectorOrElement);
+      return (
+        document.getElementById(selectorOrElement) ||
+        document.querySelector(selectorOrElement)
+      );
     }
-    return selectorOrElement instanceof HTMLElement ? selectorOrElement : null;
+    if (typeof selectorOrElement === 'string') {
+      return (
+        document.getElementById(selectorOrElement) ||
+        document.querySelector(selectorOrElement)
+      );
+    }
+    if (selectorOrElement instanceof HTMLElement) {
+      return selectorOrElement;
+    }
+    return null;
   }
 
   #initListeners() {
-    this.containerEls.blockTemplates.addEventListener('grab-start', (e) => {
+    this.containerEls.blockTemplates.addEventListener('grab-start', e => {
       if (this.grabManager.isBlockGrabbed()) return;
       if (this.grabManager.isTemplateGrabbed() && e.detail.grabKey) {
         this.#onTemplateGrab(e.detail);
       }
     });
 
-    document.addEventListener('grab-end', (e) => {
+    document.addEventListener('grab-end', e => {
       if (this.paletteDragBlock) this.#onPaletteDragEnd(e.detail);
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (this.paletteDragBlock) this.#positionDraggedBlock(e.clientX, e.clientY);
+    document.addEventListener('mousemove', e => {
+      if (this.paletteDragBlock)
+        this.#positionDraggedBlock(e.clientX, e.clientY);
     });
 
     window.addEventListener('blur', () => this.#cleanupPaletteDrag());
@@ -89,14 +130,21 @@ export class BlockSpawner {
       `svg.block-template[data-block-id="${grabDetail.grabKey}"]`
     );
     if (!template) {
-      Global.logError(`Template SVG not found for blockId: ${grabDetail.grabKey}`, { context: 'BlockSpawner' });
+      Global.logError(
+        `Template SVG not found for blockId: ${grabDetail.grabKey}`,
+        { context: 'BlockSpawner' }
+      );
       return;
     }
 
     const data = this.blockLogic.prepareBlockData(grabDetail.grabKey);
     if (!data) return;
 
-    const block = new BlockModule.Block(data, { blockUUID: MathUtils.BlockIdentity.generateUUID(), x: 0, y: 0 });
+    const block = new BlockModule.Block(data, {
+      blockUUID: MathUtils.BlockIdentity.generateUUID(),
+      x: 0,
+      y: 0,
+    });
     this.#mountRegisteredBlock(block, data);
 
     this.containerEls.dragOverlay.appendChild(block.element);
@@ -118,7 +166,10 @@ export class BlockSpawner {
     }
 
     if (grabDetail.endArea === 'workspace') {
-      const stackPlace = this.tryPaletteStackConnect?.(block, this.grabManager);
+      let stackPlace = null;
+      if (typeof this.tryPaletteStackConnect === 'function') {
+        stackPlace = this.tryPaletteStackConnect(block, this.grabManager);
+      }
       let finalX;
       let finalY;
       if (stackPlace) {
@@ -127,14 +178,26 @@ export class BlockSpawner {
       } else {
         const wr = this.containerEls.workspace.getBoundingClientRect();
         const { x: vx, y: vy } = this.getWorkspaceGridOffset();
-        finalX = Math.round(grabDetail.clientX - wr.left - this.dragOffset.x - vx);
-        finalY = Math.round(grabDetail.clientY - wr.top - this.dragOffset.y - vy);
+        finalX = Math.round(
+          grabDetail.clientX - wr.left - this.dragOffset.x - vx
+        );
+        finalY = Math.round(
+          grabDetail.clientY - wr.top - this.dragOffset.y - vy
+        );
         const snapped = Grid.snapWorldCoordsToGrid(finalX, finalY);
         finalX = snapped.x;
         finalY = snapped.y;
       }
       this.blockMountParent.appendChild(block.element);
       block.setPosition(finalX, finalY);
+      if (stackPlace) {
+        BlockStackConnect.repositionFollowingStackBlocks(
+          block,
+          this.blockRegistry
+        );
+        this.#rebuildConnectorZones();
+        BlockStackConnect.layoutAllCBlockInnerStacks(this.blockRegistry);
+      }
 
       this.#rebuildConnectorZones();
       requestAnimationFrame(() => {
@@ -142,20 +205,24 @@ export class BlockSpawner {
         this.#rebuildConnectorZones();
       });
 
-      this.containerEls.workspace.dispatchEvent(new CustomEvent('block-spawned', {
-        detail: { block, blockId: block.blockKey, x: finalX, y: finalY },
-        bubbles: true,
-      }));
+      this.containerEls.workspace.dispatchEvent(
+        new CustomEvent('block-spawned', {
+          detail: { block, blockId: block.blockKey, x: finalX, y: finalY },
+          bubbles: true,
+        })
+      );
     } else {
       this.#discardPaletteBlock();
     }
 
-    this.onPaletteDragEnd?.();
+    if (this.onPaletteDragEnd) {
+      this.onPaletteDragEnd();
+    }
     this.paletteDragBlock = null;
     this.#clearTemplateDraggingClass();
   }
 
-  // Drop outside workspace: remove transient block from registry + DOM.
+  /** Бросок вне полотна: убрать временный блок из реестра и DOM. */
   #discardPaletteBlock() {
     const block = this.paletteDragBlock;
     if (!block) return;
@@ -165,16 +232,18 @@ export class BlockSpawner {
   }
 
   #positionDraggedBlock(clientX, clientY) {
-    const el = this.paletteDragBlock?.element;
+    const paletteBlock = this.paletteDragBlock;
+    const el = paletteBlock && paletteBlock.element;
     if (!el) return;
     const overlayRect = this.containerEls.dragOverlay.getBoundingClientRect();
     const x = clientX - overlayRect.left - this.dragOffset.x;
     const y = clientY - overlayRect.top - this.dragOffset.y;
     el.setAttribute('transform', `translate(${x}, ${y})`);
-    this.onPaletteDragMove?.(this.paletteDragBlock, this.grabManager);
+    if (this.onPaletteDragMove) {
+      this.onPaletteDragMove(paletteBlock, this.grabManager);
+    }
   }
 
-  // --- API ---
   restoreWorkspaceBlock(opcode, blockUUID, x, y) {
     const data = this.blockLogic.prepareBlockData(opcode);
     if (!data) return null;
@@ -189,16 +258,28 @@ export class BlockSpawner {
     this.#rebuildConnectorZones();
   }
 
-  // Base ConnectorZone geometry + stack joints (middle replaces parent.bottom + child.top).
-  #rebuildConnectorZones() {
+  /** Растяжение path c-block для внутренних стеков, зоны коннекторов и middle. */
+  #rebuildConnectorZones(skipCBlockWorkspaceStretchUuid = null) {
+    for (const block of this.blockRegistry.values()) {
+      if (
+        block.type === 'c-block' &&
+        block.blockUUID !== skipCBlockWorkspaceStretchUuid
+      ) {
+        CBlockPathStretch.applyWorkspaceCBlockInnerStretch(
+          this.blockRegistry,
+          block,
+          blockKey => this.blockLogic.prepareBlockData(blockKey)
+        );
+      }
+    }
     ChainMiddleZone.applyStackChainMiddles(this.blockRegistry, b =>
       this.blockLogic.prepareBlockData(b.blockKey)
     );
   }
 
-  // Rebuild zones for every registered block (e.g. after hydrate / resize).
-  refreshWorkspaceConnectorZones() {
-    this.#rebuildConnectorZones();
+  /** Пересобрать зоны для всех блоков (после загрузки / ресайза). */
+  refreshWorkspaceConnectorZones(skipCBlockWorkspaceStretchUuid = null) {
+    this.#rebuildConnectorZones(skipCBlockWorkspaceStretchUuid);
   }
 
   #clearTemplateDraggingClass() {
@@ -212,7 +293,9 @@ export class BlockSpawner {
       this.#discardPaletteBlock();
       this.paletteDragBlock = null;
     }
-    this.onPaletteDragEnd?.();
+    if (this.onPaletteDragEnd) {
+      this.onPaletteDragEnd();
+    }
     this.#clearTemplateDraggingClass();
   }
 }

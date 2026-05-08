@@ -1,5 +1,5 @@
-import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as Global from '../constants/Global.js';
+import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as ConnectorClientGeometry from '../stack-connect/hit-test/connectorClientGeometry.js';
 import * as StackMiddleJoint from '../stack-connect/hit-test/stackMiddleJoint.js';
 
@@ -16,27 +16,48 @@ function drawZone(parent, zone, x, y, width, height) {
     })
   );
 
-  const label = SvgUtils.createElement('text', {
-    x: String(x + 8),
-    y: String(y + 12),
-    fill: '#00ff00',
-    'font-size': '11',
-    'font-weight': 'bold',
-    'font-family': 'Arial, sans-serif',
-    'pointer-events': 'none',
-  });
+  const label = /** @type {SVGTextElement} */ (
+    SvgUtils.createElement('text', {
+      x: String(x + 8),
+      y: String(y + 12),
+      fill: '#00ff00',
+      'font-size': '11',
+      'font-weight': 'bold',
+      'font-family': 'Arial, sans-serif',
+      'pointer-events': 'none',
+    })
+  );
   label.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';
-  label.textContent =
-    zone.type === 'middle' && zone.inCBlock ? 'middle(C)' : zone.type;
+  let zoneLabelText;
+  if (zone.type === 'middle' && zone.inCBlock) {
+    zoneLabelText = 'middle(C)';
+  } else {
+    zoneLabelText = zone.type;
+  }
+  label.textContent = zoneLabelText;
   parent.appendChild(label);
 }
 
-// All zones live in drag-overlay, viewport→overlay coords (same idea as zoneToClientRect in hit-test).
-export function enableConnectorDebug(blockRegistry, blockContainerEl, overlayEl) {
-  blockContainerEl?.querySelector(`g.${DEBUG_GROUP_CLASS}`)?.remove();
+/** Отладочная отрисовка зон коннекторов в overlay (viewport → координаты overlay, как в hit-test). */
+export function enableConnectorDebug(
+  blockRegistry,
+  blockContainerEl,
+  overlayEl
+) {
+  if (blockContainerEl && typeof blockContainerEl.querySelector === 'function') {
+    const staleDebugGroup = blockContainerEl.querySelector(
+      `g.${DEBUG_GROUP_CLASS}`
+    );
+    if (staleDebugGroup && typeof staleDebugGroup.remove === 'function') {
+      staleDebugGroup.remove();
+    }
+  }
 
   const createdGroups = [];
-  let g = overlayEl?.querySelector(`g.${DEBUG_GROUP_CLASS}`);
+  let g = null;
+  if (overlayEl && typeof overlayEl.querySelector === 'function') {
+    g = overlayEl.querySelector(`g.${DEBUG_GROUP_CLASS}`);
+  }
   if (!g && overlayEl) {
     g = SvgUtils.createElement('g', {
       class: DEBUG_GROUP_CLASS,
@@ -58,12 +79,14 @@ export function enableConnectorDebug(blockRegistry, blockContainerEl, overlayEl)
     const or = overlayEl.getBoundingClientRect();
 
     for (const block of blockRegistry.values()) {
-      if (!block.connectorZones?.length || !block.element) continue;
+      const zoneList = block.connectorZones;
+      if (!zoneList || !zoneList.length || !block.element) continue;
       for (const zone of block.connectorZones) {
         let zc;
         if (zone.type === 'middle' && zone.linkedChildUUID) {
           const ch = blockRegistry.get(zone.linkedChildUUID);
-          zc = ch && StackMiddleJoint.middleJointBandClientRect(block, ch, zone);
+          zc =
+            ch && StackMiddleJoint.middleJointBandClientRect(block, ch, zone);
         } else {
           zc = ConnectorClientGeometry.zoneToClientRect(block.element, zone);
         }

@@ -1,22 +1,12 @@
 import * as Global from '../constants/Global.js';
 import * as WorkspaceCameraInertia from './workspaceCameraInertia.js';
+import { snapWorldCoordsToGrid } from '../calculations/StackWorkspaceMath.js';
 
-/** Snap world-space coordinates to the workspace grid (or 1px when grid snap is off). */
-export function snapWorldCoordsToGrid(x, y, cellPx = Global.WORKSPACE_GRID_CELL_PX) {
-  const rx = Math.round(Number(x)) || 0;
-  const ry = Math.round(Number(y)) || 0;
-  if (!Global.WORKSPACE_BLOCK_GRID_SNAP.enabled) {
-    return { x: rx, y: ry };
-  }
-  return {
-    x: Math.round(rx / cellPx) * cellPx,
-    y: Math.round(ry / cellPx) * cellPx,
-  };
-}
+export { snapWorldCoordsToGrid };
 
 /**
- * Pans the background grid on empty-workspace grab; keeps block-world `<g>` in sync via the same offset.
- * Block `x`/`y` stay in world space; view offset is applied only on `#block-world-root`.
+ * Панорамирование фона по пустому полотну; мир блоков `<g>` синхронизируется тем же смещением.
+ * Координаты блоков остаются в мировом пространстве; смещение вида только на `#block-world-root`.
  */
 export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   const noop = {
@@ -25,7 +15,9 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   };
 
   if (!workspaceEl || !gridEl) {
-    Global.logError('workspaceEl and gridEl are required', { context: 'attachWorkspaceGridPan' });
+    Global.logError('workspaceEl and gridEl are required', {
+      context: 'attachWorkspaceGridPan',
+    });
     return noop;
   }
 
@@ -44,7 +36,10 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   const applyViewOffset = () => {
     gridEl.style.backgroundPosition = `${offsetX}px ${offsetY}px`;
     if (blockWorldRootEl) {
-      blockWorldRootEl.setAttribute('transform', `translate(${offsetX},${offsetY})`);
+      blockWorldRootEl.setAttribute(
+        'transform',
+        `translate(${offsetX},${offsetY})`
+      );
     }
   };
 
@@ -72,7 +67,7 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
     workspaceEl.classList.remove('workspace--grid-panning');
   };
 
-  const onGrabEndPan = (event) => {
+  const onGrabEndPan = event => {
     if (!isPanning) return;
     finishPanUi();
     inertia.onPanGrabEnd(event.detail);
@@ -85,9 +80,10 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
     notifyCameraPersist();
   };
 
-  workspaceEl.addEventListener('grab-start', (event) => {
+  workspaceEl.addEventListener('grab-start', event => {
     const grabDetail = event.detail;
-    if (grabDetail.area !== 'workspace' || grabDetail.target !== 'empty') return;
+    if (grabDetail.area !== 'workspace' || grabDetail.target !== 'empty')
+      return;
     inertia.stopRunningCoastAndSettle();
     isPanning = true;
     panPointerStartX = grabDetail.clientX;
@@ -97,7 +93,7 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
     workspaceEl.classList.add('workspace--grid-panning');
   });
 
-  document.addEventListener('mousemove', (event) => {
+  document.addEventListener('mousemove', event => {
     if (!isPanning) return;
     offsetX = panOffsetStartX + (event.clientX - panPointerStartX);
     offsetY = panOffsetStartY + (event.clientY - panPointerStartY);

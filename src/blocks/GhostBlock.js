@@ -1,13 +1,13 @@
-import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as Global from '../constants/Global.js';
+import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 
-// Monotone silhouette of a block (labels omitted). Used for snap preview / drag hints.
+/** Силуэт блока без текста: превью при snap / перетаскивании. */
 export class GhostBlock {
   constructor() {
+    /** @type {SVGGElement | null} */
     this.element = null;
   }
 
-  // --- Build ---
   #appendGhostPath(group, pathD) {
     group.appendChild(
       SvgUtils.createElement('path', {
@@ -25,19 +25,23 @@ export class GhostBlock {
     if (!sourceBlockGroup) return this;
 
     const pathEl = sourceBlockGroup.querySelector(':scope > path');
-    const d = pathEl?.getAttribute('d');
-    if (!d) return this;
-    
-    const group = SvgUtils.createElement('g', {
-      transform: `translate(${x}, ${y})`,
-      class: 'ghost-block',
-    });
-    this.#appendGhostPath(group, d);
+    let pathDataAttribute = null;
+    if (pathEl && typeof pathEl.getAttribute === 'function') {
+      pathDataAttribute = pathEl.getAttribute('d');
+    }
+    if (!pathDataAttribute) return this;
+
+    const group = /** @type {SVGGElement} */ (
+      SvgUtils.createElement('g', {
+        transform: `translate(${x}, ${y})`,
+        class: 'ghost-block',
+      })
+    );
+    this.#appendGhostPath(group, pathDataAttribute);
     this.element = group;
     return this;
   }
 
-  // --- API ---
   setPosition(x, y) {
     if (this.element) {
       this.element.setAttribute('transform', `translate(${x}, ${y})`);
@@ -51,7 +55,9 @@ export class GhostBlock {
   }
 
   dispose() {
-    this.element?.remove();
+    if (this.element) {
+      this.element.remove();
+    }
     this.element = null;
   }
 }

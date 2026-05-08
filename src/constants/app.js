@@ -3,14 +3,20 @@
 export function logError(message, options = {}) {
   const { error = null, context = null, throwAfter = false } = options;
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  const prefix = context ? `[${context}]` : '[ERROR]';
-  const fullMessage = `${prefix} ${message}`;
+  let logPrefix;
+  if (context) {
+    logPrefix = `[${context}]`;
+  } else {
+    logPrefix = '[ERROR]';
+  }
+  const fullMessage = `${logPrefix} ${message}`;
   if (error instanceof Error) {
     console.error(
       `%c${timestamp} %c${fullMessage}`,
       'color: #888; font-style: italic;',
       'color: #f44336; font-weight: bold;',
-      '\n', error
+      '\n',
+      error
     );
   } else {
     console.error(
@@ -24,10 +30,10 @@ export function logError(message, options = {}) {
   }
 }
 
-/** Block delete shrink animation duration (ms). */
+/** Длительность анимации сжатия при удалении блока (мс). */
 export const SHRINK_MS = 260;
 
-/** DOM element ids (single source for selectors vs getElementById). */
+/** Id элементов DOM (единый источник для селекторов и getElementById). */
 export const DOM_IDS = {
   workspace: 'workspace',
   blockTemplates: 'block-templates',
@@ -42,18 +48,18 @@ export const DOM_IDS = {
   toggleBlockGridSnap: 'toggle-block-grid-snap',
 };
 
-/** CustomEvent.type on workspace (bubbles: true). */
+/** Имена CustomEvent на рабочей области (bubbles: true). */
 export const WORKSPACE_EVENTS = {
   structureChanged: 'workspace-structure-changed',
-  /** Fired on `workspace` after grid pan ends (`detail`: `{ x, y }` view offset). */
+  /** После окончания панорамирования сетки (`detail`: смещение вида `{ x, y }`). */
   cameraOffsetChanged: 'workspace-camera-offset-changed',
-  /** Toolbar modes (inertia / grid snap) changed — triggers workspace save. */
+  /** Режимы панели (инерция / сетка) изменились — инициирует сохранение workspace. */
   modesChanged: 'workspace-modes-changed',
 };
 
-/** POST body → `workspace.json` (see `server.js`). */
+/** POST тело → `workspace.json` (см. `server.js`). */
 export const WORKSPACE_SAVE_URL = '/api/save-workspace';
-/** GET → parsed workspace document. */
+/** GET → разобранный документ workspace. */
 export const WORKSPACE_LOAD_URL = '/api/load-workspace';
-/** Debounce window (ms) before sending a save after rapid workspace events. */
+/** Окно debounce (мс) перед сохранением после частых событий на полотне. */
 export const WORKSPACE_SAVE_DEBOUNCE_MS = 320;

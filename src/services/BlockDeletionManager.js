@@ -2,17 +2,38 @@ import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as StackChainDrag from '../blocks/StackChainDrag.js';
 
-// Axis-aligned overlap; edges touching counts. DOMRect or { left, right, top, bottom }.
+/** Пересечение осевых прямоугольников; касание границ считается. DOMRect или { left, right, top, bottom }. */
 function rectsIntersect(rectA, rectB) {
   if (!rectA || !rectB) {
     return false;
   }
 
-  const widthA = rectA.width ?? rectA.right - rectA.left;
-  const heightA = rectA.height ?? rectA.bottom - rectA.top;
-  const widthB = rectB.width ?? rectB.right - rectB.left;
-  const heightB = rectB.height ?? rectB.bottom - rectB.top;
-  const eitherDegenerate = widthA <= 0 || heightA <= 0 || widthB <= 0 || heightB <= 0;
+  let widthA;
+  if (rectA.width != null) {
+    widthA = rectA.width;
+  } else {
+    widthA = rectA.right - rectA.left;
+  }
+  let heightA;
+  if (rectA.height != null) {
+    heightA = rectA.height;
+  } else {
+    heightA = rectA.bottom - rectA.top;
+  }
+  let widthB;
+  if (rectB.width != null) {
+    widthB = rectB.width;
+  } else {
+    widthB = rectB.right - rectB.left;
+  }
+  let heightB;
+  if (rectB.height != null) {
+    heightB = rectB.height;
+  } else {
+    heightB = rectB.bottom - rectB.top;
+  }
+  const eitherDegenerate =
+    widthA <= 0 || heightA <= 0 || widthB <= 0 || heightB <= 0;
   if (eitherDegenerate) {
     return false;
   }
@@ -55,7 +76,7 @@ function shrinkBlockToCenter(element, durationMs = Global.SHRINK_MS) {
   const { x, y } = SvgUtils.parseTranslateTransform(element);
   const startTime = performance.now();
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     function frame(now) {
       const t = Math.min(1, (now - startTime) / durationMs);
       const ease = 1 - (1 - t) ** 3;
@@ -83,14 +104,21 @@ function unlinkChainEndsFromWorkspace(chainBlocks, blockRegistry) {
 
   if (headBlock.parentUUID) {
     const parentBlock = blockRegistry.get(headBlock.parentUUID);
-    if (parentBlock?.nextUUID === headBlock.blockUUID) {
+    if (parentBlock && parentBlock.nextUUID === headBlock.blockUUID) {
       parentBlock.nextUUID = null;
+    }
+    if (
+      parentBlock &&
+      parentBlock.type === 'c-block' &&
+      parentBlock.innerStackHeadUUID === headBlock.blockUUID
+    ) {
+      parentBlock.innerStackHeadUUID = null;
     }
   }
 
   if (tailBlock.nextUUID) {
     const nextBlock = blockRegistry.get(tailBlock.nextUUID);
-    if (nextBlock?.parentUUID === tailBlock.blockUUID) {
+    if (nextBlock && nextBlock.parentUUID === tailBlock.blockUUID) {
       nextBlock.parentUUID = null;
     }
   }
@@ -105,8 +133,12 @@ export class BlockDeletionManager {
     blockWorkspaceDrag,
     grabManager,
   }) {
+    let workspaceElement = null;
+    if (workspaceEl instanceof HTMLElement) {
+      workspaceElement = workspaceEl;
+    }
     this.blockRegistry = blockRegistry;
-    this.workspaceEl = workspaceEl instanceof HTMLElement ? workspaceEl : null;
+    this.workspaceEl = workspaceElement;
     this.trashEl = document.getElementById(trashCanId);
     this.sidebarEl = document.getElementById(sidebarId);
     this.blockWorkspaceDrag = blockWorkspaceDrag;
@@ -122,33 +154,54 @@ export class BlockDeletionManager {
       return;
     }
 
-    document.addEventListener('grab-end', (event) => this.#onGrabEnd(event), true);
+    document.addEventListener(
+      'grab-end',
+      event => this.#onGrabEnd(event),
+      true
+    );
   }
 
   #onGrabEnd(event) {
     const grabDetail = event.detail;
-    if (!this.grabManager?.isWorkspaceBlockGrabDetail?.(grabDetail)) {
+    if (
+      !this.grabManager ||
+      typeof this.grabManager.isWorkspaceBlockGrabDetail !== 'function' ||
+      !this.grabManager.isWorkspaceBlockGrabDetail(grabDetail)
+    ) {
       return;
     }
 
     const stackHeadBlock = this.blockRegistry.get(grabDetail.grabKey);
-    if (!stackHeadBlock?.element) {
+    if (!stackHeadBlock || !stackHeadBlock.element) {
       return;
     }
 
-    const chainBlocks = StackChainDrag.collectChainBlocksFromHead(this.blockRegistry, stackHeadBlock);
+    const outerChain = StackChainDrag.collectChainBlocksFromHead(
+      this.blockRegistry,
+      stackHeadBlock
+    );
+    const chainBlocks = StackChainDrag.collectBlocksToRemoveIncludingInnerTrees(
+      this.blockRegistry,
+      stackHeadBlock
+    );
     if (chainBlocks.length === 0) {
       return;
     }
 
-    const chainElements = chainBlocks.map((block) => block.element);
+    const chainElements = chainBlocks.map(block => block.element);
     const unionRect = unionClientRectFromElements(chainElements);
     if (!unionRect) {
       return;
     }
 
-    const paletteRect = this.sidebarEl?.getBoundingClientRect();
-    const trashRect = this.trashEl?.getBoundingClientRect();
+    let paletteRect = null;
+    if (this.sidebarEl && typeof this.sidebarEl.getBoundingClientRect === 'function') {
+      paletteRect = this.sidebarEl.getBoundingClientRect();
+    }
+    let trashRect = null;
+    if (this.trashEl && typeof this.trashEl.getBoundingClientRect === 'function') {
+      trashRect = this.trashEl.getBoundingClientRect();
+    }
     const overPalette = rectsIntersect(unionRect, paletteRect);
     const overTrash = rectsIntersect(unionRect, trashRect);
 
@@ -157,14 +210,26 @@ export class BlockDeletionManager {
     }
 
     this.blockWorkspaceDrag.armSkipGrabEndOnce();
-    void this.#removeChain(chainBlocks);
+    void this.#removeChain(outerChain, chainBlocks);
   }
 
-  async #removeChain(chainBlocks) {
-    unlinkChainEndsFromWorkspace(chainBlocks, this.blockRegistry);
+  async #removeChain(outerChain, chainBlocks) {
+    unlinkChainEndsFromWorkspace(outerChain, this.blockRegistry);
+
+    const deleteIds = new Set(chainBlocks.map(b => b.blockUUID));
+    for (const block of chainBlocks) {
+      if (block.type === 'c-block') {
+        block.innerStackHeadUUID = null;
+      }
+    }
+    for (const block of chainBlocks) {
+      if (block.parentUUID && deleteIds.has(block.parentUUID)) {
+        block.parentUUID = null;
+      }
+    }
 
     await Promise.all(
-      chainBlocks.map(async (block) => {
+      chainBlocks.map(async block => {
         const element = block.element;
         try {
           block.connectorZones = null;

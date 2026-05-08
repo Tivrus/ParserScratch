@@ -6,4 +6,7 @@ export {
   isWorkspaceStackHead,
   splitWorkspaceStackAtGrabbed,
 } from '../blocks/StackChainDrag.js';
-export { ConnectionGhostPreview, tryCommitStackConnect } from '../stack-connect/index.js';
+export {
+  ConnectionGhostPreview,
+  tryCommitStackConnect,
+} from '../stack-connect/index.js';

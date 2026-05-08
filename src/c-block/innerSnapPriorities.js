@@ -1,8 +1,13 @@
 import { pickStackSnapFromCandidates } from '../stack-connect/layout/stackSnapPositions.js';
-import { findCBlockTopInnerHit, isTopInnerGhostEligible } from './topInnerHit.js';
+import { findCBlockBottomInnerHit } from './bottomInnerHit.js';
+import {
+  findCBlockTopInnerHit,
+  isTopInnerGhostEligible,
+} from './topInnerHit.js';
 
 /**
- * Middle insert wins; else c-block `top-inner` overlap when the held head is eligible (chain OK, not start-block); else default stack snap.
+ * Приоритет: middle; иначе `bottom-inner` (в хвост внутреннего стека); иначе `top-inner`
+ * (prepend у «рта» при непустом внутреннем стеке или первый слот); иначе обычный stack snap.
  */
 export function resolveGhostSnapWithTopInnerPriority(
   candidates,
@@ -12,11 +17,26 @@ export function resolveGhostSnapWithTopInnerPriority(
 ) {
   const standard = pickStackSnapFromCandidates(candidates);
   if (!draggedBlock || !draggedElement || !blockRegistry) return standard;
-  if (standard?.mode === 'middle') return standard;
+  if (standard && standard.mode === 'middle') return standard;
+
+  if (isTopInnerGhostEligible(draggedBlock)) {
+    const bottomHit = findCBlockBottomInnerHit(
+      draggedBlock,
+      draggedElement,
+      blockRegistry
+    );
+    if (bottomHit) {
+      return { staticUUID: bottomHit.cBlock.blockUUID, mode: 'bottomInner' };
+    }
+  }
 
   if (!isTopInnerGhostEligible(draggedBlock)) return standard;
 
-  const hit = findCBlockTopInnerHit(draggedBlock, draggedElement, blockRegistry);
+  const hit = findCBlockTopInnerHit(
+    draggedBlock,
+    draggedElement,
+    blockRegistry
+  );
   if (!hit) return standard;
 
   return { staticUUID: hit.cBlock.blockUUID, mode: 'topInner' };

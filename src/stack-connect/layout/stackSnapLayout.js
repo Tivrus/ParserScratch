@@ -1,34 +1,22 @@
-import * as Global from '../../constants/Global.js';
 import * as SvgUtils from '../../infrastructure/svg/SvgUtils.js';
+import * as StackWorkspaceMath from '../../calculations/StackWorkspaceMath.js';
+import * as StackHatOffsets from '../../calculations/stackHatOffsets.js';
 
-/** Extra Y offset for hat blocks only: normal stack → small gap; middle insert → socket height. */
-export function capStackExtraY(draggedElement, options = {}) {
-  const middleConnector = options.middleConnector === true;
-  if (!draggedElement || !draggedElement.dataset || draggedElement.dataset.type !== 'start-block') {
-    return 0;
-  }
-  if (middleConnector) {
-    return Global.CONNECTOR_SOCKET_HEIGHT;
-  }
-  return Global.START_BLOCK_NORMAL_STACK_EXTRA_Y;
-}
+export { capStackExtraY, middleTailSpreadExtraY } from '../../calculations/stackHatOffsets.js';
 
-/** Middle-preview tail spread: +CONNECTOR_SOCKET_HEIGHT for hat and cap blocks. */
-export function middleTailSpreadExtraY(draggedElement) {
-  const blockDatasetType = draggedElement?.dataset?.type;
-  if (blockDatasetType === 'start-block' || blockDatasetType === 'stop-block') {
-    return Global.CONNECTOR_SOCKET_HEIGHT;
-  }
-  return 0;
-}
-
-// --- Stack layout (world coords under #block-world-root + grid view offset) ---
+/** Раскладка стека: мировые координаты под `#block-world-root` плюс смещение сетки. */
 export class StackSnapLayout {
-  static translateInContainer(anchorBlock, draggedElement, mode, { isMiddleConnector = false } = {}) {
+  static translateInContainer(
+    anchorBlock,
+    draggedElement,
+    mode,
+    { isMiddleConnector = false } = {}
+  ) {
     const anchorElement = anchorBlock.element;
     if (!anchorElement) return null;
 
-    const { x: anchorTranslateX, y: anchorTranslateY } = SvgUtils.parseTranslateTransform(anchorElement);
+    const { x: anchorTranslateX, y: anchorTranslateY } =
+      SvgUtils.parseTranslateTransform(anchorElement);
     let anchorLocalBBox;
     try {
       anchorLocalBBox = anchorElement.getBBox();
@@ -43,46 +31,44 @@ export class StackSnapLayout {
       return null;
     }
 
-    const hatBlockExtraYRaw = capStackExtraY(draggedElement, { middleConnector: isMiddleConnector });
-    const hatBlockExtraY = Number.isFinite(hatBlockExtraYRaw) ? hatBlockExtraYRaw : 0;
+    const hatBlockExtraYRaw = StackHatOffsets.capStackExtraY(draggedElement, {
+      middleConnector: isMiddleConnector,
+    });
+    const hatBlockExtraY = Number.isFinite(hatBlockExtraYRaw)
+      ? hatBlockExtraYRaw
+      : 0;
 
     if (mode === 'below') {
       return {
         x: anchorTranslateX,
-        y:
-          anchorTranslateY +
-          anchorLocalBBox.y +
-          anchorLocalBBox.height -
-          Global.CONNECTOR_SOCKET_HEIGHT +
-          hatBlockExtraY,
+        y: StackWorkspaceMath.worldYStackBelow(
+          anchorTranslateY,
+          anchorLocalBBox.y,
+          anchorLocalBBox.height,
+          hatBlockExtraY
+        ),
       };
     }
 
     if (mode === 'above') {
-      let nonHatStackNudgeY = 0;
-      if (
-        draggedElement &&
-        draggedElement.dataset &&
-        draggedElement.dataset.type !== 'start-block'
-      ) {
-        nonHatStackNudgeY = Global.START_BLOCK_NORMAL_STACK_EXTRA_Y;
-      }
+      const nonHatStackNudgeY =
+        StackHatOffsets.stackAboveNudgeYForNonStartDragged(draggedElement);
       return {
         x: anchorTranslateX,
-        y:
-          anchorTranslateY +
-          anchorLocalBBox.y +
-          Global.CONNECTOR_SOCKET_HEIGHT -
-          draggedBlockHeight -
-          hatBlockExtraY -
-          nonHatStackNudgeY,
+        y: StackWorkspaceMath.worldYStackAbove(
+          anchorTranslateY,
+          anchorLocalBBox.y,
+          draggedBlockHeight,
+          hatBlockExtraY,
+          nonHatStackNudgeY
+        ),
       };
     }
 
     return null;
   }
 
-  // Slot between parent and child — middle: +cap offset only for start-block.
+  /** Слот между родителем и ребёнком; middle: доп. сдвиг шляпы только для start-block. */
   static translateMiddleInsert(parentBlock, draggedElement) {
     return this.translateInContainer(parentBlock, draggedElement, 'below', {
       isMiddleConnector: true,

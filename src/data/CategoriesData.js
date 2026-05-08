@@ -1,4 +1,4 @@
-// Category metadata: key, color, display label, and optional flags.
+/** Метаданные категории: ключ, цвет, подпись, опциональные флаги. */
 const categories_array = [
   { key: 'Motion', color: '#4C97FF', text: 'Motion' },
   { key: 'Looks', color: '#9966FF', text: 'Looks' },
@@ -9,4 +9,3 @@ const categories_array = [
 
 const categories_map = new Map(categories_array.map(c => [c.key, c]));
 export { categories_array, categories_map };
-

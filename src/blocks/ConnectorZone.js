@@ -1,22 +1,41 @@
+import * as CBlockTopInner from '../c-block/topInnerConnector.js';
 import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
-import * as CBlockTopInner from '../c-block/topInnerConnector.js';
+import * as ConnLocal from '../calculations/connectorZoneLocalMath.js';
 
-// Connector hit bands in the block group's local coordinate system.
+/** Полосы попадания коннекторов в локальной системе координат группы `<g>` блока. */
 export class ConnectorZone {
   static zoneByType(zones, type) {
-    return zones?.find(z => z.type === type) ?? null;
+    if (!zones || typeof zones.find !== 'function') return null;
+    const zoneMatch = zones.find(z => z.type === type);
+    if (zoneMatch === undefined) return null;
+    return zoneMatch;
   }
 
-  constructor({ type, x, y, width, height, inCBlock, linkedChildUUID } = {}) {
-    this.type = type;
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-    if (type === 'middle') {
-      this.inCBlock = Boolean(inCBlock);
-      this.linkedChildUUID = linkedChildUUID ?? null;
+  /**
+   * @param {{
+   *   type?: string;
+   *   x?: number;
+   *   y?: number;
+   *   width?: number;
+   *   height?: number;
+   *   inCBlock?: boolean;
+   *   linkedChildUUID?: string | null;
+   * }} [spec]
+   */
+  constructor(spec = {}) {
+    this.type = spec.type;
+    this.x = spec.x;
+    this.y = spec.y;
+    this.width = spec.width;
+    this.height = spec.height;
+    if (spec.type === 'middle') {
+      this.inCBlock = Boolean(spec.inCBlock);
+      let linkedChildId = null;
+      if (spec.linkedChildUUID != null) {
+        linkedChildId = spec.linkedChildUUID;
+      }
+      this.linkedChildUUID = linkedChildId;
     }
   }
 
@@ -27,6 +46,11 @@ export class ConnectorZone {
       width: this.width,
       height: this.height,
     };
+  }
+
+  /** Как во внутреннем чтении для `buildForBlock` (локальный фрейм коннектора под `<g>` блока). */
+  static getLocalGeometry(data, blockElement) {
+    return ConnectorZone.#readLocalGeometry(data, blockElement);
   }
 
   static buildForBlock(data, blockElement) {
@@ -43,7 +67,9 @@ export class ConnectorZone {
           ConnectorZone.#makeTopZone(connectorX, width, topBaseY),
           ConnectorZone.#makeBottomZone(connectorX, width, bottomBaseY),
         ];
-        zones.push(new ConnectorZone(CBlockTopInner.computeCBlockTopInnerRect(g)));
+        zones.push(
+          new ConnectorZone(CBlockTopInner.computeCBlockTopInnerRect(g))
+        );
         return zones;
       }
       case 'start-block':
@@ -55,15 +81,20 @@ export class ConnectorZone {
     }
   }
 
-  // --- Geometry from DOM (fallback uses data.width / data.height) ---
-
   static #bboxFallback(data) {
-    const h = data.height ?? Global.DEFAULT_BLOCK_HEIGHT;
+    let blockHeight = Global.DEFAULT_BLOCK_HEIGHT;
+    if (data.height != null) {
+      blockHeight = data.height;
+    }
+    let blockWidth = 0;
+    if (data.width != null) {
+      blockWidth = data.width;
+    }
     return {
       connectorX: 0,
-      width: data.width ?? 0,
+      width: blockWidth,
       topBaseY: 0,
-      bottomBaseY: h,
+      bottomBaseY: blockHeight,
     };
   }
 
@@ -82,27 +113,43 @@ export class ConnectorZone {
     if (b.width <= 0 || b.height <= 0) return fallback;
 
     const r = SvgUtils.getBoundingClientRectRounded(blockElement);
-    const topLeft = SvgUtils.clientPointToElementLocal(blockElement, r.left, r.top);
-    const topRight = SvgUtils.clientPointToElementLocal(blockElement, r.right, r.top);
-    const bottomLeft = SvgUtils.clientPointToElementLocal(blockElement, r.left, r.bottom);
+    const topLeft = SvgUtils.clientPointToElementLocal(
+      blockElement,
+      r.left,
+      r.top
+    );
+    const topRight = SvgUtils.clientPointToElementLocal(
+      blockElement,
+      r.right,
+      r.top
+    );
+    const bottomLeft = SvgUtils.clientPointToElementLocal(
+      blockElement,
+      r.left,
+      r.bottom
+    );
     if (!topLeft || !topRight || !bottomLeft) return fallback;
 
     const widthFromClient = Math.abs(topRight.x - topLeft.x);
+    let resolvedConnectorWidth;
+    if (widthFromClient > 0) {
+      resolvedConnectorWidth = widthFromClient;
+    } else {
+      resolvedConnectorWidth = b.width;
+    }
     return {
       connectorX: topLeft.x,
-      width: widthFromClient > 0 ? widthFromClient : b.width,
-      topBaseY: topLeft.y - Global.CONNECTOR_THRESHOLD,
+      width: resolvedConnectorWidth,
+      topBaseY: ConnLocal.connectorLocalTopBaseY(topLeft.y),
       bottomBaseY: bottomLeft.y,
     };
   }
-
-  // --- Stack zones ---
 
   static #makeTopZone(connectorX, width, topBaseY) {
     return new ConnectorZone({
       type: 'top',
       x: connectorX,
-      y: topBaseY + Global.CONNECTOR_OFFSETS.TOP_Y,
+      y: ConnLocal.connectorLocalTopZoneY(topBaseY),
       width,
       height: Global.CONNECTOR_THRESHOLD,
     });
@@ -112,10 +159,9 @@ export class ConnectorZone {
     return new ConnectorZone({
       type: 'bottom',
       x: connectorX,
-      y: bottomBaseY - Global.CONNECTOR_SOCKET_HEIGHT + Global.CONNECTOR_OFFSETS.BOTTOM_Y,
+      y: ConnLocal.connectorLocalBottomZoneY(bottomBaseY),
       width,
       height: Global.CONNECTOR_THRESHOLD,
     });
   }
-
 }
