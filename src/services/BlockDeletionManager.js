@@ -1,4 +1,5 @@
 import * as Global from '../constants/Global.js';
+import * as ScratchCallTrace from '../infrastructure/debug/scratchCallTrace.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as StackChainDrag from '../blocks/StackChainDrag.js';
 
@@ -214,6 +215,10 @@ export class BlockDeletionManager {
   }
 
   async #removeChain(outerChain, chainBlocks) {
+    ScratchCallTrace.scratchCallRecord('deleteWorkspaceChain', {
+      headKeys: outerChain.map(b => b.blockKey),
+      removedCount: chainBlocks.length,
+    });
     unlinkChainEndsFromWorkspace(outerChain, this.blockRegistry);
 
     const deleteIds = new Set(chainBlocks.map(b => b.blockUUID));

@@ -9,7 +9,10 @@ import * as Grid from '../workspace/grid.js';
 import * as WorkspaceModeToggles from '../workspace/workspaceModeToggles.js';
 import * as Global from '../constants/Global.js';
 
-const q = id => `#${id}`;
+/** CSS-селектор по значению `id` в разметке (`#…`). */
+function domIdSelector(domId) {
+  return `#${domId}`;
+}
 
 class ScratchEditor {
   #categoryLogic;
@@ -31,20 +34,17 @@ class ScratchEditor {
     this.#workspaceEl = document.getElementById(Global.DOM_IDS.workspace);
 
     const blockWorldRootEl = document.getElementById(Global.DOM_IDS.blockWorldRoot);
-    let blockMountParent = this.#blockContainerEl;
-    if (blockWorldRootEl != null){
-      blockMountParent = blockWorldRootEl
-    }
+    const blockMountParent = blockWorldRootEl ?? this.#blockContainerEl;
+
     this.#gridPan = Grid.attachWorkspaceGridPan(
       this.#workspaceEl,
-      document.getElementById(Global.DOM_IDS.grid), 
-      {blockWorldRootEl}
+      document.getElementById(Global.DOM_IDS.grid),
+      { blockWorldRootEl }
     );
-    
+
     WorkspaceModeToggles.attachWorkspaceModeToggles(this.#workspaceEl);
     const getWorkspaceGridOffset = () => this.#gridPan.getOffset();
 
-    
     this.#categoryLogic = new CategoryFactory.CategoryLogic();
 
     this.#blockLogic = new BlockFactory.BlockLogic(
@@ -54,8 +54,8 @@ class ScratchEditor {
       Global.DOM_IDS.blockTemplates
     );
     this.#grabManager = new GrabManagerModule.GrabManager({
-      workspace: q(Global.DOM_IDS.workspace),
-      blockTemplates: q(Global.DOM_IDS.blockTemplates),
+      workspace: domIdSelector(Global.DOM_IDS.workspace),
+      blockTemplates: domIdSelector(Global.DOM_IDS.blockTemplates),
     });
 
     this.#categoryRenderer = new CategoryFactory.CategoryRenderer(
@@ -175,84 +175,150 @@ class ScratchEditor {
     });
   }
 
+  /**
+   * Режим отладки (`window.__DEBUG__`), оверлей коннекторов и вспомогательные глобалы для E2E
+   * при `__SCRATCH_E2E_SUPPRESS_CONNECTOR__`.
+   */
   #exposeDebugApi() {
     const blockRegistry = this.#blockSpawner.blockRegistry;
     const blockContainerEl = this.#blockContainerEl;
     const dragOverlayEl = this.#dragOverlayEl;
 
-    const debug = { active: false };
-    let stopConnectorOverlay = null;
+    this.#installWindowDebugToggle({
+      blockRegistry,
+      blockContainerEl,
+      dragOverlayEl,
+    });
+    this.#installE2eScratchHelpersIfNeeded(blockRegistry);
+  }
 
-    const setParserScratchDebug = on => {
-      const want = Boolean(on);
-      if (want === debug.active) {
+  /**
+   * @param {{
+   *   blockRegistry: import('../services/BlockSpawner.js').BlockSpawner['blockRegistry'];
+   *   blockContainerEl: HTMLElement | null;
+   *   dragOverlayEl: HTMLElement | null;
+   * }} options
+   */
+  #installWindowDebugToggle(options) {
+    const { blockRegistry, blockContainerEl, dragOverlayEl } = options;
+
+    const debugToggleState = { active: false };
+    let teardownConnectorOverlay = null;
+
+    const applyDebugActive = shouldBeActive => {
+      const nextActive = Boolean(shouldBeActive);
+      if (nextActive === debugToggleState.active) {
         return;
       }
-      debug.active = want;
-      if (want) {
-        if (stopConnectorOverlay) {
-          stopConnectorOverlay();
-        }
-        stopConnectorOverlay = Interactions.enableConnectorDebug(
-          blockRegistry,
-          blockContainerEl,
-          dragOverlayEl
-        );
-      } else {
-        if (stopConnectorOverlay) {
-          stopConnectorOverlay();
-        }
-        stopConnectorOverlay = null;
+      debugToggleState.active = nextActive;
+
+      if (teardownConnectorOverlay) {
+        teardownConnectorOverlay();
+        teardownConnectorOverlay = null;
       }
+
+      if (!nextActive) {
+        return;
+      }
+
+      const suppressConnectorOverlay = Boolean(
+        globalThis.__SCRATCH_E2E_SUPPRESS_CONNECTOR__
+      );
+      if (suppressConnectorOverlay) {
+        return;
+      }
+
+      teardownConnectorOverlay = Interactions.enableConnectorDebug(
+        blockRegistry,
+        blockContainerEl,
+        dragOverlayEl
+      );
     };
 
-    window.enableConnectorDebug = () => setParserScratchDebug(true);
-    window.disableConnectorDebug = () => setParserScratchDebug(false);
+    window.enableConnectorDebug = () => applyDebugActive(true);
+    window.disableConnectorDebug = () => applyDebugActive(false);
 
-    const hadDebugProp = Object.prototype.hasOwnProperty.call(
+    const hadOwnDebugProperty = Object.prototype.hasOwnProperty.call(
       window,
       '__DEBUG__'
     );
-    const debugInitiallyOn = hadDebugProp && window.__DEBUG__ === true;
-    if (hadDebugProp) {
+    const restoreDebugAfterDefine =
+      hadOwnDebugProperty && window.__DEBUG__ === true;
+    if (hadOwnDebugProperty) {
       try {
         delete window.__DEBUG__;
       } catch {
-        /* non-configurable */
+        /* свойство не configurable */
       }
     }
 
     Object.defineProperty(window, '__DEBUG__', {
       get() {
-        return debug.active;
+        return debugToggleState.active;
       },
-      set(v) {
-        setParserScratchDebug(v);
+      set(nextValue) {
+        applyDebugActive(nextValue);
       },
       enumerable: true,
       configurable: true,
     });
 
-    if (debugInitiallyOn) {
-      setParserScratchDebug(true);
+    if (restoreDebugAfterDefine) {
+      applyDebugActive(true);
     }
+  }
+
+  /**
+   * @param {Map<string, import('../blocks/Block.js').Block>} blockRegistry
+   */
+  #installE2eScratchHelpersIfNeeded(blockRegistry) {
+    if (!globalThis.__SCRATCH_E2E_SUPPRESS_CONNECTOR__) {
+      return;
+    }
+
+    window.__SCRATCH_getBlockLinkSnapshot = () =>
+      this.#buildPlainBlockLinkSnapshot(blockRegistry);
+
+    window.__SCRATCH_resetCallHistory = () => {
+      globalThis.__SCRATCH_CALL_HISTORY__ = [];
+    };
+  }
+
+  /**
+   * Плоский снимок графа блоков для E2E (JSON-сериализуемые поля).
+   *
+   * @param {Map<string, import('../blocks/Block.js').Block>} blockRegistry
+   */
+  #buildPlainBlockLinkSnapshot(blockRegistry) {
+    /** @type {Record<string, { blockUUID: string; blockKey: string; type: string; parentUUID: string|null; nextUUID: string|null; innerStackHeadUUID: string|null; topLevel: boolean }>} */
+    const snapshotByBlockUuid = {};
+    for (const [blockUUID, workspaceBlock] of blockRegistry) {
+      snapshotByBlockUuid[blockUUID] = {
+        blockUUID,
+        blockKey: workspaceBlock.blockKey,
+        type: workspaceBlock.type,
+        parentUUID: workspaceBlock.parentUUID,
+        nextUUID: workspaceBlock.nextUUID,
+        innerStackHeadUUID: workspaceBlock.innerStackHeadUUID,
+        topLevel: workspaceBlock.topLevel,
+      };
+    }
+    return snapshotByBlockUuid;
   }
 
   #bootstrapUi() {
     const categoriesArray = this.#categoryLogic.categoriesArray;
-    let defaultCategoryKey;
     const firstCategory = categoriesArray[0];
-    if (firstCategory) {
-      defaultCategoryKey = firstCategory.key;
-    }
+    const defaultCategoryKey = firstCategory ? firstCategory.key : undefined;
 
     this.#categoryRenderer.renderList(categoriesArray, defaultCategoryKey);
-    if (defaultCategoryKey) {
-      this.#categoryLogic.setActive(defaultCategoryKey);
-      this.#blockRenderer.renderLibrary(
-        this.#prepareBlocksForCategory(defaultCategoryKey)
-      );
+    if (!defaultCategoryKey) {
+      return;
     }
+    this.#categoryLogic.setActive(defaultCategoryKey);
+    this.#blockRenderer.renderLibrary(
+      this.#prepareBlocksForCategory(defaultCategoryKey)
+    );
   }
 }
 

@@ -1,4 +1,5 @@
 import * as Global from '../constants/Global.js';
+import * as ScratchCallTrace from '../infrastructure/debug/scratchCallTrace.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as StackChainGraph from '../stack-connect/layout/stackChainGraph.js';
 import * as StackChainDrag from './StackChainDrag.js';
@@ -163,6 +164,9 @@ export function applyStackChainMiddles(blockRegistry, getDataForBlock) {
       }
     }
   }
+  ScratchCallTrace.scratchCallRecord('applyStackChainMiddles', {
+    registryBlockCount: blockRegistry.size,
+  });
 }
 
 function getChainTailFromBlock(blockRegistry, startBlockUUID) {

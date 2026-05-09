@@ -6,6 +6,7 @@ import * as SnapLayout from '../layout/stackSnapLayout.js';
 import * as StackChainGraph from '../layout/stackChainGraph.js';
 import * as StackChainDrag from '../../blocks/StackChainDrag.js';
 import * as CBlockInnerGhostLayout from '../../c-block/innerGhostLayout.js';
+import * as ScratchCallTrace from '../../infrastructure/debug/scratchCallTrace.js';
 
 function dispatchWorkspaceStructureChanged() {
   const workspaceRootEl = document.getElementById(Global.DOM_IDS.workspace);
@@ -569,5 +570,19 @@ class StackConnectCommit {
 }
 
 export function tryCommitStackConnect(args) {
-  return StackConnectCommit.tryCommit(args);
+  let snapSnapshot = null;
+  const snapActive = args.ghostPreview.getActiveSnap();
+  if (snapActive) {
+    snapSnapshot = {
+      mode: snapActive.mode,
+      staticUUID: snapActive.staticUUID,
+      parentUUID: snapActive.parentUUID,
+    };
+  }
+  const result = StackConnectCommit.tryCommit(args);
+  ScratchCallTrace.scratchCallRecord('tryCommitStackConnect', {
+    snap: snapSnapshot,
+    ok: result != null,
+  });
+  return result;
 }
