@@ -1,29 +1,22 @@
-/**
- * Полоса middle в **клиентских** координатах: горизонталь берётся из зоны на родителе,
- * вертикаль — симметрично вокруг шва между низом родителя и верхом ребёнка.
- */
-
-/**
- * @param {{ top: number; bottom: number }} parentBlockClientRect
- * @param {{ top: number; bottom: number }} childBlockClientRect
- */
-export function middleSeamCenterClientY(
-  parentBlockClientRect,
-  childBlockClientRect
-) {
-  return (parentBlockClientRect.bottom + childBlockClientRect.top) / 2;
+export function calcMiddleInsertSeamCenterClientYFromOverlappingRects(
+    parentZoneClientRect,
+    childZoneClientRect
+  ){
+  const overlapTop = Math.max(parentZoneClientRect.top, childZoneClientRect.top);
+  const overlapBottom = Math.min(
+    parentZoneClientRect.bottom,
+    childZoneClientRect.bottom
+  );
+  return (overlapTop + overlapBottom) / 2;
 }
 
-/**
- * Вертикальные границы полосы высотой `middleZoneHeightPx`, центрированной на `seamCenterClientY`.
- */
-export function symmetricVerticalBandClientBounds(
-  seamCenterClientY,
-  middleZoneHeightPx
-) {
-  const halfBandPx = middleZoneHeightPx / 2;
+export function buildMiddleInsertSymmetricVerticalHitBandClientBounds(
+    seamCenterClientY,
+    fullBandHeightPx
+  ){
+  const half = fullBandHeightPx / 2;
   return {
-    top: seamCenterClientY - halfBandPx,
-    bottom: seamCenterClientY + halfBandPx,
+    top: seamCenterClientY - half,
+    bottom: seamCenterClientY + half,
   };
 }

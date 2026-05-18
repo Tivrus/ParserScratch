@@ -11,13 +11,13 @@ import {
  *
  * @param {import('@playwright/test').Page} page
  */
-export async function gotoApp(page) {
+export async function gotoApp(page){
   let lastError;
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 6; attempt++){
     try {
       await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 20_000 });
       return;
-    } catch (err) {
+    } catch (err){
       lastError = err;
       await new Promise(r => setTimeout(r, 400));
     }
@@ -31,7 +31,7 @@ export async function gotoApp(page) {
  *
  * @param {{ page: import('@playwright/test').Page }} fixtures
  */
-export async function editorE2eBeforeEach({ page }) {
+export async function editorE2eBeforeEach({ page }){
   await installScratchE2eDebug(page);
   await gotoApp(page);
   await resetWorkspaceFromPage(page);

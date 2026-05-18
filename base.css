@@ -225,7 +225,7 @@ textarea {
     border-color: #59afe8;
 }
 
-.workspace-mode-toggle:not(.workspace-mode-toggle--active) {
+.workspace-mode-toggle:not(.workspace-mode-toggle--active){
     opacity: 0.55;
 }
 
@@ -270,7 +270,7 @@ textarea {
     pointer-events: none;
 }
 
-.connector-debug-connectors {
+.Zone-debug-Zones {
     pointer-events: none;
 }
 

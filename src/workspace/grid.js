@@ -1,20 +1,18 @@
 import * as Global from '../constants/Global.js';
 import * as WorkspaceCameraInertia from './workspaceCameraInertia.js';
-import { snapWorldCoordsToGrid } from '../calculations/StackWorkspaceMath.js';
+import * as StackWorkspaceMath from '../calculations/StackWorkspaceMath.js';
 
-export { snapWorldCoordsToGrid };
+export const snapBlockWorldPositionToWorkspaceGrid = StackWorkspaceMath.snapBlockWorldPositionToWorkspaceGrid;
 
-/**
- * Панорамирование фона по пустому полотну; мир блоков `<g>` синхронизируется тем же смещением.
- * Координаты блоков остаются в мировом пространстве; смещение вида только на `#block-world-root`.
- */
-export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
+export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}){
   const noop = {
-    getOffset: () => ({ x: 0, y: 0 }),
-    setOffset() {},
+    getOffset: function(){
+      return { x: 0, y: 0 };
+    },
+    setOffset(){},
   };
 
-  if (!workspaceEl || !gridEl) {
+  if (!workspaceEl || !gridEl){
     Global.logError('workspaceEl and gridEl are required', {
       context: 'attachWorkspaceGridPan',
     });
@@ -22,7 +20,7 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   }
 
   const { blockWorldRootEl = null } = options;
-  const cellPx = Global.WORKSPACE_GRID_CELL_PX;
+  const cellPx = Global.WORKSPACE_GRID_CELL_PX; // default 24px
   gridEl.style.backgroundSize = `${cellPx}px ${cellPx}px`;
 
   let offsetX = 0;
@@ -33,27 +31,27 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   let panOffsetStartX = 0;
   let panOffsetStartY = 0;
 
-  const applyViewOffset = () => {
+  function applyViewOffset(){
     gridEl.style.backgroundPosition = `${offsetX}px ${offsetY}px`;
-    if (blockWorldRootEl) {
+    if (blockWorldRootEl){
       blockWorldRootEl.setAttribute(
         'transform',
         `translate(${offsetX},${offsetY})`
       );
     }
-  };
+  }
 
-  const notifyCameraPersist = () => {
+  function notifyCameraPersist(){
     workspaceEl.dispatchEvent(
       new CustomEvent(Global.WORKSPACE_EVENTS.cameraOffsetChanged, {
         bubbles: true,
         detail: { x: offsetX, y: offsetY },
       })
     );
-  };
+  }
 
   const inertia = WorkspaceCameraInertia.createWorkspaceCameraInertia({
-    addOffset(dx, dy) {
+    addOffset(dx, dy){
       offsetX += dx;
       offsetY += dy;
       applyViewOffset();
@@ -61,29 +59,28 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
     settle: notifyCameraPersist,
   });
 
-  const finishPanUi = () => {
+  function finishPanUi(){
     if (!isPanning) return;
     isPanning = false;
     workspaceEl.classList.remove('workspace--grid-panning');
-  };
+  }
 
-  const onGrabEndPan = event => {
+  function onGrabEndPan(event){
     if (!isPanning) return;
     finishPanUi();
     inertia.onPanGrabEnd(event.detail);
-  };
+  }
 
-  const onGrabCancelPan = () => {
+  function onGrabCancelPan(){
     inertia.stopRunningCoastAndSettle();
     if (!isPanning) return;
     finishPanUi();
     notifyCameraPersist();
-  };
+  }
 
-  workspaceEl.addEventListener('grab-start', event => {
+  workspaceEl.addEventListener('grab-start', function(event){
     const grabDetail = event.detail;
-    if (grabDetail.area !== 'workspace' || grabDetail.target !== 'empty')
-      return;
+    if (grabDetail.area !== 'workspace' || grabDetail.target !== 'empty') return;
     inertia.stopRunningCoastAndSettle();
     isPanning = true;
     panPointerStartX = grabDetail.clientX;
@@ -93,7 +90,7 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
     workspaceEl.classList.add('workspace--grid-panning');
   });
 
-  document.addEventListener('mousemove', event => {
+  document.addEventListener('mousemove', function(event){
     if (!isPanning) return;
     offsetX = panOffsetStartX + (event.clientX - panPointerStartX);
     offsetY = panOffsetStartY + (event.clientY - panPointerStartY);
@@ -103,17 +100,17 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}) {
   document.addEventListener('grab-end', onGrabEndPan);
   document.addEventListener('grab-cancel', onGrabCancelPan);
 
-  const setOffset = (x, y) => {
+  function setOffset(x, y){
     inertia.abortCoastSilently();
     offsetX = Number(x) || 0;
     offsetY = Number(y) || 0;
     applyViewOffset();
-  };
+  }
 
   applyViewOffset();
 
   return {
-    getOffset() {
+    getOffset(){
       return { x: offsetX, y: offsetY };
     },
     setOffset,

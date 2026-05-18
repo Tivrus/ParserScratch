@@ -2,7 +2,7 @@ import * as StackChainDrag from '../blocks/StackChainDrag.js';
 import * as Global from '../constants/Global.js';
 import * as CBlockMath from '../calculations/CBlockMath.js';
 import * as InnerStackAcc from '../calculations/innerStackNominalHeightAccumulation.js';
-import { clampNonNegative } from '../infrastructure/math/MathUtils.js';
+import * as MathUtils from '../infrastructure/math/MathUtils.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import {
   buildCBlockInnerStackStretchedPathD,
@@ -10,24 +10,24 @@ import {
 } from './cBlockInnerStackPathStretch.js';
 
 /**
- * Высота силуэта как у GhostBlock: bbox первого дочернего `<path>`, иначе bbox группы.
+ * Высота силуэта как у Ghost: bbox первого дочернего `<path>`, иначе bbox группы.
  * @param {SVGGraphicsElement|null|undefined} draggedElement
  * @returns {number}
  */
-function silhouetteHeightPx(draggedElement) {
+function silhouetteHeightPx(draggedElement){
   if (!draggedElement) return 0;
   try {
     let pathEl = null;
-    if (typeof draggedElement.querySelector === 'function') {
+    if (typeof draggedElement.querySelector === 'function'){
       pathEl = /** @type {SVGPathElement|null} */ (
         draggedElement.querySelector(':scope > path')
       );
     }
-    if (pathEl && typeof pathEl.getBBox === 'function') {
+    if (pathEl && typeof pathEl.getBBox === 'function'){
       const { height } = pathEl.getBBox();
       if (Number.isFinite(height) && height > 0) return height;
     }
-    if (typeof draggedElement.getBBox === 'function') {
+    if (typeof draggedElement.getBBox === 'function'){
       const { height } = draggedElement.getBBox();
       if (Number.isFinite(height) && height > 0) return height;
     }
@@ -42,75 +42,86 @@ function silhouetteHeightPx(draggedElement) {
  * @param {SVGGraphicsElement|null|undefined} draggedElement
  * @returns {number}
  */
-export function cBlockTopInnerStretchDeltaY(draggedElement) {
-  return clampNonNegative(silhouetteHeightPx(draggedElement));
+export function cBlockTopInnerStretchDeltaY(draggedElement){
+  return MathUtils.clampNonNegative(silhouetteHeightPx(draggedElement));
 }
 
 /**
  * Превью prepend в top-inner: дополнительный сдвиг вниз для **внутренних** блоков относительно
- * слота призрака (`силуэт − CONNECTOR_SOCKET_HEIGHT − START_BLOCK_NORMAL_STACK_EXTRA_Y`).
+ * слота призрака (`силуэт − ZONE_SOCKET_HEIGHT − EXTRA_Y`).
  * Растяжение пути использует полную высоту призрака через {@link buildStretchedCBlockPathDFromGhostHeight}.
  * @param {SVGGraphicsElement|null|undefined} draggedElement
  * @returns {number}
  */
-export function cBlockTopInnerPrependPreviewShiftY(draggedElement) {
+export function cBlockTopInnerPrependPreviewShiftY(draggedElement){
   const h = silhouetteHeightPx(draggedElement);
   if (!Number.isFinite(h) || h <= 0) return 0;
-  return CBlockMath.prependPreviewShiftClampedPx(h);
+  return CBlockMath.calcTopInnerPrependSpreadClampedPx(h);
 }
 
 /**
  * Сдвиг мира для **уже существующей** внутренней цепочки при превью prepend в top-inner
- * (позиция призрака считается отдельно). Для `stop-block` цепочка смещается ещё на
- * `CONNECTOR_SOCKET_HEIGHT` вниз, чтобы очистить «шапку» призрака.
+ * (позиция призрака считается отдельно). Если перетаскиваемая цепь **заканчивается на `stop-block`**, сдвиг дополняется на
+ * `ZONE_SOCKET_HEIGHT` вниз, чтобы очистить «шапку» призрака.
  * @param {SVGGraphicsElement|null|undefined} draggedElement
- * @param {string|undefined} draggedBlockType
+ * @param {boolean} [draggedChainEndsWithStopBlock=false]
  * @returns {number}
  */
 export function cBlockTopInnerPrependInnerStackSpreadY(
   draggedElement,
-  draggedBlockType
-) {
+  draggedChainEndsWithStopBlock = false
+){
   const base = cBlockTopInnerPrependPreviewShiftY(draggedElement);
-  return CBlockMath.prependInnerStackSpreadTotalPx(base, draggedBlockType);
+  return CBlockMath.calcTopInnerPrependTotalSpreadPx(base, draggedChainEndsWithStopBlock);
 }
 
 /**
- * Превью при snap: растягивает «рот» внутреннего стека; вертикальный бюджет = полная высота
- * силуэта призрака; каждая из двух ног `v` получает `ghostHeightPx / 2`.
+ * Превью при snap: растягивает **SVG path корпуса c-block** в зоне полости под **inner stack**;
+ * вертикальный бюджет = полная высота силуэта призрака; каждая из двух ног `v` получает половину приращения.
  * @param {string|undefined} basePathD
  * @param {number} ghostHeightPx
+ * @param {boolean} [isInnerStackEmpty=true] нет `innerStackHeadUUID` / внутренний стек пуст
+ * @param {boolean} [draggedChainEndsWithStopBlock=false]
  * @returns {string|undefined}
  */
-export function buildStretchedCBlockPathDFromGhostHeight(basePathD, ghostHeightPx) {
-  if (!basePathD || !Number.isFinite(ghostHeightPx) || ghostHeightPx <= 0) {
+export function buildStretchedCBlockPathDFromGhostHeight(
+  basePathD,
+  ghostHeightPx,
+  isInnerStackEmpty = true,
+  draggedChainEndsWithStopBlock = false
+){
+  if (!basePathD || !Number.isFinite(ghostHeightPx) || ghostHeightPx <= 0){
     return basePathD;
   }
   return buildCBlockInnerStackStretchedPathDWithFixedPerLeg(
     basePathD,
-    CBlockMath.ghostHeightPerVerticalLegPx(ghostHeightPx)
+    CBlockMath.calc_CblockInnerStack_BodyPath_PerLeg_VerticalStretchPx_FromGhostHeight_ForTopInnerPreview(
+      ghostHeightPx,
+      isInnerStackEmpty,
+      draggedChainEndsWithStopBlock
+    )
   );
 }
 
 /**
- * Явное растяжение пути внутреннего стека; `draggedBlockType` выбирает формулу на ногу.
+ * Явное растяжение пути внутреннего стека; если inner stack заканчивается на `stop-block`, другая формула на ногу.
  * @param {string|undefined} basePathD
  * @param {number} ghostPathHeightPx
- * @param {string|undefined} draggedBlockType
+ * @param {boolean} [innerStackChainEndsWithStop=false]
  * @returns {string|undefined}
  */
 export function buildStretchedCBlockPathD(
   basePathD,
   ghostPathHeightPx,
-  draggedBlockType
-) {
-  if (!basePathD || ghostPathHeightPx <= 0) {
+  innerStackChainEndsWithStop = false
+){
+  if (!basePathD || ghostPathHeightPx <= 0){
     return basePathD;
   }
   return buildCBlockInnerStackStretchedPathD(
     basePathD,
     ghostPathHeightPx,
-    draggedBlockType
+    innerStackChainEndsWithStop
   );
 }
 
@@ -118,12 +129,12 @@ export function buildStretchedCBlockPathD(
  * @param {import('../blocks/Block.js').Block|{ element?: SVGElement }} block
  * @returns {SVGPathElement|null}
  */
-export function getWorkspaceBlockPathElement(block) {
-  if (!block || !block.element || typeof block.element.querySelector !== 'function') {
+export function getWorkspaceBlockPathElement(block){
+  if (!block || !block.element || typeof block.element.querySelector !== 'function'){
     return null;
   }
   const pathNode = block.element.querySelector(':scope > path');
-  if (!(pathNode instanceof SVGPathElement)) {
+  if (!(pathNode instanceof SVGPathElement)){
     return null;
   }
   return pathNode;
@@ -141,19 +152,19 @@ export function measureInnerStackNominalHeightPx(
   blockRegistry,
   innerHead,
   prepareBlockData
-) {
-  if (!innerHead || typeof prepareBlockData !== 'function') {
+){
+  if (!innerHead || typeof prepareBlockData !== 'function'){
     return 0;
   }
   const chain = StackChainDrag.collectChainBlocksFromHead(
     blockRegistry,
     innerHead
   );
-  if (!chain.length) {
+  if (!chain.length){
     return 0;
   }
   const orderedHeightsPx = [];
-  for (let i = 0; i < chain.length; i++) {
+  for (let i = 0; i < chain.length; i++){
     const blockData = prepareBlockData(chain[i].blockKey);
     let blockHeight = Global.DEFAULT_BLOCK_HEIGHT;
     if (
@@ -161,13 +172,14 @@ export function measureInnerStackNominalHeightPx(
       blockData.height != null &&
       Number.isFinite(Number(blockData.height)) &&
       Number(blockData.height) > 0
-    ) {
+    ){
       blockHeight = Number(blockData.height);
     }
     orderedHeightsPx.push(blockHeight);
   }
-  return clampNonNegative(
-    InnerStackAcc.accumulateStackedBlockHeightsPx(orderedHeightsPx)
+  console.log(orderedHeightsPx)
+  return MathUtils.clampNonNegative(
+    InnerStackAcc.sumStackedBlockNominalHeightsPxWithSocketOverlapBetweenLinks(orderedHeightsPx)
   );
 }
 
@@ -178,8 +190,8 @@ export function measureInnerStackNominalHeightPx(
  * @param {import('../blocks/Block.js').Block|null|undefined} innerHead
  * @returns {number}
  */
-export function measureInnerStackWorldHeightPx(blockRegistry, innerHead) {
-  if (!innerHead || !innerHead.element || typeof innerHead.element.getBBox !== 'function') {
+export function measureInnerStackWorldHeightPx(blockRegistry, innerHead){
+  if (!innerHead || !innerHead.element || typeof innerHead.element.getBBox !== 'function'){
     return 0;
   }
   let minY = Infinity;
@@ -187,8 +199,8 @@ export function measureInnerStackWorldHeightPx(blockRegistry, innerHead) {
   for (const b of StackChainDrag.collectChainBlocksFromHead(
     blockRegistry,
     innerHead
-  )) {
-    if (!b || !b.element || typeof b.element.getBBox !== 'function') {
+  )){
+    if (!b || !b.element || typeof b.element.getBBox !== 'function'){
       continue;
     }
     try {
@@ -202,14 +214,15 @@ export function measureInnerStackWorldHeightPx(blockRegistry, innerHead) {
       return 0;
     }
   }
-  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY)){
     return 0;
   }
-  return clampNonNegative(maxY - minY);
+  return MathUtils.clampNonNegative(maxY - minY);
 }
 
 /**
- * Рабочая c-block: выставить `<path d>` в базовую форму или растянуть «рот» под внутренний стек.
+ * Рабочая **c-block**: выставить атрибут `<path d>` в базовую форму из данных блока
+ * или растянуть **вертикальную полость path под inner stack** под фактическую высоту inner stack.
  * Вызывать до пересборки коннекторов, чтобы зоны совпадали с путём.
  * @param {Map<string, import('../blocks/Block.js').Block>} blockRegistry
  * @param {import('../blocks/Block.js').Block} cBlock
@@ -219,26 +232,30 @@ export function applyWorkspaceCBlockInnerStretch(
   blockRegistry,
   cBlock,
   prepareBlockData
-) {
+){
   const pathEl = getWorkspaceBlockPathElement(cBlock);
-  if (!pathEl || typeof prepareBlockData !== 'function') {
+  if (!pathEl || typeof prepareBlockData !== 'function'){
     return;
   }
   const data = prepareBlockData(cBlock.blockKey);
   let basePathD = null;
-  if (data && data.pathData !== undefined) {
+  if (data && data.pathData !== undefined){
     basePathD = data.pathData;
   }
-  if (typeof basePathD !== 'string' || !basePathD) {
+  if (typeof basePathD !== 'string' || !basePathD){
     return;
   }
 
   let innerHeightPx = 0;
-  let headType;
-  if (cBlock.innerStackHeadUUID) {
+  let innerStackEndsWithStop = false;
+  if (cBlock.innerStackHeadUUID){
     const innerHead = blockRegistry.get(cBlock.innerStackHeadUUID);
-    if (innerHead) {
-      headType = innerHead.type;
+    if (innerHead){
+      innerStackEndsWithStop =
+        StackChainDrag.workspaceChainEndsWithStopBlock(
+          blockRegistry,
+          innerHead
+        );
       innerHeightPx = measureInnerStackNominalHeightPx(
         blockRegistry,
         innerHead,
@@ -247,12 +264,16 @@ export function applyWorkspaceCBlockInnerStretch(
     }
   }
 
-  if (innerHeightPx <= 0) {
+  if (innerHeightPx <= 0){
     pathEl.setAttribute('d', basePathD);
     return;
   }
   pathEl.setAttribute(
     'd',
-    buildCBlockInnerStackStretchedPathD(basePathD, innerHeightPx, headType)
+    buildCBlockInnerStackStretchedPathD(
+      basePathD,
+      innerHeightPx,
+      innerStackEndsWithStop
+    )
   );
 }

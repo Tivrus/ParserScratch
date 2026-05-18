@@ -1,12 +1,12 @@
 /** Вставка в middle: шов на родителе, полоса в координатах клиента. */
 
 import * as MiddleJointBand from '../../calculations/middleJointClientBand.js';
-import * as ConnectorClientGeometry from './connectorClientGeometry.js';
+import * as ZoneClientGeometry from './ZoneClientGeometry.js';
 
 /** Зона middle на `<g>` родителя; связь с нижним блоком через `linkedChildUUID`. */
-export function middleJointOnParent(parentBlock, childBlock) {
+export function middleJointOnParent(parentBlock, childBlock){
   if (!parentBlock || !childBlock) return null;
-  const zones = parentBlock.connectorZones;
+  const zones = parentBlock.Zones;
   if (!zones || typeof zones.find !== 'function') return null;
   const middleZoneMatch = zones.find(
     zone =>
@@ -19,23 +19,25 @@ export function middleJointOnParent(parentBlock, childBlock) {
 /**
  * Полоса шва в viewport: учитывает сдвиг ребёнка (`translate`), не только родителя.
  */
-export function middleJointBandClientRect(parentBlock, childBlock, middleZone) {
+export function middleJointBandClientRect(parentBlock, childBlock, middleZone){
   if (!parentBlock || !parentBlock.element || !childBlock || !childBlock.element || !middleZone) return null;
-  const middleZoneClientRect = ConnectorClientGeometry.zoneToClientRect(
+  const middleZoneClientRect = ZoneClientGeometry.zoneToClientRect(
     parentBlock.element,
     middleZone
   );
   if (!middleZoneClientRect) return null;
   const parentClientRect = parentBlock.element.getBoundingClientRect();
   const childClientRect = childBlock.element.getBoundingClientRect();
-  const seamCenterY = MiddleJointBand.middleSeamCenterClientY(
-    parentClientRect,
-    childClientRect
-  );
-  const verticalBounds = MiddleJointBand.symmetricVerticalBandClientBounds(
-    seamCenterY,
-    middleZone.height
-  );
+  const seamCenterY =
+    MiddleJointBand.calcMiddleInsertSeamCenterClientYFromOverlappingRects(
+      parentClientRect,
+      childClientRect
+    );
+  const verticalBounds =
+    MiddleJointBand.buildMiddleInsertSymmetricVerticalHitBandClientBounds(
+      seamCenterY,
+      middleZone.height
+    );
   return {
     left: middleZoneClientRect.left,
     right: middleZoneClientRect.right,

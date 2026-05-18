@@ -21,12 +21,12 @@ const workspaceJsonPath = path.join(__dirname, 'workspace.json');
 const SCRATCH_E2E_WORKSPACE_HEADER = 'x-scratch-e2e';
 
 /** Если `1` / `true` — весь процесс сервера не пишет workspace на диск (удобно для webServer в CI). */
-function isScratchSkipWorkspaceDiskSaveEnv() {
+function isScratchSkipWorkspaceDiskSaveEnv(){
   const flag = process.env.SCRATCH_SKIP_WORKSPACE_DISK_SAVE;
   return flag === '1' || flag === 'true';
 }
 
-function shouldUseVolatileWorkspaceStore(req) {
+function shouldUseVolatileWorkspaceStore(req){
   return (
     isScratchSkipWorkspaceDiskSaveEnv() ||
     req.get(SCRATCH_E2E_WORKSPACE_HEADER) === '1'
@@ -49,18 +49,18 @@ let saveWorkspaceWriteChain = Promise.resolve();
  * Запись JSON во временный файл и замена `workspace.json` (без «рваных» чтений).
  * В Windows `rename` поверх существующего файла может падать — fallback: copyFile + unlink.
  */
-async function atomicWriteWorkspaceJson(filePath, workspaceData) {
+async function atomicWriteWorkspaceJson(filePath, workspaceData){
   const json = `${JSON.stringify(workspaceData, null, 2)}\n`;
   const tmpPath = `${filePath}.tmp`;
   await fs.writeFile(tmpPath, json, 'utf-8');
   try {
     await fs.rename(tmpPath, filePath);
-  } catch (err) {
+  } catch (err){
     if (
       err &&
       (err.code === 'EPERM' || err.code === 'EEXIST') &&
       process.platform === 'win32'
-    ) {
+    ){
       await fs.copyFile(tmpPath, filePath);
       await fs.unlink(tmpPath);
     } else {
@@ -78,29 +78,29 @@ async function atomicWriteWorkspaceJson(filePath, workspaceData) {
  *   modes: { cameraInertia: boolean; blockGridSnap: boolean };
  * }}
  */
-function normalizeWorkspacePayloadFromRequestBody(rawBody) {
+function normalizeWorkspacePayloadFromRequestBody(rawBody){
   let requestBody = {};
-  if (rawBody && typeof rawBody === 'object') {
+  if (rawBody && typeof rawBody === 'object'){
     requestBody = rawBody;
   }
   let cameraSection = {};
-  if (requestBody.camera && typeof requestBody.camera === 'object') {
+  if (requestBody.camera && typeof requestBody.camera === 'object'){
     cameraSection = requestBody.camera;
   }
   let modesSection = {};
-  if (requestBody.modes && typeof requestBody.modes === 'object') {
+  if (requestBody.modes && typeof requestBody.modes === 'object'){
     modesSection = requestBody.modes;
   }
   let blocksPayload = {};
-  if (requestBody.blocks && typeof requestBody.blocks === 'object') {
+  if (requestBody.blocks && typeof requestBody.blocks === 'object'){
     blocksPayload = requestBody.blocks;
   }
   let cameraInertiaEnabled = true;
-  if (typeof modesSection.cameraInertia === 'boolean') {
+  if (typeof modesSection.cameraInertia === 'boolean'){
     cameraInertiaEnabled = modesSection.cameraInertia;
   }
   let blockGridSnapEnabled = true;
-  if (typeof modesSection.blockGridSnap === 'boolean') {
+  if (typeof modesSection.blockGridSnap === 'boolean'){
     blockGridSnapEnabled = modesSection.blockGridSnap;
   }
   return {
@@ -120,7 +120,7 @@ app.post('/api/save-workspace', async (req, res) => {
   try {
     const workspaceData = normalizeWorkspacePayloadFromRequestBody(req.body);
 
-    if (shouldUseVolatileWorkspaceStore(req)) {
+    if (shouldUseVolatileWorkspaceStore(req)){
       volatileScratchWorkspace = workspaceData;
       console.log('[Server] Workspace saved (volatile, tests — workspace.json unchanged)');
       res.json({ success: true, message: 'Workspace saved (volatile)' });
@@ -136,7 +136,7 @@ app.post('/api/save-workspace', async (req, res) => {
     await writeFinished;
     console.log('[Server] Workspace saved to workspace.json');
     res.json({ success: true, message: 'Workspace saved successfully' });
-  } catch (error) {
+  } catch (error){
     console.error('[Server] Error saving workspace:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -144,7 +144,7 @@ app.post('/api/save-workspace', async (req, res) => {
 
 app.get('/api/load-workspace', async (req, res) => {
   try {
-    if (shouldUseVolatileWorkspaceStore(req)) {
+    if (shouldUseVolatileWorkspaceStore(req)){
       const payload =
         volatileScratchWorkspace != null
           ? volatileScratchWorkspace
@@ -158,31 +158,31 @@ app.get('/api/load-workspace', async (req, res) => {
       const data = await fs.readFile(workspaceJsonPath, 'utf-8');
       const parsed = JSON.parse(data);
       let cameraSection = {};
-      if (parsed.camera && typeof parsed.camera === 'object') {
+      if (parsed.camera && typeof parsed.camera === 'object'){
         cameraSection = parsed.camera;
       }
       let modesSection = {};
-      if (parsed.modes && typeof parsed.modes === 'object') {
+      if (parsed.modes && typeof parsed.modes === 'object'){
         modesSection = parsed.modes;
       }
       let blocksPayload = {};
-      if (parsed.blocks && typeof parsed.blocks === 'object') {
+      if (parsed.blocks && typeof parsed.blocks === 'object'){
         blocksPayload = parsed.blocks;
       }
       let cameraDocumentX = 0;
-      if (Number.isFinite(Number(cameraSection.x))) {
+      if (Number.isFinite(Number(cameraSection.x))){
         cameraDocumentX = Number(cameraSection.x);
       }
       let cameraDocumentY = 0;
-      if (Number.isFinite(Number(cameraSection.y))) {
+      if (Number.isFinite(Number(cameraSection.y))){
         cameraDocumentY = Number(cameraSection.y);
       }
       let cameraInertiaEnabled = true;
-      if (typeof modesSection.cameraInertia === 'boolean') {
+      if (typeof modesSection.cameraInertia === 'boolean'){
         cameraInertiaEnabled = modesSection.cameraInertia;
       }
       let blockGridSnapEnabled = true;
-      if (typeof modesSection.blockGridSnap === 'boolean') {
+      if (typeof modesSection.blockGridSnap === 'boolean'){
         blockGridSnapEnabled = modesSection.blockGridSnap;
       }
       const workspaceData = {
@@ -198,7 +198,7 @@ app.get('/api/load-workspace', async (req, res) => {
       };
       console.log('[Server] Workspace loaded from workspace.json');
       res.json({ success: true, data: workspaceData });
-    } catch (error) {
+    } catch (error){
       console.error(
         '[Server] workspace.json missing or invalid JSON — using defaults:',
         error.message
@@ -208,7 +208,7 @@ app.get('/api/load-workspace', async (req, res) => {
         data: { ...EMPTY_WORKSPACE_DEFAULTS },
       });
     }
-  } catch (error) {
+  } catch (error){
     console.error('[Server] Error loading workspace:', error);
     res.status(500).json({ success: false, error: error.message });
   }

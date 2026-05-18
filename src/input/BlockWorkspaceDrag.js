@@ -11,43 +11,43 @@ export class BlockWorkspaceDrag {
     dragOverlayEl,
     grabManager,
     options = {}
-  ) {
+  ){
     this.blockContainerEl = blockContainerEl;
     this.workspaceEl = workspaceEl;
     this.dragOverlayEl = dragOverlayEl;
     this.grabManager = grabManager;
-    if (options.blockRegistry != null) {
+    if (options.blockRegistry != null){
       this.blockRegistry = options.blockRegistry;
     } else {
       this.blockRegistry = null;
     }
-    if (options.blockMountParentEl != null) {
+    if (options.blockMountParentEl != null){
       this.blockMountParentEl = options.blockMountParentEl;
     } else {
       this.blockMountParentEl = blockContainerEl;
     }
-    if (options.getWorkspaceGridOffset != null) {
+    if (options.getWorkspaceGridOffset != null){
       this.getWorkspaceGridOffset = options.getWorkspaceGridOffset;
     } else {
       this.getWorkspaceGridOffset = () => ({ x: 0, y: 0 });
     }
-    if (options.onBlockDragMove != null) {
+    if (options.onBlockDragMove != null){
       this.onBlockDragMove = options.onBlockDragMove;
     } else {
       this.onBlockDragMove = null;
     }
-    if (options.onBlockDragEnd != null) {
+    if (options.onBlockDragEnd != null){
       this.onBlockDragEnd = options.onBlockDragEnd;
     } else {
       this.onBlockDragEnd = null;
     }
-    if (options.tryCommitStackConnect != null) {
+    if (options.tryCommitStackConnect != null){
       this.tryCommitStackConnect = options.tryCommitStackConnect;
     } else {
       this.tryCommitStackConnect = null;
     }
 
-    if (!this.dragOverlayEl) {
+    if (!this.dragOverlayEl){
       Global.logError('dragOverlayEl is required for workspace drag', {
         context: 'BlockWorkspaceDrag',
       });
@@ -60,54 +60,54 @@ export class BlockWorkspaceDrag {
     this.#initListeners();
   }
 
-  #initListeners() {
+  #initListeners(){
     this.workspaceEl.addEventListener('grab-start', event => {
       const detail = event.detail;
       if (
         this.grabManager.isWorkspaceBlockGrabDetail(detail) &&
         detail.grabKey
-      ) {
+      ){
         this.#onGrabStart(detail);
       }
     });
 
     document.addEventListener('mousemove', event => {
-      if (this.dragging) {
+      if (this.dragging){
         this.#onMove(event);
       }
     });
 
     document.addEventListener('grab-end', event => {
-      if (this.dragging) {
+      if (this.dragging){
         this.#onGrabEnd(event.detail);
-      } else if (this.skipGrabEndOnce) {
+      } else if (this.skipGrabEndOnce){
         this.skipGrabEndOnce = false;
       }
     });
 
     document.addEventListener('grab-cancel', () => {
-      if (this.dragging) {
+      if (this.dragging){
         this.#cancel();
       }
     });
   }
 
-  #onGrabStart(grabDetail) {
+  #onGrabStart(grabDetail){
     let grabbedBlock = null;
-    if (this.blockRegistry && typeof this.blockRegistry.get === 'function') {
+    if (this.blockRegistry && typeof this.blockRegistry.get === 'function'){
       grabbedBlock = this.blockRegistry.get(grabDetail.grabKey);
     }
-    if (!grabbedBlock) {
+    if (!grabbedBlock){
       return;
     }
 
     let stackHead = grabbedBlock;
-    if (!StackChainDrag.isWorkspaceStackHead(grabbedBlock)) {
+    if (!StackChainDrag.isWorkspaceStackHead(grabbedBlock)){
       const splitResult = StackChainDrag.splitWorkspaceStackAtGrabbed(
         this.blockRegistry,
         grabbedBlock
       );
-      if (!splitResult) {
+      if (!splitResult){
         return;
       }
       stackHead = splitResult.lowerHead;
@@ -123,12 +123,12 @@ export class BlockWorkspaceDrag {
         this.blockRegistry,
         stackHead
       );
-    if (stackChain.length === 0) {
+    if (stackChain.length === 0){
       return;
     }
 
     const headElement = stackChain[0].element;
-    if (!headElement) {
+    if (!headElement){
       return;
     }
 
@@ -150,7 +150,7 @@ export class BlockWorkspaceDrag {
       };
     });
 
-    for (const member of chainMembers) {
+    for (const member of chainMembers){
       member.element.classList.add('workspace-block--dragging');
       this.dragOverlayEl.appendChild(member.element);
       member.element.setAttribute(
@@ -167,45 +167,45 @@ export class BlockWorkspaceDrag {
     };
   }
 
-  #onMove(event) {
+  #onMove(event){
     const { chainMembers, startClientX, startClientY } = this.dragging;
     const deltaX = event.clientX - startClientX;
     const deltaY = event.clientY - startClientY;
-    for (const member of chainMembers) {
+    for (const member of chainMembers){
       const x = member.overlayOriginX + deltaX;
       const y = member.overlayOriginY + deltaY;
       member.element.setAttribute('transform', `translate(${x}, ${y})`);
     }
-    if (this.onBlockDragMove) {
+    if (this.onBlockDragMove){
       this.onBlockDragMove(chainMembers[0].element, this.grabManager);
     }
   }
 
-  #onGrabEnd(grabDetail) {
-    if (this.skipGrabEndOnce) {
-      for (const member of this.dragging.chainMembers) {
+  #onGrabEnd(grabDetail){
+    if (this.skipGrabEndOnce){
+      for (const member of this.dragging.chainMembers){
         member.element.classList.remove('workspace-block--dragging');
       }
       this.dragging = null;
-      if (this.onBlockDragEnd) {
+      if (this.onBlockDragEnd){
         this.onBlockDragEnd();
       }
       return;
     }
 
-    if (!grabDetail.moved) {
+    if (!grabDetail.moved){
       this.#restoreOriginalPositions();
       return;
     }
 
     let snapPosition = null;
-    if (typeof this.tryCommitStackConnect === 'function') {
+    if (typeof this.tryCommitStackConnect === 'function'){
       snapPosition = this.tryCommitStackConnect(
         this.dragging,
         this.grabManager
       );
     }
-    if (snapPosition) {
+    if (snapPosition){
       this.#finalizeStackSnap(snapPosition);
       return;
     }
@@ -214,11 +214,14 @@ export class BlockWorkspaceDrag {
     const head = this.dragging.chainMembers[0];
     const headBaseX = Math.round(head.originX + deltaX);
     const headBaseY = Math.round(head.originY + deltaY);
-    const headSnapped = Grid.snapWorldCoordsToGrid(headBaseX, headBaseY);
+    const headSnapped = Grid.snapBlockWorldPositionToWorkspaceGrid(
+      headBaseX,
+      headBaseY
+    );
     const snapDx = headSnapped.x - headBaseX;
     const snapDy = headSnapped.y - headBaseY;
 
-    for (const member of this.dragging.chainMembers) {
+    for (const member of this.dragging.chainMembers){
       const x = Math.round(member.originX + deltaX + snapDx);
       const y = Math.round(member.originY + deltaY + snapDy);
       member.block.setPosition(x, y);
@@ -232,12 +235,12 @@ export class BlockWorkspaceDrag {
       );
     }
     this.dragging = null;
-    if (this.onBlockDragEnd) {
+    if (this.onBlockDragEnd){
       this.onBlockDragEnd();
     }
   }
 
-  #finalizeStackSnap(snapPosition) {
+  #finalizeStackSnap(snapPosition){
     const stackHeadBlock = this.dragging.chainMembers[0].block;
     stackHeadBlock.setPosition(
       Math.round(snapPosition.x),
@@ -254,7 +257,7 @@ export class BlockWorkspaceDrag {
     );
     BlockStackConnect.layoutAllCBlockInnerStacks(this.blockRegistry);
 
-    for (const member of this.dragging.chainMembers) {
+    for (const member of this.dragging.chainMembers){
       this.blockMountParentEl.appendChild(member.element);
       member.element.classList.remove('workspace-block--dragging');
       this.workspaceEl.dispatchEvent(
@@ -269,25 +272,25 @@ export class BlockWorkspaceDrag {
       );
     }
     this.dragging = null;
-    if (this.onBlockDragEnd) {
+    if (this.onBlockDragEnd){
       this.onBlockDragEnd();
     }
   }
 
-  #cancel() {
+  #cancel(){
     this.skipGrabEndOnce = false;
     this.#restoreOriginalPositions();
   }
 
-  armSkipGrabEndOnce() {
+  armSkipGrabEndOnce(){
     this.skipGrabEndOnce = true;
   }
 
-  #restoreOriginalPositions() {
-    if (!this.dragging) {
+  #restoreOriginalPositions(){
+    if (!this.dragging){
       return;
     }
-    for (const member of this.dragging.chainMembers) {
+    for (const member of this.dragging.chainMembers){
       this.blockMountParentEl.appendChild(member.element);
       member.element.setAttribute(
         'transform',
@@ -296,7 +299,7 @@ export class BlockWorkspaceDrag {
       member.element.classList.remove('workspace-block--dragging');
     }
     this.dragging = null;
-    if (this.onBlockDragEnd) {
+    if (this.onBlockDragEnd){
       this.onBlockDragEnd();
     }
   }

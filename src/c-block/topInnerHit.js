@@ -1,5 +1,5 @@
-import * as ConnectorZoneModule from '../blocks/ConnectorZone.js';
-import * as ConnectorClientGeometry from '../stack-connect/hit-test/connectorClientGeometry.js';
+import * as ZoneModule from '../blocks/ZoneModule.js';
+import * as ZoneClientGeometry from '../stack-connect/hit-test/ZoneClientGeometry.js';
 import * as StackChainGraph from '../stack-connect/layout/stackChainGraph.js';
 
 /** @returns {{ cBlock: object, zone: object }|null} */
@@ -7,7 +7,7 @@ export function findCBlockTopInnerHit(
   draggedBlock,
   draggedElement,
   blockRegistry
-) {
+  ){
   if (!draggedBlock || !draggedBlock.element || !draggedElement || !blockRegistry) return null;
   let draggedRect;
   try {
@@ -16,7 +16,7 @@ export function findCBlockTopInnerHit(
     return null;
   }
 
-  for (const block of blockRegistry.values()) {
+  for (const block of blockRegistry.values()){
     if (block.type !== 'c-block' || !block.element) continue;
     if (block.blockUUID === draggedBlock.blockUUID) continue;
     if (
@@ -31,24 +31,15 @@ export function findCBlockTopInnerHit(
           draggedBlock,
           blockRegistry
         ))
-    ) {
+    ){
       continue;
     }
 
-    const zone = ConnectorZoneModule.ConnectorZone.zoneByType(
-      block.connectorZones,
-      'top-inner'
-    );
+    const zone = ZoneModule.Zone.zoneByType(block.Zones, 'top-inner');
     if (!zone) continue;
-
-    const zoneClient = ConnectorClientGeometry.zoneToClientRect(
-      block.element,
-      zone
-    );
-    if (
-      zoneClient &&
-      ConnectorClientGeometry.rectsIntersectClient(draggedRect, zoneClient)
-    ) {
+    
+    const zoneClient = ZoneClientGeometry.zoneToClientRect(block.element, zone);
+    if (zoneClient && ZoneClientGeometry.rectsIntersectClient(draggedRect, zoneClient)){
       return { cBlock: block, zone };
     }
   }
@@ -59,12 +50,12 @@ export function findCBlockTopInnerHit(
  * Призрак внутреннего стека: у головы перетаскиваемой цепочки должен быть верхний коннектор (не start-block).
  * Цепочки разрешены; головы start-block исключены и без верхней зоны.
  */
-export function isTopInnerGhostEligible(draggedBlock) {
+export function isTopInnerGhostEligible(draggedBlock){
   if (!draggedBlock || !draggedBlock.element) return false;
   if (draggedBlock.type === 'start-block') return false;
   return Boolean(
-    ConnectorZoneModule.ConnectorZone.zoneByType(
-      draggedBlock.connectorZones,
+    ZoneModule.Zone.zoneByType(
+      draggedBlock.Zones,
       'top'
     )
   );

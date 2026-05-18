@@ -38,9 +38,9 @@ const FOUR_DEFAULT_STACK = [
  * @param {Record<string, any>} snap
  * @param {string} blockKey
  */
-function uuidByBlockKey(snap, blockKey) {
-  for (const node of Object.values(snap)) {
-    if (node && node.blockKey === blockKey) {
+function uuidByBlockKey(snap, blockKey){
+  for (const node of Object.values(snap)){
+    if (node && node.blockKey === blockKey){
       return node.blockUUID;
     }
   }
@@ -420,6 +420,6 @@ test.describe('Коннект цепи из 4 default-block', () => {
  * @param {number} min
  * @param {number} max
  */
-function clamp(value, min, max) {
+function clamp(value, min, max){
   return Math.min(Math.max(value, min), max);
 }

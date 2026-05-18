@@ -12,11 +12,18 @@ export {
   measureInnerStackNominalHeightPx,
   measureInnerStackWorldHeightPx,
 } from './cBlockPathStretchPreview.js';
-export { computeTopInnerGhostWorldPosition } from './innerGhostLayout.js';
+export { calcTopInnerGhostWorldPosition } from './innerGhostLayout.js';
+export {
+  layoutInnerStackUnderCBlock,
+  layoutAllCBlockInnerStacks,
+} from './cBlockInnerStackWorkspaceLayout.js';
 export { resolveGhostSnapWithTopInnerPriority } from './innerSnapPriorities.js';
-export { computeCBlockBottomInnerRect } from './bottomInnerConnector.js';
+export { calcCBlockBottomInnerRect } from './bottomInnerZone.js';
 export { findCBlockBottomInnerHit } from './bottomInnerHit.js';
-export { computeCBlockTopInnerRect, computeCBlockTopInnerRectWithInnerStack } from './topInnerConnector.js';
+export {
+  calcCBlockTopInnerWhenIsEmpty,
+  calcCBlockTopInner,
+} from './topInnerZone.js';
 export {
   findCBlockTopInnerHit,
   isTopInnerGhostEligible,

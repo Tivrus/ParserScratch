@@ -7,7 +7,7 @@ export const CONSTANTS = {
   DEFAULT_BLOCK_COLOR: '#4c97ff',
 
   /** Цвета призрака при перетаскивании / превью. */
-  GHOST_BLOCK: {
+  GHOST: {
     FILL_COLOR: '#808080',
     STROKE_COLOR: '#606060',
   },
@@ -19,20 +19,15 @@ export const CONSTANTS = {
   /** Минимальный пустой зазор внутри c-block без детей. */
   C_BLOCK_EMPTY_INNER_SPACE: 24,
   /** Толщина (px) полосы попадания зон стекового коннектора. */
-  CONNECTOR_THRESHOLD: 32,
+  ZONE_HEIGHT: 32,
   /** Визуальная глубина сокета (px). */
-  CONNECTOR_SOCKET_HEIGHT: 8,
+  ZONE_SOCKET_HEIGHT: 8,
   /** Шляпа (start-block) при snap сверху/снизу: небольшой сдвиг Y, чтобы швы не наезжали. */
-  START_BLOCK_NORMAL_STACK_EXTRA_Y: 2,
+  EXTRA_Y: 2,
   /** Минимальное смещение указателя (px), чтобы считать жест перетаскиванием, а не кликом. */
   MOVE_THRESHOLD: 3,
 
-  CONNECTOR_OFFSETS: {
-    TOP_Y: 0,
-    BOTTOM_Y: 0,
-  },
-
-  CONNECTOR_ZONE_STYLE: {
+  ZONE_STYLE: {
     fill: 'rgba(0, 255, 170, 0.15)',
     stroke: '#00ff00',
     'stroke-width': '0.5',

@@ -4,7 +4,7 @@
  * пересобрать зоны коннекторов, чтобы middle снова стал bottom/top.
  */
 
-export function isWorkspaceStackHead(block) {
+export function isWorkspaceStackHead(block){
   return Boolean(block && block.parentUUID == null);
 }
 
@@ -12,17 +12,17 @@ export function isWorkspaceStackHead(block) {
  * Разрыв связи parent → grabbed: верх заканчивается на `parent`, grabbed становится головой нижней части;
  * зона middle между ними исчезает до пересборки коннекторов.
  */
-export function splitWorkspaceStackAtGrabbed(blockRegistry, grabbedBlock) {
-  if (!grabbedBlock || !grabbedBlock.blockUUID || grabbedBlock.parentUUID == null) {
+export function splitWorkspaceStackAtGrabbed(blockRegistry, grabbedBlock){
+  if (!grabbedBlock || !grabbedBlock.blockUUID || grabbedBlock.parentUUID == null){
     return null;
   }
 
   const parent = blockRegistry.get(grabbedBlock.parentUUID);
-  if (!parent) {
+  if (!parent){
     return null;
   }
 
-  if (parent.nextUUID === grabbedBlock.blockUUID) {
+  if (parent.nextUUID === grabbedBlock.blockUUID){
     parent.nextUUID = null;
     grabbedBlock.parentUUID = null;
     grabbedBlock.topLevel = true;
@@ -33,7 +33,7 @@ export function splitWorkspaceStackAtGrabbed(blockRegistry, grabbedBlock) {
   if (
     parent.type === 'c-block' &&
     parent.innerStackHeadUUID === grabbedBlock.blockUUID
-  ) {
+  ){
     parent.innerStackHeadUUID = null;
     grabbedBlock.parentUUID = null;
     grabbedBlock.topLevel = true;
@@ -49,13 +49,13 @@ export function splitWorkspaceStackAtGrabbed(blockRegistry, grabbedBlock) {
  * @param {Map<string, import('./Block.js').Block>} blockRegistry
  * @param {import('./Block.js').Block|string} headBlockOrId
  */
-export function collectChainBlocksFromHead(blockRegistry, headBlockOrId) {
+export function collectChainBlocksFromHead(blockRegistry, headBlockOrId){
   const headBlock =
     typeof headBlockOrId === 'string'
       ? blockRegistry.get(headBlockOrId)
       : headBlockOrId;
 
-  if (!headBlock) {
+  if (!headBlock){
     return [];
   }
 
@@ -63,15 +63,15 @@ export function collectChainBlocksFromHead(blockRegistry, headBlockOrId) {
   const visitedUUIDs = new Set();
   let current = headBlock;
 
-  while (current && !visitedUUIDs.has(current.blockUUID)) {
+  while (current && !visitedUUIDs.has(current.blockUUID)){
     visitedUUIDs.add(current.blockUUID);
     blocksInOrder.push(current);
 
-    if (!current.nextUUID) {
+    if (!current.nextUUID){
       break;
     }
     let followingBlock = blockRegistry.get(current.nextUUID);
-    if (followingBlock === undefined) {
+    if (followingBlock === undefined){
       followingBlock = null;
     }
     current = followingBlock;
@@ -81,9 +81,20 @@ export function collectChainBlocksFromHead(blockRegistry, headBlockOrId) {
 }
 
 /**
+ * Хвост вертикальной цепи (по `nextUUID`) имеет `type === 'stop-block'`.
+ * @param {Map<string, import('./Block.js').Block>} blockRegistry
+ * @param {import('./Block.js').Block|string} headBlockOrId
+ */
+export function workspaceChainEndsWithStopBlock(blockRegistry, headBlockOrId){
+  const chain = collectChainBlocksFromHead(blockRegistry, headBlockOrId);
+  const tail = chain[chain.length - 1];
+  return Boolean(tail && tail.type === 'stop-block');
+}
+
+/**
  * Множество UUID всей цепочки (голова…хвост): middle-preview spread не трогает все блоки на overlay.
  */
-export function collectChainUuidSetFromHead(blockRegistry, headUUID) {
+export function collectChainUuidSetFromHead(blockRegistry, headUUID){
   const uuidList = collectChainBlocksFromHead(blockRegistry, headUUID).map(
     block => block.blockUUID
   );
@@ -97,12 +108,12 @@ export function collectChainUuidSetFromHead(blockRegistry, headUUID) {
 export function collectBlocksToRemoveIncludingInnerTrees(
   blockRegistry,
   headBlockOrId
-) {
+){
   const headBlock =
     typeof headBlockOrId === 'string'
       ? blockRegistry.get(headBlockOrId)
       : headBlockOrId;
-  if (!headBlock) {
+  if (!headBlock){
     return [];
   }
 
@@ -110,20 +121,20 @@ export function collectBlocksToRemoveIncludingInnerTrees(
   const seen = new Set();
   const queue = [headBlock];
 
-  while (queue.length > 0) {
+  while (queue.length > 0){
     const chainStart = queue.shift();
-    if (!chainStart || !chainStart.blockUUID || seen.has(chainStart.blockUUID)) {
+    if (!chainStart || !chainStart.blockUUID || seen.has(chainStart.blockUUID)){
       continue;
     }
-    for (const block of collectChainBlocksFromHead(blockRegistry, chainStart)) {
-      if (seen.has(block.blockUUID)) {
+    for (const block of collectChainBlocksFromHead(blockRegistry, chainStart)){
+      if (seen.has(block.blockUUID)){
         continue;
       }
       seen.add(block.blockUUID);
       result.push(block);
-      if (block.type === 'c-block' && block.innerStackHeadUUID) {
+      if (block.type === 'c-block' && block.innerStackHeadUUID){
         const innerHead = blockRegistry.get(block.innerStackHeadUUID);
-        if (innerHead && !seen.has(innerHead.blockUUID)) {
+        if (innerHead && !seen.has(innerHead.blockUUID)){
           queue.push(innerHead);
         }
       }
@@ -139,52 +150,52 @@ export function collectBlocksToRemoveIncludingInnerTrees(
 export function collectChainBlocksFromHeadForWorkspaceDrag(
   blockRegistry,
   headBlockOrId
-) {
+){
   const headBlock =
     typeof headBlockOrId === 'string'
       ? blockRegistry.get(headBlockOrId)
       : headBlockOrId;
-  if (!headBlock) {
+  if (!headBlock){
     return [];
   }
 
   const result = [];
   const seen = new Set();
 
-  function appendInnerStackBlocks(cBlock) {
-    if (!cBlock || !cBlock.innerStackHeadUUID) {
+  function appendInnerStackBlocks(cBlock){
+    if (!cBlock || !cBlock.innerStackHeadUUID){
       return;
     }
     const innerHead = blockRegistry.get(cBlock.innerStackHeadUUID);
-    if (!innerHead) {
+    if (!innerHead){
       return;
     }
-    for (const inner of collectChainBlocksFromHead(blockRegistry, innerHead)) {
-      if (seen.has(inner.blockUUID)) {
+    for (const inner of collectChainBlocksFromHead(blockRegistry, innerHead)){
+      if (seen.has(inner.blockUUID)){
         continue;
       }
       seen.add(inner.blockUUID);
       result.push(inner);
-      if (inner.type === 'c-block') {
+      if (inner.type === 'c-block'){
         appendInnerStackBlocks(inner);
       }
     }
   }
 
-  for (const block of collectChainBlocksFromHead(blockRegistry, headBlock)) {
-    if (seen.has(block.blockUUID)) {
+  for (const block of collectChainBlocksFromHead(blockRegistry, headBlock)){
+    if (seen.has(block.blockUUID)){
       continue;
     }
     seen.add(block.blockUUID);
     result.push(block);
-    if (block.type === 'c-block') {
+    if (block.type === 'c-block'){
       appendInnerStackBlocks(block);
     }
   }
   return result;
 }
 
-export function collectChainUuidSetForWorkspaceDrag(blockRegistry, headUUID) {
+export function collectChainUuidSetForWorkspaceDrag(blockRegistry, headUUID){
   return new Set(
     collectChainBlocksFromHeadForWorkspaceDrag(blockRegistry, headUUID).map(
       b => b.blockUUID

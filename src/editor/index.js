@@ -1,5 +1,5 @@
 export { BlockWorkspaceDrag } from '../input/BlockWorkspaceDrag.js';
-export { enableConnectorDebug } from '../blocks/ConnectorDebug.js';
+export { enableZoneDebug } from '../blocks/ZoneDebug.js';
 export {
   collectChainBlocksFromHead,
   collectChainUuidSetFromHead,

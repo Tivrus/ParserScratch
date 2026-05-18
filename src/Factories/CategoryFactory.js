@@ -2,40 +2,40 @@
 import * as Global from '../constants/Global.js';
 
 export class CategoryLogic {
-  constructor() {
+  constructor(){
     this.categoriesArray = this.#parseCategories();
     this.categoriesMap = CategoriesData.categories_map;
     this.activeCategoryId = null;
   }
 
-  #collectOriginalCategoryKeys(categoriesFromDataFile) {
+  #collectOriginalCategoryKeys(categoriesFromDataFile){
     const keys = new Set();
-    for (const categoryRow of categoriesFromDataFile) {
-      if (categoryRow && categoryRow.key && categoryRow.orig === true) {
+    for (const categoryRow of categoriesFromDataFile){
+      if (categoryRow && categoryRow.key && categoryRow.orig === true){
         keys.add(categoryRow.key);
       }
     }
     return keys;
   }
-  #validateParsedCategory(cat, originalKeys, seenNonOriginalKeys) {
-    if (!cat || !cat.key) {
+  #validateParsedCategory(cat, originalKeys, seenNonOriginalKeys){
+    if (!cat || !cat.key){
       return { isValid: false, errorReason: 'missing key' };
     }
-    if (originalKeys.has(cat.key) && cat.orig === true) {
+    if (originalKeys.has(cat.key) && cat.orig === true){
       return { isValid: true, errorReason: null };
     }
-    if (originalKeys.has(cat.key)) {
+    if (originalKeys.has(cat.key)){
       return { isValid: false, errorReason: 'duplicate of original' };
     }
-    if (seenNonOriginalKeys.has(cat.key)) {
+    if (seenNonOriginalKeys.has(cat.key)){
       return { isValid: false, errorReason: 'duplicate' };
     }
     return { isValid: true, errorReason: null };
   }
 
-  #parseCategories() {
+  #parseCategories(){
     let categoriesFromDataFile;
-    if (Array.isArray(CategoriesData.categories_array)) {
+    if (Array.isArray(CategoriesData.categories_array)){
       categoriesFromDataFile = CategoriesData.categories_array;
     } else {
       categoriesFromDataFile = [];
@@ -43,29 +43,29 @@ export class CategoryLogic {
     const originalKeys = this.#collectOriginalCategoryKeys(categoriesFromDataFile);
     const seenNonOriginalKeys = new Set();
     const result = [];
-    for (const cat of categoriesFromDataFile) {
+    for (const cat of categoriesFromDataFile){
       const { isValid, errorReason } = this.#validateParsedCategory(
         cat,
         originalKeys,
         seenNonOriginalKeys
       );
-      if (!isValid) {
+      if (!isValid){
         Global.logError(`Invalid category (${errorReason}): ${cat.key}`, {
           context: 'CategoryLogic',
           category: cat,
         });
       }
       result.push({ ...cat, inc: !isValid });
-      if (cat && cat.key && !originalKeys.has(cat.key)) {
+      if (cat && cat.key && !originalKeys.has(cat.key)){
         seenNonOriginalKeys.add(cat.key);
       }
     }
     return result;
   }
 
-  setActive(id) {
+  setActive(id){
     const cat = this.categoriesArray.find(c => c.key === id);
-    if (cat && !cat.inc) {
+    if (cat && !cat.inc){
       this.activeCategoryId = id;
       return true;
     }
@@ -74,12 +74,25 @@ export class CategoryLogic {
 }
 
 export class CategoryRenderer {
-  constructor(containerId, onSelect) {
-    this.containerEl = document.getElementById(containerId);
+  /**
+   * @param {string | HTMLElement | SVGElement} containerIdOrEl
+   * @param {(categoryId: string) => void} onSelect
+   */
+  constructor(containerIdOrEl, onSelect){
+    if (
+      containerIdOrEl instanceof HTMLElement ||
+      containerIdOrEl instanceof SVGElement
+    ){
+      this.containerEl = containerIdOrEl;
+    } else if (typeof containerIdOrEl === 'string'){
+      this.containerEl = document.getElementById(containerIdOrEl);
+    } else {
+      this.containerEl = null;
+    }
     this.onSelect = onSelect;
   }
 
-  renderList(categories, activeId) {
+  renderList(categories, activeId){
     if (!this.containerEl) return;
     this.containerEl.innerHTML = '';
     categories.forEach(cat => {
@@ -88,16 +101,16 @@ export class CategoryRenderer {
     });
   }
 
-  #createItem(cat, isActive) {
+  #createItem(cat, isActive){
     const wrapper = document.createElement('div');
     let activeModifierClass;
-    if (isActive) {
+    if (isActive){
       activeModifierClass = 'category-item--active';
     } else {
       activeModifierClass = '';
     }
     let invalidModifierClass;
-    if (cat.inc) {
+    if (cat.inc){
       invalidModifierClass = 'category-item--invalid';
     } else {
       invalidModifierClass = '';
@@ -120,7 +133,7 @@ export class CategoryRenderer {
     return wrapper;
   }
 
-  updateActive(activeId) {
+  updateActive(activeId){
     this.containerEl.querySelectorAll('.category-item').forEach(el => {
       const row = /** @type {HTMLElement} */ (el);
       row.classList.toggle('category-item--active', row.dataset.key === activeId);

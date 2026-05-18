@@ -1,8 +1,6 @@
 import * as SvgUtils from '../../infrastructure/svg/SvgUtils.js';
-import * as StackWorkspaceMath from '../../calculations/StackWorkspaceMath.js';
-import * as StackHatOffsets from '../../calculations/stackHatOffsets.js';
-
-export { capStackExtraY, middleTailSpreadExtraY } from '../../calculations/stackHatOffsets.js';
+import * as StackSnapGhostLayout from '../../calculations/stackSnapGhostLayout.js';
+import * as StackSnapStartBlockOffsets from '../../calculations/stackSnapStartBlockOffsets.js';
 
 /** Раскладка стека: мировые координаты под `#block-world-root` плюс смещение сетки. */
 export class StackSnapLayout {
@@ -10,8 +8,8 @@ export class StackSnapLayout {
     anchorBlock,
     draggedElement,
     mode,
-    { isMiddleConnector = false } = {}
-  ) {
+    { isMiddleZone = false } = {}
+  ){
     const anchorElement = anchorBlock.element;
     if (!anchorElement) return null;
 
@@ -31,47 +29,43 @@ export class StackSnapLayout {
       return null;
     }
 
-    const hatBlockExtraYRaw = StackHatOffsets.capStackExtraY(draggedElement, {
-      middleConnector: isMiddleConnector,
-    });
-    const hatBlockExtraY = Number.isFinite(hatBlockExtraYRaw)
-      ? hatBlockExtraYRaw
-      : 0;
-
-    if (mode === 'below') {
-      return {
-        x: anchorTranslateX,
-        y: StackWorkspaceMath.worldYStackBelow(
-          anchorTranslateY,
-          anchorLocalBBox.y,
-          anchorLocalBBox.height,
-          hatBlockExtraY
-        ),
-      };
+    const startBlockSnapExtraWorldYRaw = StackSnapStartBlockOffsets.calc_StartBlockGhost_Pos(draggedElement, isMiddleZone);
+    let startBlockSnapExtraWorldY;
+    if (Number.isFinite(startBlockSnapExtraWorldYRaw)){
+      startBlockSnapExtraWorldY = startBlockSnapExtraWorldYRaw;
+    } else {
+      startBlockSnapExtraWorldY = 0;
     }
 
-    if (mode === 'above') {
-      const nonHatStackNudgeY =
-        StackHatOffsets.stackAboveNudgeYForNonStartDragged(draggedElement);
-      return {
-        x: anchorTranslateX,
-        y: StackWorkspaceMath.worldYStackAbove(
-          anchorTranslateY,
-          anchorLocalBBox.y,
-          draggedBlockHeight,
-          hatBlockExtraY,
-          nonHatStackNudgeY
-        ),
-      };
+    if (mode === 'below'){
+      return StackSnapGhostLayout.calcDragGhostTopLeftWorldXYForSnapBelowStackAnchor(
+        anchorTranslateX,
+        anchorTranslateY,
+        anchorLocalBBox.y,
+        anchorLocalBBox.height,
+        startBlockSnapExtraWorldY
+      );
+    }
+
+    if (mode === 'above'){
+      const plainBlockAboveAnchorNudgeWorldY = StackSnapStartBlockOffsets.calc_StartBlock_PosFix(draggedElement);
+      return StackSnapGhostLayout.calcDragGhostTopLeftWorldXYForSnapAboveStackAnchor(
+        anchorTranslateX,
+        anchorTranslateY,
+        anchorLocalBBox.y,
+        draggedBlockHeight,
+        startBlockSnapExtraWorldY,
+        plainBlockAboveAnchorNudgeWorldY
+      );
     }
 
     return null;
   }
 
-  /** Слот между родителем и ребёнком; middle: доп. сдвиг шляпы только для start-block. */
-  static translateMiddleInsert(parentBlock, draggedElement) {
+  /** Слот между родителем и ребёнком; middle: дополнительный сдвиг только для start-block. */
+  static translateMiddleInsert(parentBlock, draggedElement){
     return this.translateInContainer(parentBlock, draggedElement, 'below', {
-      isMiddleConnector: true,
+      isMiddleZone: true,
     });
   }
 }

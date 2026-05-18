@@ -5,23 +5,23 @@
  *
  * @param {import('@playwright/test').Page} page
  */
-export async function installScratchE2eDebug(page) {
+export async function installScratchE2eDebug(page){
   await page.addInitScript(() => {
-    globalThis.__SCRATCH_E2E_SUPPRESS_CONNECTOR__ = true;
+    globalThis.__SCRATCH_E2E_SUPPRESS_Zone__ = true;
     globalThis.__SCRATCH_CALL_HISTORY__ = [];
 
     const originalFetch = globalThis.fetch.bind(globalThis);
     globalThis.fetch = (input, init) => {
       let requestUrl = '';
-      if (typeof input === 'string') {
+      if (typeof input === 'string'){
         requestUrl = input;
-      } else if (input && typeof input === 'object' && 'url' in input) {
+      } else if (input && typeof input === 'object' && 'url' in input){
         requestUrl = String(/** @type {{ url: string }} */ (input).url);
       }
       const isWorkspaceApi =
         requestUrl.includes('/api/save-workspace') ||
         requestUrl.includes('/api/load-workspace');
-      if (!isWorkspaceApi) {
+      if (!isWorkspaceApi){
         return originalFetch(input, init);
       }
       const baseInit = init && typeof init === 'object' ? init : {};
@@ -39,13 +39,13 @@ export async function installScratchE2eDebug(page) {
  *
  * @param {import('@playwright/test').Page} page
  */
-export async function activateScratchDebugTracing(page) {
+export async function activateScratchDebugTracing(page){
   await page.waitForFunction(
     () => typeof window.__SCRATCH_resetCallHistory === 'function',
     { timeout: 30_000 }
   );
   await page.evaluate(() => {
-    if (window.__SCRATCH_resetCallHistory) {
+    if (window.__SCRATCH_resetCallHistory){
       window.__SCRATCH_resetCallHistory();
     }
     window.__DEBUG__ = true;
@@ -55,9 +55,9 @@ export async function activateScratchDebugTracing(page) {
 /**
  * @param {import('@playwright/test').Page} page
  */
-export async function resetScratchCallHistory(page) {
+export async function resetScratchCallHistory(page){
   await page.evaluate(() => {
-    if (window.__SCRATCH_resetCallHistory) {
+    if (window.__SCRATCH_resetCallHistory){
       window.__SCRATCH_resetCallHistory();
     }
   });
@@ -67,7 +67,7 @@ export async function resetScratchCallHistory(page) {
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<Array<{ t: number; tag: string; detail: unknown }>>}
  */
-export async function getScratchCallHistory(page) {
+export async function getScratchCallHistory(page){
   return page.evaluate(() =>
     Array.isArray(globalThis.__SCRATCH_CALL_HISTORY__)
       ? globalThis.__SCRATCH_CALL_HISTORY__.map(e => ({
@@ -82,7 +82,7 @@ export async function getScratchCallHistory(page) {
 /**
  * @param {import('@playwright/test').Page} page
  */
-export async function getBlockLinkSnapshot(page) {
+export async function getBlockLinkSnapshot(page){
   return page.evaluate(() => {
     const fn = window.__SCRATCH_getBlockLinkSnapshot;
     return fn ? fn() : {};
@@ -96,17 +96,17 @@ export async function getBlockLinkSnapshot(page) {
  * @param {import('@playwright/test').Locator} anchorBlock
  * @param {'below' | 'above'} relation
  */
-export async function workspaceStackDropClientPoint(page, anchorBlock, relation) {
+export async function workspaceStackDropClientPoint(page, anchorBlock, relation){
   const ws = page.locator('#workspace');
   const wbox = await ws.boundingBox();
   const bb = await anchorBlock.boundingBox();
-  if (!wbox || !bb) {
+  if (!wbox || !bb){
     throw new Error('workspaceStackDropClientPoint: missing bounding box');
   }
   const cx = bb.x + bb.width / 2;
   const wBottom = wbox.y + wbox.height;
   const bbBottom = bb.y + bb.height;
-  if (relation === 'below') {
+  if (relation === 'below'){
     const y = clampPx(bbBottom + 36, wbox.y + 10, wBottom - 20);
     return { x: cx, y };
   }
@@ -118,7 +118,7 @@ export async function workspaceStackDropClientPoint(page, anchorBlock, relation)
  * @param {import('@playwright/test').Page} page
  * @param {string} blockId
  */
-export function workspaceBlocksByDataId(page, blockId) {
+export function workspaceBlocksByDataId(page, blockId){
   return page.locator(`#block-world-root g.workspace-block[data-block-id="${blockId}"]`);
 }
 
@@ -127,7 +127,7 @@ export function workspaceBlocksByDataId(page, blockId) {
  * @param {string} blockId
  * @param {number} index с нуля (порядок в DOM при нескольких одинаковых `data-block-id`)
  */
-export function workspaceBlockByDataIdNth(page, blockId, index) {
+export function workspaceBlockByDataIdNth(page, blockId, index){
   return workspaceBlocksByDataId(page, blockId).nth(index);
 }
 
@@ -135,7 +135,7 @@ export function workspaceBlockByDataIdNth(page, blockId, index) {
  * @param {import('@playwright/test').Page} page
  * @param {string} blockId
  */
-export function workspaceBlockByDataId(page, blockId) {
+export function workspaceBlockByDataId(page, blockId){
   return workspaceBlocksByDataId(page, blockId).first();
 }
 
@@ -145,10 +145,10 @@ export function workspaceBlockByDataId(page, blockId) {
  * @param {import('@playwright/test').Locator} upperBlock
  * @param {import('@playwright/test').Locator} lowerBlock
  */
-export async function clientPointStackSeamBetween(upperBlock, lowerBlock) {
+export async function clientPointStackSeamBetween(upperBlock, lowerBlock){
   const upperBox = await upperBlock.boundingBox();
   const lowerBox = await lowerBlock.boundingBox();
-  if (!upperBox || !lowerBox) {
+  if (!upperBox || !lowerBox){
     throw new Error('clientPointStackSeamBetween: missing bounding box');
   }
   const centerX = upperBox.x + upperBox.width / 2;
@@ -164,26 +164,26 @@ export async function clientPointStackSeamBetween(upperBlock, lowerBlock) {
  * @param {{ xFraction?: number; yFraction?: number }} [placement]
  * @returns {Promise<import('@playwright/test').Locator>} локатор **последнего** блока (хвост по `blockId`)
  */
-export async function spawnWorkspaceTemplateStack(page, segments, placement = {}) {
+export async function spawnWorkspaceTemplateStack(page, segments, placement = {}){
   const xFraction = placement.xFraction ?? 0.48;
   const yFraction = placement.yFraction ?? 0.34;
   const ws = page.locator('#workspace');
   const wbox = await ws.boundingBox();
-  if (!wbox) {
+  if (!wbox){
     throw new Error('spawnWorkspaceTemplateStack: workspace box missing');
   }
   const cx0 = wbox.x + wbox.width * xFraction;
   const cy0 = wbox.y + wbox.height * yFraction;
   /** @type {import('@playwright/test').Locator | null} */
   let tailLocator = null;
-  for (let index = 0; index < segments.length; index++) {
+  for (let index = 0; index < segments.length; index++){
     const { blockId, category } = segments[index];
     await selectCategory(page, category);
-    if (index === 0) {
+    if (index === 0){
       await dragBlockTemplateToClientPoint(page, blockId, cx0, cy0);
       tailLocator = workspaceBlocksByDataId(page, blockId).last();
     } else {
-      if (!tailLocator) {
+      if (!tailLocator){
         throw new Error('spawnWorkspaceTemplateStack: tail locator missing');
       }
       const drop = await workspaceStackDropClientPoint(page, tailLocator, 'below');
@@ -192,7 +192,7 @@ export async function spawnWorkspaceTemplateStack(page, segments, placement = {}
     }
     await tailLocator.waitFor({ state: 'visible' });
   }
-  if (!tailLocator) {
+  if (!tailLocator){
     throw new Error('spawnWorkspaceTemplateStack: empty segments');
   }
   return tailLocator;
@@ -203,7 +203,7 @@ export async function spawnWorkspaceTemplateStack(page, segments, placement = {}
  * @param {number} min
  * @param {number} max
  */
-function clampPx(value, min, max) {
+function clampPx(value, min, max){
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) return min;
   return Math.min(Math.max(n, min), max);
@@ -218,7 +218,7 @@ function clampPx(value, min, max) {
  * @param {number} clientX
  * @param {number} clientY
  */
-export async function dragBlockTemplateToClientPoint(page, blockId, clientX, clientY) {
+export async function dragBlockTemplateToClientPoint(page, blockId, clientX, clientY){
   const template = page.locator(`#block-templates svg.block-template[data-block-id="${blockId}"]`).first();
   await template.waitFor({ state: 'visible' });
   const tb = await template.boundingBox();
@@ -241,7 +241,7 @@ export async function dragBlockTemplateToClientPoint(page, blockId, clientX, cli
  * @param {import('@playwright/test').Page} page
  * @param {string} uuid
  */
-export function workspaceBlockByUuid(page, uuid) {
+export function workspaceBlockByUuid(page, uuid){
   return page.locator(
     `#block-world-root g.workspace-block[data-block-uuid="${uuid}"]`
   );
@@ -262,7 +262,7 @@ export async function dragWorkspaceBlockToClientPoint(
   clientX,
   clientY,
   options = {}
-) {
+){
   const moveSteps = options.moveSteps ?? 16;
   const bb = await blockLocator.first().boundingBox();
   if (!bb) throw new Error('workspace block bounding box missing');
@@ -286,7 +286,7 @@ export async function dragWorkspaceBlockToClientPoint(
  * @param {import('@playwright/test').Page} page
  * @param {string} categoryKey например `Motion`
  */
-export async function selectCategory(page, categoryKey) {
+export async function selectCategory(page, categoryKey){
   const row = page.locator(`#category-list .category-item[data-key="${categoryKey}"]`).first();
   await row.click();
 }
@@ -296,7 +296,7 @@ export async function selectCategory(page, categoryKey) {
  *
  * @param {import('@playwright/test').Page} page
  */
-export async function resetWorkspaceFromPage(page) {
+export async function resetWorkspaceFromPage(page){
   const ok = await page.evaluate(async () => {
     const response = await fetch('/api/save-workspace', {
       method: 'POST',
@@ -309,7 +309,7 @@ export async function resetWorkspaceFromPage(page) {
     });
     return response.ok;
   });
-  if (!ok) {
+  if (!ok){
     throw new Error('reset workspace: POST /api/save-workspace failed');
   }
 }
@@ -319,6 +319,6 @@ export async function resetWorkspaceFromPage(page) {
  *
  * @param {import('@playwright/test').Page} page
  */
-export function workspaceBlocks(page) {
+export function workspaceBlocks(page){
   return page.locator('#block-world-root g.workspace-block');
 }

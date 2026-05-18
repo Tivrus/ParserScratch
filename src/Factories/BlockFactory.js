@@ -5,17 +5,17 @@ import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as BlockModule from '../blocks/Block.js';
 
 export class BlockLogic {
-  constructor(categoriesMap) {
+  constructor(categoriesMap){
     this.blocksMap = new Map(BlocksData.blocks_list.map(b => [b.blockKey, b]));
     this.blockForms = new Map(Global.BLOCK_FORMS.map(b => [b.type, b]));
     this.categoriesMap = categoriesMap;
   }
 
-  getBlocksByCategory(categoryId) {
+  getBlocksByCategory(categoryId){
     return BlocksData.blocks_list.filter(b => b.category === categoryId);
   }
 
-  prepareBlockData(categoryId) {
+  prepareBlockData(categoryId){
     const config = this.blocksMap.get(categoryId);
     if (!config) return null;
     const form = this.blockForms.get(config.type);
@@ -24,12 +24,12 @@ export class BlockLogic {
     const vb = [0, 0, width, height];
 
     // Доп. ширина path/viewBox: config.size вида ['+', 12] или ['-', 4]
-    if (Array.isArray(config.size) && config.size.length == 2) {
+    if (Array.isArray(config.size) && config.size.length == 2){
       const [sign, amountRaw] = config.size;
       const amount = Number(amountRaw);
-      if (!isNaN(amount) && amount !== 0) {
+      if (!isNaN(amount) && amount !== 0){
         let horizontalResizeDelta;
-        if (sign === '-') {
+        if (sign === '-'){
           horizontalResizeDelta = -amount;
         } else {
           horizontalResizeDelta = amount;
@@ -40,7 +40,7 @@ export class BlockLogic {
           ...resizeConfig,
         });
         width += horizontalResizeDelta;
-        if (vb.length === 4) {
+        if (vb.length === 4){
           vb[2] += horizontalResizeDelta;
         }
       }
@@ -48,7 +48,7 @@ export class BlockLogic {
     const viewBox = vb.join(' ');
     const categoryRow = this.categoriesMap.get(config.category);
     let fillColor;
-    if (categoryRow && categoryRow.color) {
+    if (categoryRow && categoryRow.color){
       fillColor = categoryRow.color;
     } else {
       fillColor = Global.DEFAULT_BLOCK_COLOR;
@@ -66,11 +66,20 @@ export class BlockLogic {
 }
 
 export class BlockRenderer {
-  constructor(libraryContainerId) {
-    this.libraryContainerEl = document.getElementById(libraryContainerId);
+  constructor(libraryContainerIdOrEl){
+    if (
+      libraryContainerIdOrEl instanceof HTMLElement ||
+      libraryContainerIdOrEl instanceof SVGElement
+    ){
+      this.libraryContainerEl = libraryContainerIdOrEl;
+    } else if (typeof libraryContainerIdOrEl === 'string'){
+      this.libraryContainerEl = document.getElementById(libraryContainerIdOrEl);
+    } else {
+      this.libraryContainerEl = null;
+    }
   }
 
-  renderLibrary(blocksPreparedData) {
+  renderLibrary(blocksPreparedData){
     if (!this.libraryContainerEl) return;
     this.libraryContainerEl.innerHTML = '';
     blocksPreparedData.forEach(data => {
@@ -85,7 +94,7 @@ export class BlockRenderer {
    * @param {object} data
    * @param {{ blockUUID?: string | null; x?: number; y?: number }} [placement]
    */
-  createWorkspaceBlock(data, placement = {}) {
+  createWorkspaceBlock(data, placement = {}){
     const { blockUUID, x = 0, y = 0 } = placement;
     return new BlockModule.Block(data, { blockUUID, x, y });
   }

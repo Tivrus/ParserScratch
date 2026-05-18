@@ -7,18 +7,18 @@ import * as StackWorkspaceMath from '../calculations/StackWorkspaceMath.js';
  *
  * @param {{ addOffset: (dx: number, dy: number) => void, settle: () => void }} hooks
  */
-export function createWorkspaceCameraInertia({ addOffset, settle }) {
+export function createWorkspaceCameraInertia({ addOffset, settle }){
   let rafId = null;
 
   /** Остановить скольжение без сохранения (программный `setOffset` / hydrate). */
-  function abortCoastSilently() {
+  function abortCoastSilently(){
     if (rafId === null) return;
     cancelAnimationFrame(rafId);
     rafId = null;
   }
 
   /** Остановить скольжение и один раз вызвать `settle` (сохранить камеру). */
-  function stopRunningCoastAndSettle() {
+  function stopRunningCoastAndSettle(){
     if (rafId === null) return;
     cancelAnimationFrame(rafId);
     rafId = null;
@@ -29,56 +29,56 @@ export function createWorkspaceCameraInertia({ addOffset, settle }) {
    * Окончание жеста панорамирования (grab-end): либо старт coast, либо один вызов `settle()`.
    * @param {object} detail поле `event.detail` у grab-end
    */
-  function onPanGrabEnd(detail) {
+  function onPanGrabEnd(detail){
     abortCoastSilently();
     const cfg = Global.WORKSPACE_CAMERA_INERTIA;
 
-    if (!cfg.enabled) {
+    if (!cfg.enabled){
       settle();
       return;
     }
 
     let rawDuration = 0;
-    if (detail && detail.duration != null) {
+    if (detail && detail.duration != null){
       const parsedDuration = Number(detail.duration);
-      if (Number.isFinite(parsedDuration)) {
+      if (Number.isFinite(parsedDuration)){
         rawDuration = parsedDuration;
       }
     }
-    const duration = StackWorkspaceMath.coastGestureDurationMs(
+    const duration = StackWorkspaceMath.clampPanGestureDurationMsForCameraCoast(
       rawDuration,
       cfg.minDurationMs
     );
-    if (rawDuration > cfg.maxDurationForImpulseMs) {
+    if (rawDuration > cfg.maxDurationForImpulseMs){
       settle();
       return;
     }
 
     let deltaXPixels = 0;
-    if (detail && detail.deltaX != null) {
+    if (detail && detail.deltaX != null){
       const parsedDx = Number(detail.deltaX);
-      if (Number.isFinite(parsedDx)) {
+      if (Number.isFinite(parsedDx)){
         deltaXPixels = parsedDx;
       }
     }
     let deltaYPixels = 0;
-    if (detail && detail.deltaY != null) {
+    if (detail && detail.deltaY != null){
       const parsedDy = Number(detail.deltaY);
-      if (Number.isFinite(parsedDy)) {
+      if (Number.isFinite(parsedDy)){
         deltaYPixels = parsedDy;
       }
     }
-    const vx = StackWorkspaceMath.impulseVelocityPxPerMs(
+    const vx = StackWorkspaceMath.calcCameraCoastVelocityPxPerMsFromPanImpulse(
       deltaXPixels,
       duration,
       cfg.impulseGain
     );
-    const vy = StackWorkspaceMath.impulseVelocityPxPerMs(
+    const vy = StackWorkspaceMath.calcCameraCoastVelocityPxPerMsFromPanImpulse(
       deltaYPixels,
       duration,
       cfg.impulseGain
     );
-    if (Math.hypot(vx, vy) < cfg.minImpulsePxPerMs) {
+    if (Math.hypot(vx, vy) < cfg.minImpulsePxPerMs){
       settle();
       return;
     }
@@ -89,7 +89,7 @@ export function createWorkspaceCameraInertia({ addOffset, settle }) {
 
     const step = now => {
       const live = Global.WORKSPACE_CAMERA_INERTIA;
-      if (!live.enabled) {
+      if (!live.enabled){
         rafId = null;
         settle();
         return;
@@ -97,16 +97,22 @@ export function createWorkspaceCameraInertia({ addOffset, settle }) {
       const dt = Math.min(40, now - last);
       last = now;
       addOffset(
-        StackWorkspaceMath.offsetDeltaForFrame(vxv, dt),
-        StackWorkspaceMath.offsetDeltaForFrame(vyv, dt)
+        StackWorkspaceMath.calcCameraPanOffsetDeltaPxForFrameFromVelocity(
+          vxv,
+          dt
+        ),
+        StackWorkspaceMath.calcCameraPanOffsetDeltaPxForFrameFromVelocity(
+          vyv,
+          dt
+        )
       );
-      const decay = StackWorkspaceMath.velocityDecayFactorForFrame(
+      const decay = StackWorkspaceMath.calcCameraVelocityDecayMultiplierForTimestep(
         live.frictionPerMs,
         dt
       );
       vxv *= decay;
       vyv *= decay;
-      if (Math.hypot(vxv, vyv) < live.minVelocityCutoffPxPerMs) {
+      if (Math.hypot(vxv, vyv) < live.minVelocityCutoffPxPerMs){
         rafId = null;
         settle();
         return;

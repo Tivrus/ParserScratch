@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
  * @param {string} anchorUuid
  * @param {string} childUuid
  */
-export function assertStackBelow(snapshot, anchorUuid, childUuid) {
+export function assertStackBelow(snapshot, anchorUuid, childUuid){
   const a = snapshot[anchorUuid];
   const b = snapshot[childUuid];
   expect(a, `anchor ${anchorUuid}`).toBeTruthy();
@@ -23,7 +23,7 @@ export function assertStackBelow(snapshot, anchorUuid, childUuid) {
  * @param {string} anchorUuid нижний блок (якорь на полотне)
  * @param {string} heldHeadUuid голова перетаскиваемой цепочки
  */
-export function assertStackAbove(snapshot, anchorUuid, heldHeadUuid) {
+export function assertStackAbove(snapshot, anchorUuid, heldHeadUuid){
   const anchor = snapshot[anchorUuid];
   const head = snapshot[heldHeadUuid];
   expect(anchor).toBeTruthy();
@@ -35,7 +35,7 @@ export function assertStackAbove(snapshot, anchorUuid, heldHeadUuid) {
     tail.nextUUID &&
     tail.nextUUID !== anchorUuid &&
     !seen.has(tail.blockUUID)
-  ) {
+  ){
     seen.add(tail.blockUUID);
     tail = snapshot[tail.nextUUID];
   }
@@ -48,14 +48,14 @@ export function assertStackAbove(snapshot, anchorUuid, heldHeadUuid) {
  * @param {Array<{ tag: string; detail?: unknown }>} entries
  * @param {string} expectedMode
  */
-export function lastOkStackConnectDetail(entries, expectedMode) {
-  for (let i = entries.length - 1; i >= 0; i--) {
+export function lastOkStackConnectDetail(entries, expectedMode){
+  for (let i = entries.length - 1; i >= 0; i--){
     const e = entries[i];
-    if (e.tag !== 'tryCommitStackConnect' || !e.detail || typeof e.detail !== 'object') {
+    if (e.tag !== 'tryCommitStackConnect' || !e.detail || typeof e.detail !== 'object'){
       continue;
     }
     const d = /** @type {{ ok?: boolean; snap?: { mode?: string } }} */ (e.detail);
-    if (d.ok === true && d.snap && d.snap.mode === expectedMode) {
+    if (d.ok === true && d.snap && d.snap.mode === expectedMode){
       return d;
     }
   }
@@ -67,14 +67,14 @@ export function lastOkStackConnectDetail(entries, expectedMode) {
  *
  * @param {Array<{ tag: string; detail?: unknown }>} entries
  */
-export function lastOkStackConnectDetailAnyMode(entries) {
-  for (let i = entries.length - 1; i >= 0; i--) {
+export function lastOkStackConnectDetailAnyMode(entries){
+  for (let i = entries.length - 1; i >= 0; i--){
     const e = entries[i];
-    if (e.tag !== 'tryCommitStackConnect' || !e.detail || typeof e.detail !== 'object') {
+    if (e.tag !== 'tryCommitStackConnect' || !e.detail || typeof e.detail !== 'object'){
       continue;
     }
     const d = /** @type {{ ok?: boolean; snap?: { mode?: string } }} */ (e.detail);
-    if (d.ok === true && d.snap && typeof d.snap.mode === 'string') {
+    if (d.ok === true && d.snap && typeof d.snap.mode === 'string'){
       return d;
     }
   }
@@ -87,10 +87,10 @@ export function lastOkStackConnectDetailAnyMode(entries) {
  * @param {Record<string, any>} snapshot
  * @param {string} headUuid
  */
-export function stackTailUuidFromHeadSnapshot(snapshot, headUuid) {
+export function stackTailUuidFromHeadSnapshot(snapshot, headUuid){
   let current = snapshot[headUuid];
   expect(current, `head ${headUuid}`).toBeTruthy();
-  while (current.nextUUID) {
+  while (current.nextUUID){
     const nextId = current.nextUUID;
     current = snapshot[nextId];
     expect(current, `next ${nextId}`).toBeTruthy();
@@ -103,7 +103,7 @@ export function stackTailUuidFromHeadSnapshot(snapshot, headUuid) {
  * @param {string} parentUuid
  * @param {string} childUuid
  */
-export function assertParentChildLink(snapshot, parentUuid, childUuid) {
+export function assertParentChildLink(snapshot, parentUuid, childUuid){
   const parent = snapshot[parentUuid];
   const child = snapshot[childUuid];
   expect(parent).toBeTruthy();

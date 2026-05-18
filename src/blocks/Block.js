@@ -4,11 +4,8 @@ import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
  * Экземпляр блока на полотне: `<g>` со стеком `parentUUID` / `nextUUID` (как в workspace.json).
  */
 export class Block {
-  /**
-   * @param {object} data Данные из `prepareBlockData`.
-   * @param {{ blockUUID?: string | null; x?: number; y?: number }} [placement]
-   */
-  constructor(data, placement = {}) {
+
+  constructor(data, placement = {}){
     const { blockUUID = null, x = 0, y = 0 } = placement;
     this.blockKey = data.blockKey;
     this.type = data.type;
@@ -22,13 +19,12 @@ export class Block {
     this.topLevel = true;
     this.innerStackHeadUUID = null;
 
-    /** @type {Array<import('./ConnectorZone.js').ConnectorZone>|null} */
-    this.connectorZones = null;
+    this.Zones = null;
 
     this.element = this.#buildElement(data);
   }
 
-  #buildElement(data) {
+  #buildElement(data){
     const group = /** @type {SVGGElement} */ (
       SvgUtils.createElement('g', {
         transform: `translate(${this.x}, ${this.y})`,
@@ -37,11 +33,7 @@ export class Block {
     );
 
     Block.fillContent(group, data);
-
-    group.setAttribute(
-      SvgUtils.ATTR_WORKSPACE_BLOCK_UUID,
-      String(this.blockUUID)
-    );
+    group.setAttribute(SvgUtils.ATTR_WORKSPACE_BLOCK_UUID, String(this.blockUUID));
     group.dataset.blockId = this.blockKey;
     group.dataset.type = this.type;
     group.dataset.category = this.category;
@@ -50,7 +42,7 @@ export class Block {
   }
 
   /** Шаблон палитры: `<svg class="block-template">`. */
-  static createLibrarySvg(data) {
+  static createLibrarySvg(data){
     const svg = /** @type {SVGSVGElement} */ (
       SvgUtils.createElement('svg', {
         viewBox: data.viewBox,
@@ -76,7 +68,7 @@ export class Block {
   }
 
   /** Путь и подписи для рабочего `<g>` и шаблона `<svg>`. */
-  static fillContent(container, data) {
+  static fillContent(container, data){
     container.appendChild(
       SvgUtils.createElement('path', {
         d: data.pathData,
@@ -88,15 +80,15 @@ export class Block {
       })
     );
 
-    if (data.labels && Array.isArray(data.labels)) {
-      for (const label of data.labels) {
+    if (data.labels && Array.isArray(data.labels)){
+      for (const label of data.labels){
         let labelX = 0;
         let labelY = 0;
-        if (label.pos && Array.isArray(label.pos)) {
-          if (label.pos[0] != null) {
+        if (label.pos && Array.isArray(label.pos)){
+          if (label.pos[0] != null){
             labelX = Number(label.pos[0]);
           }
-          if (label.pos[1] != null) {
+          if (label.pos[1] != null){
             labelY = Number(label.pos[1]);
           }
         }
@@ -116,18 +108,18 @@ export class Block {
     }
   }
 
-  setPosition(x, y) {
+  setPosition(x, y){
     this.x = x;
     this.y = y;
     this.element.setAttribute('transform', `translate(${x}, ${y})`);
   }
 
-  mount(svgContainer) {
+  mount(svgContainer){
     svgContainer.appendChild(this.element);
     return this;
   }
 
-  remove() {
+  remove(){
     this.element.remove();
   }
 }

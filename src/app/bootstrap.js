@@ -9,12 +9,37 @@ import * as Grid from '../workspace/grid.js';
 import * as WorkspaceModeToggles from '../workspace/workspaceModeToggles.js';
 import * as Global from '../constants/Global.js';
 
-/** CSS-селектор по значению `id` в разметке (`#…`). */
-function domIdSelector(domId) {
-  return `#${domId}`;
+function resolveScratchEditorDom(){
+  const ids = Global.DOM_IDS;
+  return {
+    workspaceEl: document.getElementById(ids.workspace),
+    blockTemplatesEl: document.getElementById(ids.blockTemplates),
+    blockContainerEl: document.getElementById(ids.blockContainer),
+    blockWorldRootEl: document.getElementById(ids.blockWorldRoot),
+    dragOverlayEl: document.getElementById(ids.dragOverlay),
+    gridEl: document.getElementById(ids.grid),
+    categoryListEl: document.getElementById(ids.categoryList),
+    trashCanEl: document.getElementById(ids.trashCan),
+    sidebarEl: document.getElementById(ids.sidebar),
+    toggleCameraInertiaEl: document.getElementById(ids.toggleCameraInertia),
+    toggleBlockGridSnapEl: document.getElementById(ids.toggleBlockGridSnap),
+  };
 }
 
 class ScratchEditor {
+  #workspaceEl;
+  #blockTemplatesEl;
+  #blockContainerEl;
+  #blockWorldRootEl;
+  #dragOverlayEl;
+  #gridEl;
+  #categoryListEl;
+  #trashCanEl;
+  #sidebarEl;
+  #toggleCameraInertiaEl;
+  #toggleBlockGridSnapEl;
+
+  #gridPan;
   #categoryLogic;
   #blockLogic;
   #blockRenderer;
@@ -23,82 +48,101 @@ class ScratchEditor {
   #connectionGhostPreview;
   #blockSpawner;
   #blockWorkspaceDrag;
-  #blockContainerEl;
-  #dragOverlayEl;
-  #workspaceEl;
-  #gridPan;
 
-  constructor() {
-    this.#blockContainerEl = document.getElementById(Global.DOM_IDS.blockContainer);
-    this.#dragOverlayEl = document.getElementById(Global.DOM_IDS.dragOverlay);
-    this.#workspaceEl = document.getElementById(Global.DOM_IDS.workspace);
+  constructor(){
+    const dom = resolveScratchEditorDom();
+    this.#workspaceEl = dom.workspaceEl;
+    this.#blockTemplatesEl = dom.blockTemplatesEl;
+    this.#blockContainerEl = dom.blockContainerEl;
+    this.#blockWorldRootEl = dom.blockWorldRootEl;
+    this.#dragOverlayEl = dom.dragOverlayEl;
+    this.#gridEl = dom.gridEl;
+    this.#categoryListEl = dom.categoryListEl;
+    this.#trashCanEl = dom.trashCanEl;
+    this.#sidebarEl = dom.sidebarEl;
+    this.#toggleCameraInertiaEl = dom.toggleCameraInertiaEl;
+    this.#toggleBlockGridSnapEl = dom.toggleBlockGridSnapEl;
 
-    const blockWorldRootEl = document.getElementById(Global.DOM_IDS.blockWorldRoot);
-    const blockMountParent = blockWorldRootEl ?? this.#blockContainerEl;
-
+    //├─grid
+    //├─categories
+    //│ └─category-list
+    //├─sidebar
+    //│ └─block-templates
+    //├─workspace
+    //│ └─block-container
+    //│     ├─block-world-root
+    //│     └─workspace-top-actions
+    //│        ├─start-btn
+    //│        └─trash-can
+    //└─drag-overlay
+      
     this.#gridPan = Grid.attachWorkspaceGridPan(
       this.#workspaceEl,
-      document.getElementById(Global.DOM_IDS.grid),
-      { blockWorldRootEl }
+      this.#gridEl,
+      { blockWorldRootEl: this.#blockWorldRootEl }
     );
 
-    WorkspaceModeToggles.attachWorkspaceModeToggles(this.#workspaceEl);
+    WorkspaceModeToggles.attachWorkspaceModeToggles(this.#workspaceEl, {
+      inertiaBtn: this.#toggleCameraInertiaEl,
+      snapBtn: this.#toggleBlockGridSnapEl,
+    });
     const getWorkspaceGridOffset = () => this.#gridPan.getOffset();
 
     this.#categoryLogic = new CategoryFactory.CategoryLogic();
+    this.#blockLogic = new BlockFactory.BlockLogic(this.#categoryLogic.categoriesMap);
+    this.#blockRenderer = new BlockFactory.BlockRenderer(this.#blockTemplatesEl);
 
-    this.#blockLogic = new BlockFactory.BlockLogic(
-      this.#categoryLogic.categoriesMap
-    );
-    this.#blockRenderer = new BlockFactory.BlockRenderer(
-      Global.DOM_IDS.blockTemplates
-    );
     this.#grabManager = new GrabManagerModule.GrabManager({
-      workspace: domIdSelector(Global.DOM_IDS.workspace),
-      blockTemplates: domIdSelector(Global.DOM_IDS.blockTemplates),
+      workspace: this.#workspaceEl,
+      blockTemplates: this.#blockTemplatesEl,
     });
 
     this.#categoryRenderer = new CategoryFactory.CategoryRenderer(
-      Global.DOM_IDS.categoryList,
-      categoryId => {
-        if (this.#categoryLogic.setActive(categoryId)) {
+      this.#categoryListEl,
+      function(categoryId){
+        if (this.#categoryLogic.setActive(categoryId)){
           this.#categoryRenderer.updateActive(categoryId);
           this.#blockRenderer.renderLibrary(
             this.#prepareBlocksForCategory(categoryId)
           );
         }
-      }
+      }.bind(this)
     );
 
     this.#connectionGhostPreview = new Interactions.ConnectionGhostPreview({
       dragOverlayEl: this.#dragOverlayEl,
       blockContainerEl: this.#blockContainerEl,
-      getWorkspaceGridOffset,
-      refreshConnectorZones: () =>
-        this.#blockSpawner.refreshWorkspaceConnectorZones(
+      getWorkspaceGridOffset: this.#getWorkspaceGridOffset.bind(this),
+      refreshZones: function(){
+        this.#blockSpawner.refreshWorkspaceZones(
           this.#connectionGhostPreview.getTopInnerStretchCBlockUuid()
-        ),
+        );
+      }.bind(this),
     });
 
     this.#blockSpawner = new BlockSpawnerModule.BlockSpawner(
       this.#blockLogic,
       this.#grabManager,
       {
-        blockTemplatesId: Global.DOM_IDS.blockTemplates,
-        workspaceId: Global.DOM_IDS.workspace,
-        dragOverlayId: Global.DOM_IDS.dragOverlay,
-        blockContainerId: Global.DOM_IDS.blockContainer,
-        blockMountParent,
-        getWorkspaceGridOffset,
-        onPaletteDragMove: (block, grabManager) =>
+        blockTemplates: this.#blockTemplatesEl,
+        workspace: this.#workspaceEl,
+        dragOverlay: this.#dragOverlayEl,
+        blockContainer: this.#blockContainerEl,
+        blockMountParent: this.#blockWorldRootEl,
+        getWorkspaceGridOffset: this.#getWorkspaceGridOffset.bind(this),
+        onPaletteDragMove: function(block, grabManager){
           this.#connectionGhostPreview.sync(
             block.element,
             this.#blockSpawner.blockRegistry,
             grabManager
-          ),
-        onPaletteDragEnd: () => this.#connectionGhostPreview.clear(),
-        tryPaletteStackConnect: (block, grabManager) =>
-          this.#commitStackConnectAndRefresh(block.element, grabManager),
+          );
+        }.bind(this),
+        onPaletteDragEnd: function(){
+          this.#connectionGhostPreview.clear();
+        }.bind(this),
+        tryPaletteStackConnect: function(block, grabManager){
+          return this.#commitStackConnectAndRefresh(block.element, grabManager);
+        }.bind(this),
       }
     );
 
@@ -108,65 +152,81 @@ class ScratchEditor {
       this.#dragOverlayEl,
       this.#grabManager,
       {
-        blockMountParentEl: blockMountParent,
-        getWorkspaceGridOffset,
+        blockMountParentEl: this.#blockWorldRootEl,
+        getWorkspaceGridOffset: this.#getWorkspaceGridOffset.bind(this),
         blockRegistry: this.#blockSpawner.blockRegistry,
-        onBlockDragMove: (draggedElement, grabManager) =>
+        onBlockDragMove: function(draggedElement, grabManager){
           this.#connectionGhostPreview.sync(
             draggedElement,
             this.#blockSpawner.blockRegistry,
             grabManager
-          ),
-        onBlockDragEnd: () => {
+          );
+        }.bind(this),
+        onBlockDragEnd: function(){
           this.#connectionGhostPreview.clear();
-          this.#blockSpawner.refreshWorkspaceConnectorZones();
-        },
-        tryCommitStackConnect: (dragging, grabManager) =>
-          this.#commitStackConnectAndRefresh(dragging.headElement, grabManager),
+          this.#blockSpawner.refreshWorkspaceZones();
+        }.bind(this),
+        tryCommitStackConnect: function(dragging, grabManager){
+          return this.#commitStackConnectAndRefresh(dragging.headElement, grabManager);
+        }.bind(this),
       }
     );
 
     this.#workspaceEl.addEventListener(
       Global.WORKSPACE_EVENTS.structureChanged,
-      () => this.#onWorkspaceStructureChanged()
+      this.#onWorkspaceStructureChanged.bind(this)
     );
 
     new BlockDeletionManagerModule.BlockDeletionManager({
       blockRegistry: this.#blockSpawner.blockRegistry,
       workspaceEl: this.#workspaceEl,
-      trashCanId: Global.DOM_IDS.trashCan,
-      sidebarId: Global.DOM_IDS.sidebar,
+      trashCanEl: this.#trashCanEl,
+      sidebarEl: this.#sidebarEl,
       blockWorkspaceDrag: this.#blockWorkspaceDrag,
       grabManager: this.#grabManager,
     });
 
     WorkspacePersistence.attachWorkspacePersistence(
       this.#workspaceEl,
-      () => this.#blockSpawner.blockRegistry,
-      () => this.#gridPan.getOffset()
+      function(){
+        return this.#blockSpawner.blockRegistry;
+      }.bind(this),
+      this.#getWorkspaceGridOffset.bind(this)
     );
 
     this.#exposeDebugApi();
     this.#bootstrapUi();
     void WorkspacePersistence.hydrateWorkspaceFromServer(
       this.#blockSpawner,
-      this.#gridPan
+      this.#gridPan,
+      {
+        inertiaBtn: this.#toggleCameraInertiaEl,
+        snapBtn: this.#toggleBlockGridSnapEl,
+      }
     );
   }
 
-  #prepareBlocksForCategory(categoryId) {
-    return this.#blockLogic
-      .getBlocksByCategory(categoryId)
-      .map(block => this.#blockLogic.prepareBlockData(block.blockKey));
+  #getWorkspaceGridOffset(){
+    return this.#gridPan.getOffset();
   }
 
-  #onWorkspaceStructureChanged() {
-    this.#blockSpawner.refreshWorkspaceConnectorZones(
+  #prepareBlocksForCategory(categoryId){
+    return this.#blockLogic
+      .getBlocksByCategory(categoryId)
+      .map(
+        function(block){
+          return this.#blockLogic.prepareBlockData(block.blockKey);
+        }.bind(this)
+      );
+  }
+
+  #onWorkspaceStructureChanged(){
+    this.#blockSpawner.refreshWorkspaceZones(
       this.#connectionGhostPreview.getTopInnerStretchCBlockUuid()
     );
   }
 
-  #commitStackConnectAndRefresh(draggedElement, grabManager) {
+  #commitStackConnectAndRefresh(draggedElement, grabManager){
     return Interactions.tryCommitStackConnect({
       ghostPreview: this.#connectionGhostPreview,
       draggedElement,
@@ -177,9 +237,9 @@ class ScratchEditor {
 
   /**
    * Режим отладки (`window.__DEBUG__`), оверлей коннекторов и вспомогательные глобалы для E2E
-   * при `__SCRATCH_E2E_SUPPRESS_CONNECTOR__`.
+   * при `__SCRATCH_E2E_SUPPRESS_Zone__`.
    */
-  #exposeDebugApi() {
+  #exposeDebugApi(){
     const blockRegistry = this.#blockSpawner.blockRegistry;
     const blockContainerEl = this.#blockContainerEl;
     const dragOverlayEl = this.#dragOverlayEl;
@@ -192,107 +252,90 @@ class ScratchEditor {
     this.#installE2eScratchHelpersIfNeeded(blockRegistry);
   }
 
-  /**
-   * @param {{
-   *   blockRegistry: import('../services/BlockSpawner.js').BlockSpawner['blockRegistry'];
-   *   blockContainerEl: HTMLElement | null;
-   *   dragOverlayEl: HTMLElement | null;
-   * }} options
-   */
-  #installWindowDebugToggle(options) {
+  #installWindowDebugToggle(options){
     const { blockRegistry, blockContainerEl, dragOverlayEl } = options;
 
     const debugToggleState = { active: false };
-    let teardownConnectorOverlay = null;
+    let teardownZoneOverlay = null;
 
-    const applyDebugActive = shouldBeActive => {
+    function applyDebugActive(shouldBeActive){
       const nextActive = Boolean(shouldBeActive);
-      if (nextActive === debugToggleState.active) {
-        return;
-      }
+      if (nextActive === debugToggleState.active) return;
       debugToggleState.active = nextActive;
 
-      if (teardownConnectorOverlay) {
-        teardownConnectorOverlay();
-        teardownConnectorOverlay = null;
+      if (teardownZoneOverlay){
+        teardownZoneOverlay();
+        teardownZoneOverlay = null;
       }
 
-      if (!nextActive) {
-        return;
-      }
+      if (!nextActive) return;
 
-      const suppressConnectorOverlay = Boolean(
-        globalThis.__SCRATCH_E2E_SUPPRESS_CONNECTOR__
+      const suppressZoneOverlay = Boolean(
+        globalThis.__SCRATCH_E2E_SUPPRESS_Zone__
       );
-      if (suppressConnectorOverlay) {
-        return;
-      }
+      if (suppressZoneOverlay) return;
 
-      teardownConnectorOverlay = Interactions.enableConnectorDebug(
+      teardownZoneOverlay = Interactions.enableZoneDebug(
         blockRegistry,
         blockContainerEl,
         dragOverlayEl
       );
-    };
+    }
 
-    window.enableConnectorDebug = () => applyDebugActive(true);
-    window.disableConnectorDebug = () => applyDebugActive(false);
+    window.enableZoneDebug = function(){
+      applyDebugActive(true);
+    };
+    window.disableZoneDebug = function(){
+      applyDebugActive(false);
+    };
 
     const hadOwnDebugProperty = Object.prototype.hasOwnProperty.call(
       window,
       '__DEBUG__'
     );
-    const restoreDebugAfterDefine =
-      hadOwnDebugProperty && window.__DEBUG__ === true;
-    if (hadOwnDebugProperty) {
+    let restoreDebugAfterDefine = false;
+    if (hadOwnDebugProperty && window.__DEBUG__ === true){
+      restoreDebugAfterDefine = true;
+    }
+    if (hadOwnDebugProperty){
       try {
         delete window.__DEBUG__;
       } catch {
-        /* свойство не configurable */
+        /* non-configurable */
       }
     }
 
     Object.defineProperty(window, '__DEBUG__', {
-      get() {
+      get(){
         return debugToggleState.active;
       },
-      set(nextValue) {
+      set(nextValue){
         applyDebugActive(nextValue);
       },
       enumerable: true,
       configurable: true,
     });
 
-    if (restoreDebugAfterDefine) {
+    if (restoreDebugAfterDefine){
       applyDebugActive(true);
     }
   }
 
-  /**
-   * @param {Map<string, import('../blocks/Block.js').Block>} blockRegistry
-   */
-  #installE2eScratchHelpersIfNeeded(blockRegistry) {
-    if (!globalThis.__SCRATCH_E2E_SUPPRESS_CONNECTOR__) {
-      return;
-    }
+  #installE2eScratchHelpersIfNeeded(blockRegistry){
+    if (!globalThis.__SCRATCH_E2E_SUPPRESS_Zone__) return;
 
-    window.__SCRATCH_getBlockLinkSnapshot = () =>
-      this.#buildPlainBlockLinkSnapshot(blockRegistry);
+    window.__SCRATCH_getBlockLinkSnapshot = function(){
+      return this.#buildPlainBlockLinkSnapshot(blockRegistry);
+    }.bind(this);
 
-    window.__SCRATCH_resetCallHistory = () => {
+    window.__SCRATCH_resetCallHistory = function(){
       globalThis.__SCRATCH_CALL_HISTORY__ = [];
     };
   }
 
-  /**
-   * Плоский снимок графа блоков для E2E (JSON-сериализуемые поля).
-   *
-   * @param {Map<string, import('../blocks/Block.js').Block>} blockRegistry
-   */
-  #buildPlainBlockLinkSnapshot(blockRegistry) {
-    /** @type {Record<string, { blockUUID: string; blockKey: string; type: string; parentUUID: string|null; nextUUID: string|null; innerStackHeadUUID: string|null; topLevel: boolean }>} */
+  #buildPlainBlockLinkSnapshot(blockRegistry){
     const snapshotByBlockUuid = {};
-    for (const [blockUUID, workspaceBlock] of blockRegistry) {
+    for (const [blockUUID, workspaceBlock] of blockRegistry){
       snapshotByBlockUuid[blockUUID] = {
         blockUUID,
         blockKey: workspaceBlock.blockKey,
@@ -306,15 +349,16 @@ class ScratchEditor {
     return snapshotByBlockUuid;
   }
 
-  #bootstrapUi() {
+  #bootstrapUi(){
     const categoriesArray = this.#categoryLogic.categoriesArray;
     const firstCategory = categoriesArray[0];
-    const defaultCategoryKey = firstCategory ? firstCategory.key : undefined;
+    let defaultCategoryKey = undefined;
+    if (firstCategory){
+      defaultCategoryKey = firstCategory.key;
+    }
 
     this.#categoryRenderer.renderList(categoriesArray, defaultCategoryKey);
-    if (!defaultCategoryKey) {
-      return;
-    }
+    if (!defaultCategoryKey) return;
     this.#categoryLogic.setActive(defaultCategoryKey);
     this.#blockRenderer.renderLibrary(
       this.#prepareBlocksForCategory(defaultCategoryKey)

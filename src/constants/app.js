@@ -1,16 +1,16 @@
 //window.__DEBUG__ = true;
 
-export function logError(message, options = {}) {
+export function logError(message, options = {}){
   const { error = null, context = null, throwAfter = false } = options;
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
   let logPrefix;
-  if (context) {
+  if (context){
     logPrefix = `[${context}]`;
   } else {
     logPrefix = '[ERROR]';
   }
   const fullMessage = `${logPrefix} ${message}`;
-  if (error instanceof Error) {
+  if (error instanceof Error){
     console.error(
       `%c${timestamp} %c${fullMessage}`,
       'color: #888; font-style: italic;',
@@ -25,7 +25,7 @@ export function logError(message, options = {}) {
       'color: #f44336; font-weight: bold;'
     );
   }
-  if (throwAfter) {
+  if (throwAfter){
     throw new Error(message);
   }
 }

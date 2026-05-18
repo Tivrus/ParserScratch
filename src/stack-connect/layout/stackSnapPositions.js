@@ -3,35 +3,31 @@
 import * as Global from '../../constants/Global.js';
 import * as SvgUtils from '../../infrastructure/svg/SvgUtils.js';
 import * as SnapLayout from './stackSnapLayout.js';
-import * as StackWorkspaceMath from '../../calculations/StackWorkspaceMath.js';
+import * as StackSnapGhostLayout from '../../calculations/stackSnapGhostLayout.js';
 import * as CBlockInnerGhostLayout from '../../c-block/innerGhostLayout.js';
 import * as StackChainGraph from './stackChainGraph.js';
 
 /**
  * Мировые координаты под `#block-world-root` (смещение сетки накладывается позже в overlay).
  */
-export function workspacePositionForGhostSnap(
-  snap,
-  blockRegistry,
-  draggedElement
-) {
-  if (snap.mode === 'topInner' || snap.mode === 'bottomInner') {
-    const cBlock = blockRegistry.get(snap.staticUUID);
+export function workspacePositionForGhostSnap(snap, blockRegistry, draggedElement){
+  if (snap.mode === 'topInner' || snap.mode === 'bottomInner'){
+    const cBlock = blockRegistry.get(snap.snapUUID);
     if (!cBlock || !cBlock.element) return null;
-    if (cBlock.innerStackHeadUUID) {
+    if (cBlock.innerStackHeadUUID){
       const innerHead = blockRegistry.get(cBlock.innerStackHeadUUID);
-      if (snap.mode === 'topInner') {
-        if (innerHead && innerHead.element) {
-          return CBlockInnerGhostLayout.computeTopInnerGhostWorldPosition(
-            cBlock,
-            draggedElement
-          );
+      if (snap.mode === 'topInner'){
+        if (innerHead && innerHead.element){
+          return CBlockInnerGhostLayout.calcTopInnerGhostWorldPosition(cBlock);
         }
       } else {
-        const innerTail = innerHead
-          ? StackChainGraph.stackTailBlock(blockRegistry, innerHead)
-          : null;
-        if (innerTail && innerTail.element) {
+        let innerTail;
+        if (innerHead){
+          innerTail = StackChainGraph.stackTailBlock(blockRegistry, innerHead);
+        } else {
+          innerTail = null;
+        }
+        if (innerTail && innerTail.element){
           return SnapLayout.StackSnapLayout.translateInContainer(
             innerTail,
             draggedElement,
@@ -41,16 +37,13 @@ export function workspacePositionForGhostSnap(
       }
     }
     if (snap.mode === 'bottomInner') return null;
-    return CBlockInnerGhostLayout.computeTopInnerGhostWorldPosition(
-      cBlock,
-      draggedElement
-    );
+    return CBlockInnerGhostLayout.calcTopInnerGhostWorldPosition(cBlock);
   }
 
-  if (snap.mode === 'middle') {
+  if (snap.mode === 'middle'){
     const parentBlock = blockRegistry.get(snap.parentUUID);
-    const childBlock = blockRegistry.get(snap.staticUUID);
-    if (!parentBlock || !parentBlock.element || !childBlock || !childBlock.element) {
+    const childBlock = blockRegistry.get(snap.snapUUID);
+    if (!parentBlock || !parentBlock.element || !childBlock || !childBlock.element){
       return null;
     }
     return SnapLayout.StackSnapLayout.translateMiddleInsert(
@@ -58,33 +51,28 @@ export function workspacePositionForGhostSnap(
       draggedElement
     );
   }
+  console.log(1)
 
-  if (snap.mode === 'prefixOnHead') {
-    const anchorHeadBlock = blockRegistry.get(snap.staticUUID);
-    if (!anchorHeadBlock || !anchorHeadBlock.element) {
-      return null;
-    }
-    const anchorHeadTranslate = SvgUtils.parseTranslateTransform(
-      anchorHeadBlock.element
-    );
+  if (snap.mode === 'prefixOnHead'){
+    const anchorHeadBlock = blockRegistry.get(snap.snapUUID);
+    if (!anchorHeadBlock || !anchorHeadBlock.element) return null;
+
+    const anchorHeadTranslate = SvgUtils.parseTranslateTransform(anchorHeadBlock.element);
     let heldChainHeadHeight = Global.DEFAULT_BLOCK_HEIGHT;
     try {
       heldChainHeadHeight = draggedElement.getBBox().height;
     } catch {
       /* keep default */
     }
-    const ghostHeadWorldY = StackWorkspaceMath.worldYPrefixOnHeadGhost(
+    return StackSnapGhostLayout.calcDragGhostTopLeftWorldXYForSnapChainPrefixOnStackHead(
+      anchorHeadTranslate.x,
       anchorHeadTranslate.y,
       heldChainHeadHeight
     );
-    return {
-      x: anchorHeadTranslate.x,
-      y: ghostHeadWorldY,
-    };
   }
 
-  const anchorBlock = blockRegistry.get(snap.staticUUID);
-  if (!anchorBlock || !anchorBlock.element) {
+  const anchorBlock = blockRegistry.get(snap.snapUUID);
+  if (!anchorBlock || !anchorBlock.element){
     return null;
   }
   return SnapLayout.StackSnapLayout.translateInContainer(
@@ -95,11 +83,11 @@ export function workspacePositionForGhostSnap(
 }
 
 /** Приоритет: middle → prepend к голове → ниже → выше. */
-export function pickStackSnapFromCandidates(candidates) {
+export function pickStackSnapFromCandidates(candidates){
   const middleInsertCandidate = candidates.find(entry => entry.middle);
-  if (middleInsertCandidate) {
+  if (middleInsertCandidate){
     return {
-      staticUUID: middleInsertCandidate.staticUUID,
+      snapUUID: middleInsertCandidate.snapUUID,
       parentUUID: middleInsertCandidate.parentUUID,
       mode: 'middle',
     };
@@ -107,19 +95,19 @@ export function pickStackSnapFromCandidates(candidates) {
   const chainPrefixOnHeadCandidate = candidates.find(
     entry => entry.prefixOnHead
   );
-  if (chainPrefixOnHeadCandidate) {
+  if (chainPrefixOnHeadCandidate){
     return {
-      staticUUID: chainPrefixOnHeadCandidate.staticUUID,
+      snapUUID: chainPrefixOnHeadCandidate.snapUUID,
       mode: 'prefixOnHead',
     };
   }
   const stackBelowCandidate = candidates.find(entry => entry.below);
-  if (stackBelowCandidate) {
-    return { staticUUID: stackBelowCandidate.staticUUID, mode: 'below' };
+  if (stackBelowCandidate){
+    return { snapUUID: stackBelowCandidate.snapUUID, mode: 'below' };
   }
   const stackAboveCandidate = candidates.find(entry => entry.above);
-  if (stackAboveCandidate) {
-    return { staticUUID: stackAboveCandidate.staticUUID, mode: 'above' };
+  if (stackAboveCandidate){
+    return { snapUUID: stackAboveCandidate.snapUUID, mode: 'above' };
   }
   return null;
 }
