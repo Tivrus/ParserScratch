@@ -1,4 +1,4 @@
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 
 export function applyMiddlePreviewTailWorldYDeltaForChainSpreadBelowSeam(
     tailBlockModelWorldY,

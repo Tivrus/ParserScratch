@@ -1,5 +1,5 @@
 ﻿import * as CategoriesData from '../data/CategoriesData.js';
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 
 export class CategoryLogic {
   constructor(){

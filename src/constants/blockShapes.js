@@ -1,4 +1,3 @@
-/** SVG path и номинальный размер по `type` блока (библиотека / силуэт на полотне). */
 export const BLOCK_FORMS = [
   {
     type: 'start-block',

@@ -1,4 +1,4 @@
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 import * as ScratchCallTrace from '../infrastructure/debug/scratchCallTrace.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as StackChainGraph from '../stack-connect/layout/stackChainGraph.js';

@@ -1,6 +1,6 @@
 /** Мировые позиции для призрака и приоритеты snap. */
 
-import * as Global from '../../constants/Global.js';
+import * as Global from '../../../../src/constants/Global.js';
 import * as SvgUtils from '../../infrastructure/svg/SvgUtils.js';
 import * as SnapLayout from './stackSnapLayout.js';
 import * as StackSnapGhostLayout from '../../calculations/stackSnapGhostLayout.js';

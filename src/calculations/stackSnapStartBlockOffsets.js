@@ -1,4 +1,4 @@
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 
 function getBlockType(element){
   if (!element || typeof element.getAttribute !== 'function'){

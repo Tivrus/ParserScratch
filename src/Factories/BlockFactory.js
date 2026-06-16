@@ -1,6 +1,6 @@
 ﻿import * as BlocksData from '../data/BlocksData.js';
 import * as MathUtils from '../infrastructure/math/MathUtils.js';
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as BlockModule from '../blocks/Block.js';
 

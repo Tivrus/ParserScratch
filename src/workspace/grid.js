@@ -1,4 +1,4 @@
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 import * as WorkspaceCameraInertia from './workspaceCameraInertia.js';
 import * as StackWorkspaceMath from '../calculations/StackWorkspaceMath.js';
 

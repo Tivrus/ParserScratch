@@ -30,9 +30,6 @@ export function logError(message, options = {}){
   }
 }
 
-/** Длительность анимации сжатия при удалении блока (мс). */
-export const SHRINK_MS = 260;
-
 /** Id элементов DOM (единый источник для селекторов и getElementById). */
 export const DOM_IDS = {
   workspace: 'workspace',
@@ -57,9 +54,45 @@ export const WORKSPACE_EVENTS = {
   modesChanged: 'workspace-modes-changed',
 };
 
-/** POST тело → `workspace.json` (см. `server.js`). */
-export const WORKSPACE_SAVE_URL = '/api/save-workspace';
-/** GET → разобранный документ workspace. */
-export const WORKSPACE_LOAD_URL = '/api/load-workspace';
-/** Окно debounce (мс) перед сохранением после частых событий на полотне. */
-export const WORKSPACE_SAVE_DEBOUNCE_MS = 320;
+/** Цвета призрака при перетаскивании / превью. */
+export const GHOST = {
+  FILL_COLOR: '#808080',
+  STROKE_COLOR: '#606060',
+};
+
+export const ZONE_STYLE = {
+  fill: 'rgba(0, 255, 170, 0.15)',
+  stroke: '#00ff00',
+  'stroke-width': '0.5',
+  'pointer-events': 'none',
+  rx: '2',
+  ry: '2',
+};
+
+/** Вставка start-block в середину стека: сдвиг верхнего сегмента (px). */
+export const START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET = { x: 48, y: -56 };
+/** Вставка stop-block в середину: сдвиг нижнего сегмента (px). */
+export const STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET = { x: 48, y: 56 };
+
+/** Если выключено, позиции блоков округляются к 1px, без привязки к сетке. */
+export const WORKSPACE_BLOCK_GRID_SNAP = {
+  enabled: true,
+};
+
+/**
+ * Инерция камеры после панорамирования по пустому полотну.
+ * Берёт из grab-end длительность (мс) и `deltaX`/`deltaY` (px).
+ * `enabled` переключается в рантайме (панель рабочей области).
+ */
+export const WORKSPACE_CAMERA_INERTIA = {
+  enabled: true,
+  maxDurationForImpulseMs: 320,
+  minDurationMs: 700,
+  minImpulsePxPerMs: 0.01,
+  impulseGain: 1.0,
+  frictionPerMs: 0.9978,
+  minVelocityCutoffPxPerMs: 0.016,
+};
+
+/** Две ноги `v`, которые удлиняются вместе при внутреннем стеке / вертикальном resize. */
+export const C_BLOCK_INNER_STACK_VERTICAL_LEG_INDICES = Object.freeze([1, 3]);

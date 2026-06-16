@@ -7,7 +7,7 @@ import * as WorkspacePersistence from '../workspace/WorkspacePersistence.js';
 import * as Interactions from '../editor/index.js';
 import * as Grid from '../workspace/grid.js';
 import * as WorkspaceModeToggles from '../workspace/workspaceModeToggles.js';
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 
 function resolveScratchEditorDom(){
   const ids = Global.DOM_IDS;

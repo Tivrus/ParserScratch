@@ -1,6 +1,6 @@
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as CBlockMath from '../calculations/CBlockMath.js';
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 
 export function calcCBlockTopInnerWhenIsEmpty(localGeom){
   const { ZoneX, width } = localGeom;

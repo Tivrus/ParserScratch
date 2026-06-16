@@ -1,5 +1,5 @@
 import * as StackChainDrag from '../blocks/StackChainDrag.js';
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 import * as CBlockMath from '../calculations/CBlockMath.js';
 import * as InnerStackAcc from '../calculations/innerStackNominalHeightAccumulation.js';
 import * as MathUtils from '../infrastructure/math/MathUtils.js';

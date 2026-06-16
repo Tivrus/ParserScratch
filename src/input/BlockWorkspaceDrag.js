@@ -1,5 +1,5 @@
 import * as Grid from '../workspace/grid.js';
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as StackChainDrag from '../blocks/StackChainDrag.js';
 import * as BlockStackConnect from '../stack-connect/commit/BlockStackConnect.js';

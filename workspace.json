@@ -1,61 +1,8 @@
 {
-  "blocks": {
-    "Xzr4MclmErTzAr%rokqq": {
-      "opcode": "control_stop",
-      "next": null,
-      "parent": null,
-      "inputs": {},
-      "fields": {},
-      "topLevel": true,
-      "x": -196,
-      "y": 332
-    },
-    "XK6LxatrFzE6%Hu8tgLU": {
-      "opcode": "turn_left_steps",
-      "next": null,
-      "parent": "l2C44lmMaPh9Ic+sxosB",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false,
-      "x": -100,
-      "y": 155
-    },
-    "p6fq8Ms13d1IRKZLGTkn": {
-      "opcode": "control_repeat",
-      "next": null,
-      "parent": null,
-      "inputs": {
-        "SUBSTACK": "zodh7vs8JcszX%Aqurpr"
-      },
-      "fields": {},
-      "topLevel": true,
-      "x": -116,
-      "y": 13
-    },
-    "zodh7vs8JcszX%Aqurpr": {
-      "opcode": "turn_left_steps",
-      "next": "l2C44lmMaPh9Ic+sxosB",
-      "parent": "p6fq8Ms13d1IRKZLGTkn",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false,
-      "x": -100,
-      "y": 61
-    },
-    "l2C44lmMaPh9Ic+sxosB": {
-      "opcode": "turn_left_steps",
-      "next": "XK6LxatrFzE6%Hu8tgLU",
-      "parent": "zodh7vs8JcszX%Aqurpr",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false,
-      "x": -100,
-      "y": 108
-    }
-  },
+  "blocks": {},
   "camera": {
-    "x": 219,
-    "y": 272
+    "x": 534,
+    "y": 639
   },
   "modes": {
     "cameraInertia": false,

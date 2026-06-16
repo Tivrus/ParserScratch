@@ -1,4 +1,4 @@
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 
 export function calc_BlockZone_Top_Pos_TopEdgeY(blockTopEdgeY){
   return blockTopEdgeY - Global.ZONE_HEIGHT;

@@ -1,4 +1,4 @@
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 
 /** Силуэт блока без текста: превью при snap / перетаскивании. */

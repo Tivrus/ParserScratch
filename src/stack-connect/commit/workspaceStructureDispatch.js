@@ -1,4 +1,4 @@
-import * as Global from '../../constants/Global.js';
+import * as Global from '../../../../src/constants/Global.js';
 
 /** Уведомить подписчиков полотна об изменении структуры стека (после commit / split). */
 export function dispatchWorkspaceStructureChanged(){

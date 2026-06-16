@@ -1,4 +1,4 @@
-import * as Global from '../constants/Global.js';
+import * as Global from '../../../src/constants/Global.js';
 import * as MathUtils from '../infrastructure/math/MathUtils.js';
 
 export function calc_CblockZone_TopInner_Pos_WhenIsEmpty(){
