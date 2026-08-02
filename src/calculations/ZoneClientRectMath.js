@@ -1,7 +1,4 @@
-/** Геометрия зон коннекторов в viewport (клиент) для hit-test. */
-
-/** Пересечение осевых прямоугольников в координатах клиента. */
-export function rectsIntersectClient(clientRectA, clientRectB){
+export function calc_ClientRects_Intersect(clientRectA, clientRectB){
   const separated =
     clientRectA.right <= clientRectB.left ||
     clientRectA.left >= clientRectB.right ||
@@ -10,8 +7,7 @@ export function rectsIntersectClient(clientRectA, clientRectB){
   return !separated;
 }
 
-/** Локальный rect зоны → AABB в пикселях клиента (`getScreenCTM`). */
-export function zoneToClientRect(blockGroup, zone){
+export function calc_Zone_LocalRect_ToClientAABB(blockGroup, zone){
   const svg = blockGroup.ownerSVGElement;
   if (
     !svg ||

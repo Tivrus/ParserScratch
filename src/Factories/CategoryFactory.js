@@ -1,5 +1,5 @@
 ﻿import * as CategoriesData from '../data/CategoriesData.js';
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 
 export class CategoryLogic {
   constructor(){
@@ -17,6 +17,7 @@ export class CategoryLogic {
     }
     return keys;
   }
+
   #validateParsedCategory(cat, originalKeys, seenNonOriginalKeys){
     if (!cat || !cat.key){
       return { isValid: false, errorReason: 'missing key' };
@@ -74,10 +75,6 @@ export class CategoryLogic {
 }
 
 export class CategoryRenderer {
-  /**
-   * @param {string | HTMLElement | SVGElement} containerIdOrEl
-   * @param {(categoryId: string) => void} onSelect
-   */
   constructor(containerIdOrEl, onSelect){
     if (
       containerIdOrEl instanceof HTMLElement ||

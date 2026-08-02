@@ -1,13 +1,3 @@
-/**
- * Журнал вызовов для отладки и E2E: записи добавляются **только** при `window.__DEBUG__ === true`
- * (см. `bootstrap.js`: в автотестах `__DEBUG__` включается с флагом `__SCRATCH_E2E_SUPPRESS_Zone__`,
- * чтобы не поднимать оверлей коннекторов).
- */
-
-/**
- * @param {string} tag короткий идентификатор события
- * @param {Record<string, unknown>|null} [detail]
- */
 export function scratchCallRecord(tag, detail){
   if (globalThis.__DEBUG__ !== true){
     return;

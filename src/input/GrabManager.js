@@ -1,7 +1,6 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 
-/** Захват указателем: полотно vs палитра, полезная нагрузка grab-start / grab-end. */
 export class GrabManager {
   constructor(containersConfig = {}){
     this.state = {
@@ -102,7 +101,7 @@ export class GrabManager {
       container
     );
 
-    const rect = container.getBoundingClientRect();
+    const rect = SvgUtils.getBoundingClientRectRounded(container);
     this.state = {
       isGrabbed: true,
       area: areaName,
@@ -135,7 +134,6 @@ export class GrabManager {
     const startContainer = this.#getContainerByArea(startArea);
     if (!startContainer) return;
 
-    // Отпускание вне контейнеров: зона окончания = стартовая
     let endArea = this.#getAreaByPoint(event.clientX, event.clientY);
     if (endArea == null){
       endArea = startArea;
@@ -145,8 +143,8 @@ export class GrabManager {
       ? this.#getContainerByArea(endArea)
       : startContainer;
 
-    const startRect = startContainer.getBoundingClientRect();
-    const endRect = endContainer.getBoundingClientRect();
+    const startRect = SvgUtils.getBoundingClientRectRounded(startContainer);
+    const endRect = SvgUtils.getBoundingClientRectRounded(endContainer);
 
     const endX = Math.round(event.clientX - endRect.left);
     const endY = Math.round(event.clientY - endRect.top);
@@ -192,7 +190,7 @@ export class GrabManager {
   #getAreaByPoint(clientX, clientY){
     for (const [areaName, container] of Object.entries(this.containerEls)){
       if (!container) continue;
-      const rect = container.getBoundingClientRect();
+      const rect = SvgUtils.getBoundingClientRectRounded(container);
       if (
         clientX >= rect.left &&
         clientX <= rect.right &&
@@ -231,7 +229,6 @@ export class GrabManager {
     return this.state.isGrabbed && this.state.target === 'template';
   }
 
-  /** UUID захваченного блока на полотне. */
   getWorkspaceBlockGrabUUID(){
     if (this.isBlockGrabbed()){
       return this.state.grabKey;
@@ -239,7 +236,6 @@ export class GrabManager {
     return null;
   }
 
-  /** Проверка detail события: захват блока рабочей области. */
   isWorkspaceBlockGrabDetail(detail){
     return Boolean(
       detail &&

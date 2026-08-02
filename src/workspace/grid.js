@@ -1,8 +1,8 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as WorkspaceCameraInertia from './workspaceCameraInertia.js';
 import * as StackWorkspaceMath from '../calculations/StackWorkspaceMath.js';
 
-export const snapBlockWorldPositionToWorkspaceGrid = StackWorkspaceMath.snapBlockWorldPositionToWorkspaceGrid;
+export const snapBlockWorldPositionToWorkspaceGrid = StackWorkspaceMath.calc_WorkspaceGrid_SnapPos;
 
 export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}){
   const noop = {
@@ -20,7 +20,7 @@ export function attachWorkspaceGridPan(workspaceEl, gridEl, options = {}){
   }
 
   const { blockWorldRootEl = null } = options;
-  const cellPx = Global.WORKSPACE_GRID_CELL_PX; // default 24px
+  const cellPx = Global.WORKSPACE_GRID_CELL_PX;
   gridEl.style.backgroundSize = `${cellPx}px ${cellPx}px`;
 
   let offsetX = 0;

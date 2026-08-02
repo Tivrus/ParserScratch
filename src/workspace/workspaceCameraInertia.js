@@ -1,23 +1,15 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as StackWorkspaceMath from '../calculations/StackWorkspaceMath.js';
 
-/**
- * Инерционное скольжение после панорамирования по пустому полотну (grab-end: длительность мс, `deltaX`/`deltaY` пикс).
- * Настройки: {@link Global.WORKSPACE_CAMERA_INERTIA} в `Global.js`.
- *
- * @param {{ addOffset: (dx: number, dy: number) => void, settle: () => void }} hooks
- */
 export function createWorkspaceCameraInertia({ addOffset, settle }){
   let rafId = null;
 
-  /** Остановить скольжение без сохранения (программный `setOffset` / hydrate). */
   function abortCoastSilently(){
     if (rafId === null) return;
     cancelAnimationFrame(rafId);
     rafId = null;
   }
 
-  /** Остановить скольжение и один раз вызвать `settle` (сохранить камеру). */
   function stopRunningCoastAndSettle(){
     if (rafId === null) return;
     cancelAnimationFrame(rafId);
@@ -25,10 +17,6 @@ export function createWorkspaceCameraInertia({ addOffset, settle }){
     settle();
   }
 
-  /**
-   * Окончание жеста панорамирования (grab-end): либо старт coast, либо один вызов `settle()`.
-   * @param {object} detail поле `event.detail` у grab-end
-   */
   function onPanGrabEnd(detail){
     abortCoastSilently();
     const cfg = Global.WORKSPACE_CAMERA_INERTIA;
@@ -45,7 +33,7 @@ export function createWorkspaceCameraInertia({ addOffset, settle }){
         rawDuration = parsedDuration;
       }
     }
-    const duration = StackWorkspaceMath.clampPanGestureDurationMsForCameraCoast(
+    const duration = StackWorkspaceMath.calc_CameraCoast_PanGestureDurationMs(
       rawDuration,
       cfg.minDurationMs
     );
@@ -68,12 +56,12 @@ export function createWorkspaceCameraInertia({ addOffset, settle }){
         deltaYPixels = parsedDy;
       }
     }
-    const vx = StackWorkspaceMath.calcCameraCoastVelocityPxPerMsFromPanImpulse(
+    const vx = StackWorkspaceMath.calc_CameraCoast_VelocityPxPerMs(
       deltaXPixels,
       duration,
       cfg.impulseGain
     );
-    const vy = StackWorkspaceMath.calcCameraCoastVelocityPxPerMsFromPanImpulse(
+    const vy = StackWorkspaceMath.calc_CameraCoast_VelocityPxPerMs(
       deltaYPixels,
       duration,
       cfg.impulseGain
@@ -97,16 +85,16 @@ export function createWorkspaceCameraInertia({ addOffset, settle }){
       const dt = Math.min(40, now - last);
       last = now;
       addOffset(
-        StackWorkspaceMath.calcCameraPanOffsetDeltaPxForFrameFromVelocity(
+        StackWorkspaceMath.calc_CameraCoast_PanOffsetDeltaPx(
           vxv,
           dt
         ),
-        StackWorkspaceMath.calcCameraPanOffsetDeltaPxForFrameFromVelocity(
+        StackWorkspaceMath.calc_CameraCoast_PanOffsetDeltaPx(
           vyv,
           dt
         )
       );
-      const decay = StackWorkspaceMath.calcCameraVelocityDecayMultiplierForTimestep(
+      const decay = StackWorkspaceMath.calc_CameraCoast_VelocityDecayMultiplier(
         live.frictionPerMs,
         dt
       );

@@ -1,5 +1,3 @@
-//window.__DEBUG__ = true;
-
 export function logError(message, options = {}){
   const { error = null, context = null, throwAfter = false } = options;
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -30,7 +28,6 @@ export function logError(message, options = {}){
   }
 }
 
-/** Id элементов DOM (единый источник для селекторов и getElementById). */
 export const DOM_IDS = {
   workspace: 'workspace',
   blockTemplates: 'block-templates',
@@ -45,16 +42,12 @@ export const DOM_IDS = {
   toggleBlockGridSnap: 'toggle-block-grid-snap',
 };
 
-/** Имена CustomEvent на рабочей области (bubbles: true). */
 export const WORKSPACE_EVENTS = {
   structureChanged: 'workspace-structure-changed',
-  /** После окончания панорамирования сетки (`detail`: смещение вида `{ x, y }`). */
   cameraOffsetChanged: 'workspace-camera-offset-changed',
-  /** Режимы панели (инерция / сетка) изменились — инициирует сохранение workspace. */
   modesChanged: 'workspace-modes-changed',
 };
 
-/** Цвета призрака при перетаскивании / превью. */
 export const GHOST = {
   FILL_COLOR: '#808080',
   STROKE_COLOR: '#606060',
@@ -69,21 +62,13 @@ export const ZONE_STYLE = {
   ry: '2',
 };
 
-/** Вставка start-block в середину стека: сдвиг верхнего сегмента (px). */
 export const START_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET = { x: 48, y: -56 };
-/** Вставка stop-block в середину: сдвиг нижнего сегмента (px). */
 export const STOP_BLOCK_MIDDLE_CHAIN_SPLIT_OFFSET = { x: 48, y: 56 };
 
-/** Если выключено, позиции блоков округляются к 1px, без привязки к сетке. */
 export const WORKSPACE_BLOCK_GRID_SNAP = {
   enabled: true,
 };
 
-/**
- * Инерция камеры после панорамирования по пустому полотну.
- * Берёт из grab-end длительность (мс) и `deltaX`/`deltaY` (px).
- * `enabled` переключается в рантайме (панель рабочей области).
- */
 export const WORKSPACE_CAMERA_INERTIA = {
   enabled: true,
   maxDurationForImpulseMs: 320,
@@ -94,5 +79,4 @@ export const WORKSPACE_CAMERA_INERTIA = {
   minVelocityCutoffPxPerMs: 0.016,
 };
 
-/** Две ноги `v`, которые удлиняются вместе при внутреннем стеке / вертикальном resize. */
 export const C_BLOCK_INNER_STACK_VERTICAL_LEG_INDICES = Object.freeze([1, 3]);

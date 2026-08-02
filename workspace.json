@@ -1,8 +1,29 @@
 {
-  "blocks": {},
+  "blocks": {
+    "dWVWqLFE1O38sa8kCVLg": {
+      "opcode": "motion_move_steps",
+      "next": "7rQMOnQfjtHgGf0SC6H/",
+      "parent": null,
+      "inputs": {},
+      "fields": {},
+      "topLevel": true,
+      "x": -926,
+      "y": -449
+    },
+    "7rQMOnQfjtHgGf0SC6H/": {
+      "opcode": "turn_right_steps",
+      "next": null,
+      "parent": "dWVWqLFE1O38sa8kCVLg",
+      "inputs": {},
+      "fields": {},
+      "topLevel": false,
+      "x": -926,
+      "y": -400
+    }
+  },
   "camera": {
-    "x": 534,
-    "y": 639
+    "x": 1132,
+    "y": 613
   },
   "modes": {
     "cameraInertia": false,

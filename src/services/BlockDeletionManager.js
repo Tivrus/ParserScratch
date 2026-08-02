@@ -1,9 +1,8 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as ScratchCallTrace from '../infrastructure/debug/scratchCallTrace.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as StackChainDrag from '../blocks/StackChainDrag.js';
 
-/** Пересечение осевых прямоугольников; касание границ считается. DOMRect или { left, right, top, bottom }. */
 function rectsIntersect(rectA, rectB){
   if (!rectA || !rectB){
     return false;
@@ -58,7 +57,7 @@ function unionClientRectFromElements(elements){
     if (!element){
       continue;
     }
-    const bounds = element.getBoundingClientRect();
+    const bounds = SvgUtils.getBoundingClientRectRounded(element);
     left = Math.min(left, bounds.left);
     top = Math.min(top, bounds.top);
     right = Math.max(right, bounds.right);
@@ -71,13 +70,17 @@ function unionClientRectFromElements(elements){
 }
 
 function shrinkBlockToCenter(element, durationMs = Global.SHRINK_MS){
-  const bbox = element.getBBox();
-  const centerX = bbox.x + bbox.width / 2;
-  const centerY = bbox.y + bbox.height / 2;
-  const { x, y } = SvgUtils.parseTranslateTransform(element);
-  const startTime = performance.now();
-
   return new Promise(resolve => {
+    const bbox = SvgUtils.getElementBBox(element);
+    if (!bbox) {
+      resolve();
+      return;
+    }
+    const centerX = bbox.x + bbox.width / 2;
+    const centerY = bbox.y + bbox.height / 2;
+    const { x, y } = SvgUtils.parseTranslateTransform(element);
+    const startTime = performance.now();
+
     function frame(now){
       const t = Math.min(1, (now - startTime) / durationMs);
       const ease = 1 - (1 - t) ** 3;
@@ -183,11 +186,11 @@ export class BlockDeletionManager {
       return;
     }
 
-    const outerChain = StackChainDrag.collectChainBlocksFromHead(
+    const outerChain = StackChainDrag.collect_StackChain_BlocksFromHead(
       this.blockRegistry,
       stackHeadBlock
     );
-    const chainBlocks = StackChainDrag.collectBlocksToRemoveIncludingInnerTrees(
+    const chainBlocks = StackChainDrag.collect_StackChain_BlocksIncludingInnerTrees(
       this.blockRegistry,
       stackHeadBlock
     );
@@ -203,11 +206,11 @@ export class BlockDeletionManager {
 
     let paletteRect = null;
     if (this.sidebarEl && typeof this.sidebarEl.getBoundingClientRect === 'function'){
-      paletteRect = this.sidebarEl.getBoundingClientRect();
+      paletteRect = SvgUtils.getBoundingClientRectRounded(this.sidebarEl);
     }
     let trashRect = null;
     if (this.trashEl && typeof this.trashEl.getBoundingClientRect === 'function'){
-      trashRect = this.trashEl.getBoundingClientRect();
+      trashRect = SvgUtils.getBoundingClientRectRounded(this.trashEl);
     }
     const overPalette = rectsIntersect(unionRect, paletteRect);
     const overTrash = rectsIntersect(unionRect, trashRect);

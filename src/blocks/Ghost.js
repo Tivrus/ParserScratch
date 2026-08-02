@@ -1,10 +1,8 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 
-/** Силуэт блока без текста: превью при snap / перетаскивании. */
-export class Ghost{
+export class Ghost {
   constructor(){
-    /** @type {SVGGElement | null} */
     this.element = null;
   }
 
@@ -31,12 +29,10 @@ export class Ghost{
     }
     if (!pathDataAttribute) return this;
 
-    const group = /** @type {SVGGElement} */ (
-      SvgUtils.createElement('g', {
-        transform: `translate(${x}, ${y})`,
-        class: 'ghost-block',
-      })
-    );
+    const group = SvgUtils.createElement('g', {
+      transform: `translate(${x}, ${y})`,
+      class: 'ghost-block',
+    });
     this.#appendGhostPath(group, pathDataAttribute);
     this.element = group;
     return this;

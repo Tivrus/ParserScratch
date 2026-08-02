@@ -1,10 +1,11 @@
 import * as Grid from '../workspace/grid.js';
 import * as MathUtils from '../infrastructure/math/MathUtils.js';
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as BlockModule from '../blocks/Block.js';
 import * as ChainMiddleZone from '../blocks/ChainMiddleZone.js';
-import * as BlockStackConnect from '../stack-connect/commit/BlockStackConnect.js';
-import * as CBlockPathStretch from '../c-block/cBlockPathStretchPreview.js';
+import * as StackConnect from '../stack-connect/StackConnectCommit.js';
+import * as CBlockPathStretch from '../c-block/CBlockPathStretch.js';
+import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 
 export class BlockSpawner {
   constructor(blockLogic, grabManager, config = {}){
@@ -47,7 +48,6 @@ export class BlockSpawner {
     } else {
       this.getWorkspaceGridOffset = () => ({ x: 0, y: 0 });
     }
-    // Перетаскивание с палитры: выставляется на grab-start шаблона, сбрасывается на grab-end / blur.
     this.paletteDragBlock;
     if (onPaletteDragMove != null){
       this.onPaletteDragMove = onPaletteDragMove;
@@ -81,14 +81,14 @@ export class BlockSpawner {
   }
 
   #initListeners(){
-    this.containerEls.blockTemplates.addEventListener('grab-start', e => {
+    this.containerEls.blockTemplates.addEventListener('grab-start', /** @param {CustomEvent} e */ e => {
       if (this.grabManager.isBlockGrabbed()) return;
       if (this.grabManager.isTemplateGrabbed() && e.detail.grabKey){
         this.#onTemplateGrab(e.detail);
       }
     });
 
-    document.addEventListener('grab-end', e => {
+    document.addEventListener('grab-end', /** @param {CustomEvent} e */ e => {
       if (this.paletteDragBlock) this.#onPaletteDragEnd(e.detail);
     });
 
@@ -125,7 +125,7 @@ export class BlockSpawner {
     this.containerEls.dragOverlay.appendChild(block.element);
     this.paletteDragBlock = block;
 
-    const templateRect = template.getBoundingClientRect();
+    const templateRect = SvgUtils.getBoundingClientRectRounded(template);
     this.dragOffset.x = grabDetail.clientX - templateRect.left;
     this.dragOffset.y = grabDetail.clientY - templateRect.top;
 
@@ -151,7 +151,7 @@ export class BlockSpawner {
         finalX = Math.round(stackPlace.x);
         finalY = Math.round(stackPlace.y);
       } else {
-        const wr = this.containerEls.workspace.getBoundingClientRect();
+        const wr = SvgUtils.getBoundingClientRectRounded(this.containerEls.workspace);
         const { x: vx, y: vy } = this.getWorkspaceGridOffset();
         finalX = Math.round(
           grabDetail.clientX - wr.left - this.dragOffset.x - vx
@@ -166,12 +166,12 @@ export class BlockSpawner {
       this.blockMountParent.appendChild(block.element);
       block.setPosition(finalX, finalY);
       if (stackPlace){
-        BlockStackConnect.repositionFollowingStackBlocks(
+        StackConnect.repositionFollowingStackBlocks(
           block,
           this.blockRegistry
         );
         this.#rebuildZones();
-        BlockStackConnect.layoutAllCBlockInnerStacks(this.blockRegistry);
+        StackConnect.layoutAllCBlockInnerStacks(this.blockRegistry);
       }
 
       this.#rebuildZones();
@@ -197,7 +197,6 @@ export class BlockSpawner {
     this.#clearTemplateDraggingClass();
   }
 
-  /** Бросок вне полотна: убрать временный блок из реестра и DOM. */
   #discardPaletteBlock(){
     const block = this.paletteDragBlock;
     if (!block) return;
@@ -210,7 +209,7 @@ export class BlockSpawner {
     const paletteBlock = this.paletteDragBlock;
     const el = paletteBlock && paletteBlock.element;
     if (!el) return;
-    const overlayRect = this.containerEls.dragOverlay.getBoundingClientRect();
+    const overlayRect = SvgUtils.getBoundingClientRectRounded(this.containerEls.dragOverlay);
     const x = clientX - overlayRect.left - this.dragOffset.x;
     const y = clientY - overlayRect.top - this.dragOffset.y;
     el.setAttribute('transform', `translate(${x}, ${y})`);
@@ -233,26 +232,24 @@ export class BlockSpawner {
     this.#rebuildZones();
   }
 
-  /** Растяжение path c-block для внутренних стеков, зоны коннекторов и middle. */
   #rebuildZones(skipCBlockWorkspaceStretchUuid = null){
     for (const block of this.blockRegistry.values()){
       if (
         block.type === 'c-block' &&
         block.blockUUID !== skipCBlockWorkspaceStretchUuid
       ){
-        CBlockPathStretch.applyWorkspaceCBlockInnerStretch(
+        CBlockPathStretch.apply_CblockWorkspace_InnerStackPathStretch(
           this.blockRegistry,
           block,
           blockKey => this.blockLogic.prepareBlockData(blockKey)
         );
       }
     }
-    ChainMiddleZone.applyStackChainMiddles(this.blockRegistry, b =>
+    ChainMiddleZone.apply_StackChain_Middles(this.blockRegistry, b =>
       this.blockLogic.prepareBlockData(b.blockKey)
     );
   }
 
-  /** Пересобрать зоны для всех блоков (после загрузки / ресайза). */
   refreshWorkspaceZones(skipCBlockWorkspaceStretchUuid = null){
     this.#rebuildZones(skipCBlockWorkspaceStretchUuid);
   }

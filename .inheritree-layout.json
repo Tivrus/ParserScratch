@@ -1,0 +1,88 @@
+{
+  "layoutRevision": 9,
+  "layoutMode": "architecture",
+  "manualPositions": {
+    "d:/programing/ParserScratch/src/Factories/CategoryFactory.js#CategoryRenderer": {
+      "x": 749.7958374023438,
+      "y": 199.19558715820312
+    },
+    "d:/programing/ParserScratch/src/infrastructure/math/MathUtils.js#ColorMath": {
+      "x": 743.9120483398438,
+      "y": 389.7421875
+    },
+    "d:/programing/ParserScratch/src/blocks/Ghost.js#Ghost": {
+      "x": 748.236572265625,
+      "y": 296.4407653808594
+    },
+    "d:/programing/ParserScratch/src/app/bootstrap.js#ScratchEditor": {
+      "x": 734.2059936523438,
+      "y": 501.1602478027344
+    },
+    "d:/programing/ParserScratch/src/blocks/ZoneModule.js#Zone": {
+      "x": 500.72882080078125,
+      "y": 311.6048278808594
+    },
+    "d:/programing/ParserScratch/src/Factories/CategoryFactory.js#CategoryLogic": {
+      "x": 500.3951416015625,
+      "y": 407.1059875488281
+    },
+    "d:/programing/ParserScratch/src/services/BlockSpawner.js#BlockSpawner": {
+      "x": 496.5662841796875,
+      "y": 498.2662658691406
+    },
+    "d:/programing/ParserScratch/src/services/BlockDeletionManager.js#BlockDeletionManager": {
+      "x": 975.516845703125,
+      "y": 278.07108306884766
+    },
+    "d:/programing/ParserScratch/src/blocks/Block.js#Block": {
+      "x": 989.0517578125,
+      "y": 180.9770965576172
+    },
+    "file:d:/programing/ParserScratch/src/infrastructure/svg/SvgUtils.js": {
+      "x": 1684.779541015625,
+      "y": 225.5493927001953
+    },
+    "d:/programing/ParserScratch/src/infrastructure/math/MathUtils.js#BlockIdentity": {
+      "x": 967.769775390625,
+      "y": 382.254207611084
+    },
+    "d:/programing/ParserScratch/src/Factories/BlockFactory.js#BlockRenderer": {
+      "x": 939.7650756835938,
+      "y": 512.483154296875
+    },
+    "d:/programing/ParserScratch/src/stack-connect/StackSnapGhostPreview.js#StackSnapGhostPreview": {
+      "x": 511.27099609375,
+      "y": 48.95142364501953
+    },
+    "d:/programing/ParserScratch/src/stack-connect/StackConnectCommit.js#StackConnectCommit": {
+      "x": 743.4658813476562,
+      "y": 44.19432830810547
+    },
+    "d:/programing/ParserScratch/src/stack-connect/stackSnapWorldLayout.js#StackSnapWorldLayout": {
+      "x": 521.70849609375,
+      "y": 203.34007263183594
+    },
+    "d:/programing/ParserScratch/src/input/GrabManager.js#GrabManager": {
+      "x": 411.93243408203125,
+      "y": 112.26762390136719
+    }
+  },
+  "nodeGroups": [],
+  "prototypes": [],
+  "plannedEdges": [],
+  "nextGroupId": 1,
+  "nextProtoId": 1,
+  "nextEdgeId": 1,
+  "focusMode": false,
+  "showLibraries": false,
+  "showFree": false,
+  "graphDetail": false,
+  "detail": {
+    "constructors": false,
+    "fields": false,
+    "methods": false
+  },
+  "compactTree": false,
+  "treeVisible": false,
+  "treeWidth": 280
+}

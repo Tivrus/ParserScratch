@@ -10,6 +10,6 @@
     "noImplicitAny": false,
     "skipLibCheck": true
   },
-  "include": ["old/src/**/*.js", "types/**/*.d.ts"],
+  "include": ["src/**/*.js", "types/**/*.d.ts"],
   "exclude": ["node_modules"]
 }

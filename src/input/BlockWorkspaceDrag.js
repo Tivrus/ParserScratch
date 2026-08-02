@@ -1,8 +1,8 @@
 import * as Grid from '../workspace/grid.js';
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as StackChainDrag from '../blocks/StackChainDrag.js';
-import * as BlockStackConnect from '../stack-connect/commit/BlockStackConnect.js';
+import * as StackConnect from '../stack-connect/StackConnectCommit.js';
 
 export class BlockWorkspaceDrag {
   constructor(
@@ -61,7 +61,7 @@ export class BlockWorkspaceDrag {
   }
 
   #initListeners(){
-    this.workspaceEl.addEventListener('grab-start', event => {
+    this.workspaceEl.addEventListener('grab-start', /** @param {CustomEvent} event */ event => {
       const detail = event.detail;
       if (
         this.grabManager.isWorkspaceBlockGrabDetail(detail) &&
@@ -77,7 +77,7 @@ export class BlockWorkspaceDrag {
       }
     });
 
-    document.addEventListener('grab-end', event => {
+    document.addEventListener('grab-end', /** @param {CustomEvent} event */ event => {
       if (this.dragging){
         this.#onGrabEnd(event.detail);
       } else if (this.skipGrabEndOnce){
@@ -102,8 +102,8 @@ export class BlockWorkspaceDrag {
     }
 
     let stackHead = grabbedBlock;
-    if (!StackChainDrag.isWorkspaceStackHead(grabbedBlock)){
-      const splitResult = StackChainDrag.splitWorkspaceStackAtGrabbed(
+    if (!StackChainDrag.is_WorkspaceStackHead(grabbedBlock)){
+      const splitResult = StackChainDrag.split_WorkspaceStack_AtGrabbed(
         this.blockRegistry,
         grabbedBlock
       );
@@ -119,7 +119,7 @@ export class BlockWorkspaceDrag {
     }
 
     const stackChain =
-      StackChainDrag.collectChainBlocksFromHeadForWorkspaceDrag(
+      StackChainDrag.collect_StackChain_BlocksIncludingInnerTrees(
         this.blockRegistry,
         stackHead
       );
@@ -132,8 +132,8 @@ export class BlockWorkspaceDrag {
       return;
     }
 
-    const containerRect = this.blockContainerEl.getBoundingClientRect();
-    const overlayRect = this.dragOverlayEl.getBoundingClientRect();
+    const containerRect = SvgUtils.getBoundingClientRectRounded(this.blockContainerEl);
+    const overlayRect = SvgUtils.getBoundingClientRectRounded(this.dragOverlayEl);
     const { x: vx, y: vy } = this.getWorkspaceGridOffset();
 
     const chainMembers = stackChain.map(chainBlock => {
@@ -246,7 +246,7 @@ export class BlockWorkspaceDrag {
       Math.round(snapPosition.x),
       Math.round(snapPosition.y)
     );
-    BlockStackConnect.repositionFollowingStackBlocks(
+    StackConnect.repositionFollowingStackBlocks(
       stackHeadBlock,
       this.blockRegistry
     );
@@ -255,7 +255,7 @@ export class BlockWorkspaceDrag {
         bubbles: true,
       })
     );
-    BlockStackConnect.layoutAllCBlockInnerStacks(this.blockRegistry);
+    StackConnect.layoutAllCBlockInnerStacks(this.blockRegistry);
 
     for (const member of this.dragging.chainMembers){
       this.blockMountParentEl.appendChild(member.element);

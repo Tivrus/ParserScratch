@@ -1,6 +1,6 @@
 ﻿import * as BlocksData from '../data/BlocksData.js';
 import * as MathUtils from '../infrastructure/math/MathUtils.js';
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as BlockModule from '../blocks/Block.js';
 
@@ -23,7 +23,6 @@ export class BlockLogic {
     let { path: pathData, width, height } = form;
     const vb = [0, 0, width, height];
 
-    // Доп. ширина path/viewBox: config.size вида ['+', 12] или ['-', 4]
     if (Array.isArray(config.size) && config.size.length == 2){
       const [sign, amountRaw] = config.size;
       const amount = Number(amountRaw);
@@ -90,10 +89,6 @@ export class BlockRenderer {
     });
   }
 
-  /**
-   * @param {object} data
-   * @param {{ blockUUID?: string | null; x?: number; y?: number }} [placement]
-   */
   createWorkspaceBlock(data, placement = {}){
     const { blockUUID, x = 0, y = 0 } = placement;
     return new BlockModule.Block(data, { blockUUID, x, y });

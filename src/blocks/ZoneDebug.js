@@ -1,7 +1,7 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
-import * as ZoneClientGeometry from '../stack-connect/hit-test/ZoneClientGeometry.js';
-import * as StackMiddleJoint from '../stack-connect/hit-test/stackMiddleJoint.js';
+import * as ZoneClientRectMath from '../calculations/ZoneClientRectMath.js';
+import * as StackMiddleZoneHit from '../stack-connect/stackMiddleZoneHit.js';
 
 const DEBUG_GROUP_CLASS = 'Zone-debug-Zones';
 
@@ -16,18 +16,17 @@ function drawZone(parent, zone, x, y, width, height){
     })
   );
 
-  const label = /** @type {SVGTextElement} */ (
-    SvgUtils.createElement('text', {
-      x: String(x + 8),
-      y: String(y + 12),
-      fill: '#00ff00',
-      'font-size': '11',
-      'font-weight': 'bold',
-      'font-family': 'Arial, sans-serif',
-      'pointer-events': 'none',
-    })
-  );
+  const label = SvgUtils.createElement('text', {
+    x: String(x + 8),
+    y: String(y + 12),
+    fill: '#00ff00',
+    'font-size': '11',
+    'font-weight': 'bold',
+    'font-family': 'Arial, sans-serif',
+    'pointer-events': 'none',
+  });
   label.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';
+  
   let zoneLabelText;
   if (zone.type === 'middle' && zone.inCBlock){
     zoneLabelText = 'middle(C)';
@@ -38,7 +37,6 @@ function drawZone(parent, zone, x, y, width, height){
   parent.appendChild(label);
 }
 
-/** Отладочная отрисовка зон коннекторов в overlay (viewport → координаты overlay, как в hit-test). */
 export function enableZoneDebug(
   blockRegistry,
   blockContainerEl,
@@ -76,7 +74,7 @@ export function enableZoneDebug(
     }
 
     g.replaceChildren();
-    const or = overlayEl.getBoundingClientRect();
+    const or = SvgUtils.getBoundingClientRectRounded(overlayEl);
 
     for (const block of blockRegistry.values()){
       const zoneList = block.Zones;
@@ -86,9 +84,9 @@ export function enableZoneDebug(
         if (zone.type === 'middle' && zone.linkedChildUUID){
           const ch = blockRegistry.get(zone.linkedChildUUID);
           zc =
-            ch && StackMiddleJoint.middleJointBandClientRect(block, ch, zone);
+            ch && StackMiddleZoneHit.calc_MiddleZone_HitBand_ClientRect(block, ch, zone);
         } else {
-          zc = ZoneClientGeometry.zoneToClientRect(block.element, zone);
+          zc = ZoneClientRectMath.calc_Zone_LocalRect_ToClientAABB(block.element, zone);
         }
         if (!zc) continue;
         const x = zc.left - or.left;

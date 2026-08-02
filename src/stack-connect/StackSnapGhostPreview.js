@@ -1,15 +1,15 @@
-import * as GhostModule from '../../blocks/Ghost.js';
-import * as ChainMiddleZone from '../../blocks/ChainMiddleZone.js';
-import * as StackChainDrag from '../../blocks/StackChainDrag.js';
-import * as BlockConnectionCheckModule from '../hit-test/BlockConnectionCheck.js';
-import * as StackSnapPositions from '../layout/stackSnapPositions.js';
-import * as StackMiddleJoint from '../hit-test/stackMiddleJoint.js';
-import * as ZoneClientGeometry from '../hit-test/ZoneClientGeometry.js';
-import * as CBlockInnerSnap from '../../c-block/innerSnapPriorities.js';
-import * as CBlockPathStretch from '../../c-block/cBlockPathStretchPreview.js';
+import * as GhostModule from '../blocks/Ghost.js';
+import * as ChainMiddleZone from '../blocks/ChainMiddleZone.js';
+import * as StackChainDrag from '../blocks/StackChainDrag.js';
+import * as StackSnapHitTest from './stackSnapHitTest.js';
+import * as StackSnapCandidates from './stackSnapCandidates.js';
+import * as StackMiddleZoneHit from './stackMiddleZoneHit.js';
+import * as ZoneClientRectMath from '../calculations/ZoneClientRectMath.js';
+import * as CBlockInnerSnap from '../c-block/CBlockInnerSnap.js';
+import * as CBlockPathStretch from '../c-block/CBlockPathStretch.js';
+import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 
-/** Превью силуэта в точке snap (см. tryCommitStackConnect). */
-export class ConnectionGhostPreview {
+export class StackSnapGhostPreview {
   #dragOverlayEl;
   #blockContainerEl;
   #getWorkspaceGridOffset;
@@ -18,21 +18,10 @@ export class ConnectionGhostPreview {
   #lastTargetKey;
   #activeSnap;
   #blockRegistry;
-  /** @type {Set<string>|null} UUID всей перетаскиваемой цепочки на overlay; исключаются при сбросе spread. */
   #spreadExcludeIds;
-  /** @type {string|null} */
   #stretchAppliedUuid;
-  /** @type {Map<string, string>} */
   #stretchBaseDByUuid;
 
-  /**
-   * @param {{
-   *   dragOverlayEl?: Element | null;
-   *   blockContainerEl?: Element | null;
-   *   getWorkspaceGridOffset?: () => { x: number; y: number };
-   *   refreshZones?: (() => void) | null;
-   * }} [config]
-   */
   constructor(config = {}){
     this.#dragOverlayEl = config.dragOverlayEl;
     this.#blockContainerEl = config.blockContainerEl;
@@ -62,7 +51,6 @@ export class ConnectionGhostPreview {
     return this.#activeSnap;
   }
 
-  /** UUID c-block с живым растяжением path для превью top-inner (`null`, если нет). */
   getTopInnerStretchCBlockUuid(){
     return this.#stretchAppliedUuid;
   }
@@ -73,38 +61,39 @@ export class ConnectionGhostPreview {
     }
 
     this.#blockRegistry = blockRegistry;
-    const draggedStackHeadUUID = BlockConnectionCheckModule.BlockConnectionCheck.resolveDraggedBlockUUID(
-        draggedElement,
-        grabManager
-      );
+    const draggedStackHeadUUID = StackSnapHitTest.resolve_DraggedBlockUUID(
+      draggedElement,
+      grabManager
+    );
     let excludeUuidSet = null;
     if (draggedStackHeadUUID){
-      excludeUuidSet = StackChainDrag.collectChainUuidSetForWorkspaceDrag(
+      excludeUuidSet = StackChainDrag.collect_StackChain_UuidSetIncludingInnerTrees(
         blockRegistry,
         draggedStackHeadUUID
       );
     }
     this.#spreadExcludeIds = excludeUuidSet;
 
-    ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
+    ChainMiddleZone.clear_ChainSpread(blockRegistry, this.#spreadExcludeIds);
     this.#tryPrepareMiddleSpread(draggedElement, blockRegistry, grabManager);
 
-    const candidates =
-      BlockConnectionCheckModule.BlockConnectionCheck.listConnectionCandidates(
-        draggedElement,
-        blockRegistry,
-        grabManager
-      );
+    const candidates = StackSnapHitTest.list_StackSnapCandidates(
+      draggedElement,
+      blockRegistry,
+      grabManager
+    );
 
     let draggedBlock = null;
     if (draggedStackHeadUUID){
       draggedBlock = blockRegistry.get(draggedStackHeadUUID);
     }
-    const draggedChainEndsWithStop = Boolean(draggedBlock) && StackChainDrag.workspaceChainEndsWithStopBlock(
+    const draggedChainEndsWithStop =
+      Boolean(draggedBlock) &&
+      StackChainDrag.is_WorkspaceChain_EndsWithStopBlock(
         blockRegistry,
         draggedBlock
       );
-    const pickedSnap = CBlockInnerSnap.resolveGhostSnapWithTopInnerPriority(
+    const pickedSnap = CBlockInnerSnap.resolve_CblockInnerSnap_WithTopInnerPriority(
       candidates,
       draggedBlock,
       draggedElement,
@@ -130,7 +119,11 @@ export class ConnectionGhostPreview {
       this.#exitTopInnerStretchIfAny();
     }
 
-    const ghostWorldPosition = StackSnapPositions.workspacePositionForGhostSnap(pickedSnap, blockRegistry, draggedElement);
+    const ghostWorldPosition = StackSnapCandidates.calc_GhostSnap_WorldPosition(
+      pickedSnap,
+      blockRegistry,
+      draggedElement
+    );
     if (!ghostWorldPosition){
       this.#exitTopInnerStretchIfAny();
       this.#cancelSnapPreview(blockRegistry);
@@ -140,13 +133,18 @@ export class ConnectionGhostPreview {
     if (pickedSnap.mode === 'middle'){
       const parentBlock = blockRegistry.get(pickedSnap.parentUUID);
       const childBlock = blockRegistry.get(pickedSnap.snapUUID);
-      if (!parentBlock || !parentBlock.element || !childBlock || !childBlock.element){
+      if (
+        !parentBlock ||
+        !parentBlock.element ||
+        !childBlock ||
+        !childBlock.element
+      ){
         this.#cancelSnapPreview(blockRegistry);
         return;
       }
       const chainSpreadDeltaY =
-        ChainMiddleZone.ghostSpreadDeltaY(draggedElement);
-      ChainMiddleZone.setChainSpreadBelow(
+        ChainMiddleZone.calc_GhostSpread_DeltaY(draggedElement);
+      ChainMiddleZone.set_ChainSpread_Below(
         blockRegistry,
         pickedSnap.snapUUID,
         chainSpreadDeltaY,
@@ -158,41 +156,41 @@ export class ConnectionGhostPreview {
     ){
       const cBlock = blockRegistry.get(pickedSnap.snapUUID);
       if (!cBlock){
-        ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
+        ChainMiddleZone.clear_ChainSpread(blockRegistry, this.#spreadExcludeIds);
       } else if (
         pickedSnap.mode === 'topInner' &&
         cBlock.innerStackHeadUUID
       ){
         const innerSpreadY =
-          CBlockPathStretch.cBlockTopInnerPrependInnerStackSpreadY(
+          CBlockPathStretch.calc_CblockTopInner_PrependInnerStackSpreadPx(
             draggedElement,
             draggedChainEndsWithStop
           );
         if (innerSpreadY > 0){
-          ChainMiddleZone.setCBlockInnerStackPreviewSpread(
+          ChainMiddleZone.set_CBlockInnerStack_PreviewSpread(
             blockRegistry,
             cBlock,
             innerSpreadY,
             this.#spreadExcludeIds
           );
         } else {
-          ChainMiddleZone.clearChainSpread(
+          ChainMiddleZone.clear_ChainSpread(
             blockRegistry,
             this.#spreadExcludeIds
           );
         }
       } else if (pickedSnap.mode === 'bottomInner'){
         const chainSpreadDeltaY =
-          CBlockPathStretch.cBlockTopInnerStretchDeltaY(draggedElement);
+          CBlockPathStretch.calc_CblockTopInner_PreviewPathStretchDeltaPx(draggedElement);
         if (cBlock.nextUUID && chainSpreadDeltaY){
-          ChainMiddleZone.setChainSpreadBelow(
+          ChainMiddleZone.set_ChainSpread_Below(
             blockRegistry,
             cBlock.nextUUID,
             chainSpreadDeltaY,
             this.#spreadExcludeIds
           );
         } else {
-          ChainMiddleZone.clearChainSpread(
+          ChainMiddleZone.clear_ChainSpread(
             blockRegistry,
             this.#spreadExcludeIds
           );
@@ -202,23 +200,23 @@ export class ConnectionGhostPreview {
         !cBlock.innerStackHeadUUID
       ){
         const chainSpreadDeltaY =
-          CBlockPathStretch.cBlockTopInnerStretchDeltaY(draggedElement);
+          CBlockPathStretch.calc_CblockTopInner_PreviewPathStretchDeltaPx(draggedElement);
         if (cBlock.nextUUID && chainSpreadDeltaY){
-          ChainMiddleZone.setChainSpreadBelow(
+          ChainMiddleZone.set_ChainSpread_Below(
             blockRegistry,
             cBlock.nextUUID,
             chainSpreadDeltaY,
             this.#spreadExcludeIds
           );
         } else {
-          ChainMiddleZone.clearChainSpread(
+          ChainMiddleZone.clear_ChainSpread(
             blockRegistry,
             this.#spreadExcludeIds
           );
         }
       }
     } else {
-      ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
+      ChainMiddleZone.clear_ChainSpread(blockRegistry, this.#spreadExcludeIds);
     }
 
     const { x: overlayX, y: overlayY } = this.#containerToOverlay(
@@ -234,7 +232,7 @@ export class ConnectionGhostPreview {
       draggedBlock
     ){
       innerPrependShiftKey = Math.round(
-        CBlockPathStretch.cBlockTopInnerPrependInnerStackSpreadY(
+        CBlockPathStretch.calc_CblockTopInner_PrependInnerStackSpreadPx(
           draggedElement,
           draggedChainEndsWithStop
         )
@@ -268,7 +266,7 @@ export class ConnectionGhostPreview {
   clear(){
     this.#exitTopInnerStretchIfAny();
     if (this.#blockRegistry){
-      ChainMiddleZone.clearChainSpread(
+      ChainMiddleZone.clear_ChainSpread(
         this.#blockRegistry,
         this.#spreadExcludeIds
       );
@@ -281,14 +279,13 @@ export class ConnectionGhostPreview {
   }
 
   #cancelSnapPreview(blockRegistry){
-    ChainMiddleZone.clearChainSpread(blockRegistry, this.#spreadExcludeIds);
+    ChainMiddleZone.clear_ChainSpread(blockRegistry, this.#spreadExcludeIds);
     this.clear();
   }
 
-  /** @param {boolean} draggedChainEndsWithStop хвост перетаскиваемой цепи `stop-block` */
   #syncTopInnerPathStretch(cBlock, draggedElement, draggedChainEndsWithStop){
     if (!cBlock || !cBlock.element) return;
-    const pathEl = CBlockPathStretch.getWorkspaceBlockPathElement(cBlock);
+    const pathEl = CBlockPathStretch.find_CblockWorkspace_PathElement(cBlock);
     if (!pathEl) return;
 
     const uuid = cBlock.blockUUID;
@@ -304,7 +301,7 @@ export class ConnectionGhostPreview {
     }
     const baseD = this.#stretchBaseDByUuid.get(uuid);
 
-    const ghostHeight = CBlockPathStretch.cBlockTopInnerStretchDeltaY(
+    const ghostHeight = CBlockPathStretch.calc_CblockTopInner_PreviewPathStretchDeltaPx(
       draggedElement
     );
 
@@ -319,7 +316,7 @@ export class ConnectionGhostPreview {
       return;
     }
 
-    const nextD = CBlockPathStretch.buildStretchedCBlockPathDFromGhostHeight(
+    const nextD = CBlockPathStretch.build_CblockInnerStack_PathD_StretchedFromGhostHeight(
       baseD,
       ghostHeight,
       !cBlock.innerStackHeadUUID,
@@ -340,7 +337,6 @@ export class ConnectionGhostPreview {
     this.#restoreTopInnerStretchForUuid(this.#stretchAppliedUuid);
   }
 
-  /** Восстановить атрибут `d` из снимка для данного UUID (должен совпадать с растянутым c-block). */
   #restoreTopInnerStretchForUuid(uuid){
     if (!uuid) return;
 
@@ -359,7 +355,7 @@ export class ConnectionGhostPreview {
       }
       return;
     }
-    const pathEl = CBlockPathStretch.getWorkspaceBlockPathElement(registeredBlock);
+    const pathEl = CBlockPathStretch.find_CblockWorkspace_PathElement(registeredBlock);
     if (pathEl != null && baseD != null){
       pathEl.setAttribute('d', baseD);
     }
@@ -389,20 +385,18 @@ export class ConnectionGhostPreview {
     return { snapUUID: snap.snapUUID, mode: snap.mode };
   }
 
-  // До hit-test: если bbox перетаскиваемого пересекает полосу middle-шва, раздвигаем цепочку ниже шва.
   #tryPrepareMiddleSpread(draggedElement, blockRegistry, grabManager){
-    const draggedBlockUUID =
-      BlockConnectionCheckModule.BlockConnectionCheck.resolveDraggedBlockUUID(
-        draggedElement,
-        grabManager
-      );
+    const draggedBlockUUID = StackSnapHitTest.resolve_DraggedBlockUUID(
+      draggedElement,
+      grabManager
+    );
     const draggedBlock = blockRegistry.get(draggedBlockUUID);
-    const chainSpreadDeltaY = ChainMiddleZone.ghostSpreadDeltaY(draggedElement);
+    const chainSpreadDeltaY = ChainMiddleZone.calc_GhostSpread_DeltaY(draggedElement);
     if (!draggedBlock || !draggedBlock.element || !chainSpreadDeltaY){
       return;
     }
 
-    const draggedClientRect = draggedBlock.element.getBoundingClientRect();
+    const draggedClientRect = SvgUtils.getBoundingClientRectRounded(draggedBlock.element);
 
     for (const childBlock of blockRegistry.values()){
       if (childBlock.blockUUID === draggedBlockUUID || !childBlock.parentUUID){
@@ -413,7 +407,7 @@ export class ConnectionGhostPreview {
         continue;
       }
       if (
-        !BlockConnectionCheckModule.BlockConnectionCheck.middleInsertEligibility(
+        !StackSnapHitTest.is_MiddleZoneInsert_Eligible(
           draggedBlock,
           parentBlock,
           childBlock,
@@ -423,7 +417,7 @@ export class ConnectionGhostPreview {
         continue;
       }
 
-      const middleZone = StackMiddleJoint.middleJointOnParent(
+      const middleZone = StackMiddleZoneHit.find_MiddleZone_OnParent(
         parentBlock,
         childBlock
       );
@@ -431,14 +425,15 @@ export class ConnectionGhostPreview {
         continue;
       }
 
-      const middleBandClientRect = StackMiddleJoint.middleJointBandClientRect(
-        parentBlock,
-        childBlock,
-        middleZone
-      );
+      const middleBandClientRect =
+        StackMiddleZoneHit.calc_MiddleZone_HitBand_ClientRect(
+          parentBlock,
+          childBlock,
+          middleZone
+        );
       if (
         !middleBandClientRect ||
-        !ZoneClientGeometry.rectsIntersectClient(
+        !ZoneClientRectMath.calc_ClientRects_Intersect(
           draggedClientRect,
           middleBandClientRect
         )
@@ -446,7 +441,7 @@ export class ConnectionGhostPreview {
         continue;
       }
 
-      ChainMiddleZone.setChainSpreadBelow(
+      ChainMiddleZone.set_ChainSpread_Below(
         blockRegistry,
         childBlock.blockUUID,
         chainSpreadDeltaY,
@@ -457,8 +452,8 @@ export class ConnectionGhostPreview {
   }
 
   #containerToOverlay(worldX, worldY){
-    const blockContainerRect = this.#blockContainerEl.getBoundingClientRect();
-    const dragOverlayRect = this.#dragOverlayEl.getBoundingClientRect();
+    const blockContainerRect = SvgUtils.getBoundingClientRectRounded(this.#blockContainerEl);
+    const dragOverlayRect = SvgUtils.getBoundingClientRectRounded(this.#dragOverlayEl);
     const { x: gridPanOffsetX, y: gridPanOffsetY } =
       this.#getWorkspaceGridOffset();
     return {
@@ -471,3 +466,5 @@ export class ConnectionGhostPreview {
     };
   }
 }
+
+export { StackSnapGhostPreview as ConnectionGhostPreview };

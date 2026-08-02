@@ -1,4 +1,4 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 
 function syncInertiaButton(btn){
   const on = Boolean(Global.WORKSPACE_CAMERA_INERTIA.enabled);
@@ -12,7 +12,6 @@ function syncSnapButton(btn){
   btn.classList.toggle('workspace-mode-toggle--active', on);
 }
 
-/** Применить `doc.modes` из workspace.json / сервера к флагам рантайма. */
 export function applyWorkspaceModesFromDoc(doc){
   let modesSection = null;
   if (doc && doc.modes){
@@ -27,7 +26,6 @@ export function applyWorkspaceModesFromDoc(doc){
   }
 }
 
-/** Обновить вид кнопок панели по текущим флагам инерции и привязки к сетке. */
 export function syncWorkspaceModeToggleButtons(modeToggleButtons){
   if (!modeToggleButtons) return;
   const { inertiaBtn, snapBtn } = modeToggleButtons;
@@ -35,25 +33,18 @@ export function syncWorkspaceModeToggleButtons(modeToggleButtons){
   if (snapBtn) syncSnapButton(snapBtn);
 }
 
-/** Переключить инерцию камеры; возвращает новое значение `enabled`. */
 export function toggleWorkspaceCameraInertia(){
   Global.WORKSPACE_CAMERA_INERTIA.enabled =
     !Global.WORKSPACE_CAMERA_INERTIA.enabled;
   return Global.WORKSPACE_CAMERA_INERTIA.enabled;
 }
 
-/** Переключить привязку блоков к сетке; возвращает новое `enabled`. */
 export function toggleWorkspaceBlockGridSnap(){
   Global.WORKSPACE_BLOCK_GRID_SNAP.enabled =
     !Global.WORKSPACE_BLOCK_GRID_SNAP.enabled;
   return Global.WORKSPACE_BLOCK_GRID_SNAP.enabled;
 }
 
-/**
- * Подключить кнопки панели режимов полотна.
- * @param {HTMLElement} workspaceEl — получает {@link Global.WORKSPACE_EVENTS.modesChanged} для сохранения.
- * @param {{ inertiaBtn: HTMLElement; snapBtn: HTMLElement }} modeToggleButtons
- */
 export function attachWorkspaceModeToggles(workspaceEl, modeToggleButtons){
   const { inertiaBtn, snapBtn } = modeToggleButtons || {};
   if (!inertiaBtn || !snapBtn) return;

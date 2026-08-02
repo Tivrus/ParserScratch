@@ -1,14 +1,24 @@
-import * as SvgUtils from '../../infrastructure/svg/SvgUtils.js';
-import * as ZoneModule from '../../blocks/ZoneModule.js';
-import * as BlockConnectionCheckModule from '../hit-test/BlockConnectionCheck.js';
-import * as SnapLayout from '../layout/stackSnapLayout.js';
-import * as StackChainGraph from '../layout/stackChainGraph.js';
-import * as StackChainDrag from '../../blocks/StackChainDrag.js';
-import * as CBlockInnerGhostLayout from '../../c-block/innerGhostLayout.js';
-import * as ScratchCallTrace from '../../infrastructure/debug/scratchCallTrace.js';
-import * as MiddleChainSplit from '../../calculations/middleChainSplitTranslate.js';
-import * as StackChainFollowLayout from '../layout/stackChainFollowLayout.js';
-import * as WorkspaceStructureDispatch from './workspaceStructureDispatch.js';
+import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
+import * as ZoneModule from '../blocks/ZoneModule.js';
+import * as StackSnapHitTest from './stackSnapHitTest.js';
+import * as StackSnapWorldLayout from './stackSnapWorldLayout.js';
+import * as StackChainGraph from './stackChainGraph.js';
+import * as StackChainDrag from '../blocks/StackChainDrag.js';
+import * as CBlockInnerGhostPos from '../c-block/CBlockInnerGhostPos.js';
+import * as ScratchCallTrace from '../infrastructure/debug/scratchCallTrace.js';
+import * as MiddleChainSplit from '../calculations/MiddleChainSplitMath.js';
+import * as Global from '../constants/Global.js';
+
+function dispatch_WorkspaceStructureChanged(){
+  const workspaceRootEl = document.getElementById(Global.DOM_IDS.workspace);
+  if (workspaceRootEl){
+    workspaceRootEl.dispatchEvent(
+      new CustomEvent(Global.WORKSPACE_EVENTS.structureChanged, {
+        bubbles: true,
+      })
+    );
+  }
+}
 
 class StackConnectCommit {
   static tryCommit({
@@ -20,11 +30,10 @@ class StackConnectCommit {
     const snap = ghostPreview.getActiveSnap();
     if (!snap) return null;
 
-    const draggedBlockUUID =
-      BlockConnectionCheckModule.BlockConnectionCheck.resolveDraggedBlockUUID(
-        draggedElement,
-        grabManager
-      );
+    const draggedBlockUUID = StackSnapHitTest.resolve_DraggedBlockUUID(
+      draggedElement,
+      grabManager
+    );
     const draggedBlock = blockRegistry.get(draggedBlockUUID);
     if (!draggedBlock) return null;
 
@@ -43,7 +52,7 @@ class StackConnectCommit {
           ? blockRegistry.get(cBlock.innerStackHeadUUID)
           : null;
         const innerTail = innerHead
-          ? StackChainGraph.stackTailBlock(blockRegistry, innerHead)
+          ? StackChainGraph.find_StackTail_Block(blockRegistry, innerHead)
           : null;
         if (!innerTail || innerTail.type === 'stop-block') return null;
       }
@@ -151,7 +160,7 @@ class StackConnectCommit {
     if (!cBlock.innerStackHeadUUID){
       if (mode !== 'topInner') return null;
       snapWorldPosition =
-        CBlockInnerGhostLayout.calcTopInnerGhostWorldPosition(cBlock);
+        CBlockInnerGhostPos.calc_CblockTopInnerGhost_WorldPos(cBlock);
       if (!snapWorldPosition) return null;
       cBlock.innerStackHeadUUID = draggedStackHead.blockUUID;
       draggedStackHead.parentUUID = cBlock.blockUUID;
@@ -161,9 +170,9 @@ class StackConnectCommit {
 
       if (mode === 'topInner'){
         snapWorldPosition =
-          CBlockInnerGhostLayout.calcTopInnerGhostWorldPosition(cBlock);
+          CBlockInnerGhostPos.calc_CblockTopInnerGhost_WorldPos(cBlock);
         if (!snapWorldPosition) return null;
-        const heldTail = StackChainGraph.stackTailBlock(
+        const heldTail = StackChainGraph.find_StackTail_Block(
           blockRegistry,
           draggedStackHead
         );
@@ -173,7 +182,7 @@ class StackConnectCommit {
         cBlock.innerStackHeadUUID = draggedStackHead.blockUUID;
         draggedStackHead.parentUUID = cBlock.blockUUID;
       } else {
-        const innerTail = StackChainGraph.stackTailBlock(
+        const innerTail = StackChainGraph.find_StackTail_Block(
           blockRegistry,
           innerHead
         );
@@ -185,18 +194,19 @@ class StackConnectCommit {
         ){
           return null;
         }
-        snapWorldPosition = SnapLayout.StackSnapLayout.translateInContainer(
-          innerTail,
-          draggedElement,
-          'below'
-        );
+        snapWorldPosition =
+          StackSnapWorldLayout.StackSnapWorldLayout.calc_BlockWorldPosition_ForSnap(
+            innerTail,
+            draggedElement,
+            'below'
+          );
         if (!snapWorldPosition) return null;
         innerTail.nextUUID = draggedStackHead.blockUUID;
         draggedStackHead.parentUUID = innerTail.blockUUID;
       }
     }
 
-    for (const b of StackChainDrag.collectChainBlocksFromHead(
+    for (const b of StackChainDrag.collect_StackChain_BlocksFromHead(
       blockRegistry,
       draggedStackHead
     )){
@@ -213,11 +223,10 @@ class StackConnectCommit {
     blockRegistry,
     grabManager
   ){
-    const draggedBlockUUID =
-      BlockConnectionCheckModule.BlockConnectionCheck.resolveDraggedBlockUUID(
-        draggedElement,
-        grabManager
-      );
+    const draggedBlockUUID = StackSnapHitTest.resolve_DraggedBlockUUID(
+      draggedElement,
+      grabManager
+    );
     if (!draggedBlockUUID) return null;
     const draggedBlock = blockRegistry.get(draggedBlockUUID);
     const anchorBlock = blockRegistry.get(anchorStaticUUID);
@@ -234,11 +243,12 @@ class StackConnectCommit {
   ){
     if (anchorBlock.nextUUID || draggedBlock.parentUUID) return null;
 
-    const snapWorldPosition = SnapLayout.StackSnapLayout.translateInContainer(
-      anchorBlock,
-      draggedElement,
-      'below'
-    );
+    const snapWorldPosition =
+      StackSnapWorldLayout.StackSnapWorldLayout.calc_BlockWorldPosition_ForSnap(
+        anchorBlock,
+        draggedElement,
+        'below'
+      );
     if (!snapWorldPosition) return null;
 
     anchorBlock.nextUUID = draggedBlock.blockUUID;
@@ -266,11 +276,12 @@ class StackConnectCommit {
       tailBlock = nextInChain;
     }
 
-    const snapWorldPosition = SnapLayout.StackSnapLayout.translateInContainer(
-      anchorBlock,
-      draggedElement,
-      'above'
-    );
+    const snapWorldPosition =
+      StackSnapWorldLayout.StackSnapWorldLayout.calc_BlockWorldPosition_ForSnap(
+        anchorBlock,
+        draggedElement,
+        'above'
+      );
     if (!snapWorldPosition) return null;
 
     tailBlock.nextUUID = anchorBlock.blockUUID;
@@ -282,10 +293,6 @@ class StackConnectCommit {
     return snapWorldPosition;
   }
 
-  /**
-   * Те же связи, что {@link #commitAbove}: чужой стек подвешивается под хвост удерживаемого.
-   * Голова удерживаемой цепочки snap к бывшим (x,y) головы другого стека.
-   */
   static #commitPrefixOnHead(
     anchorBlock,
     draggedBlock,
@@ -295,15 +302,9 @@ class StackConnectCommit {
   ){
     if (anchorBlock.parentUUID || draggedBlock.parentUUID) return null;
     if (!draggedBlock.nextUUID) return null;
-    if (
-      !ZoneModule.Zone.zoneByType(
-        anchorBlock.Zones,
-        'top'
-      )
-    )
-      return null;
+    if (!ZoneModule.Zone.zoneByType(anchorBlock.Zones, 'top')) return null;
 
-    const heldChainTail = StackChainGraph.stackTailBlock(
+    const heldChainTail = StackChainGraph.find_StackTail_Block(
       blockRegistry,
       draggedBlock
     );
@@ -324,7 +325,7 @@ class StackConnectCommit {
 
     ghostPreview.clear();
     requestAnimationFrame(function(){
-      WorkspaceStructureDispatch.dispatchWorkspaceStructureChanged();
+      dispatch_WorkspaceStructureChanged();
     });
     return snapWorldPosition;
   }
@@ -346,7 +347,7 @@ class StackConnectCommit {
     if (draggedBlock.parentUUID || draggedBlock.nextUUID) return null;
 
     const insertWorldPosition =
-      SnapLayout.StackSnapLayout.translateMiddleInsert(
+      StackSnapWorldLayout.StackSnapWorldLayout.calc_BlockWorldPosition_ForMiddleZoneInsert(
         parentBlock,
         draggedElement
       );
@@ -383,14 +384,13 @@ class StackConnectCommit {
 
     ghostPreview.clear();
     draggedBlock.setPosition(insertWorldPosition.x, insertWorldPosition.y);
-    StackChainFollowLayout.repositionFollowingStackBlocks(draggedBlock, blockRegistry);
+    StackSnapWorldLayout.reposition_FollowingStackBlocks(
+      draggedBlock,
+      blockRegistry
+    );
     return insertWorldPosition;
   }
 
-  /**
-   * Верхняя цепочка (голова … parent) отцепляется; start становится шляпой нижней (child…).
-   * Верхний сегмент сдвигается вправо/вверх.
-   */
   static #commitStartBlockMiddleChainSplit(
     parentBlock,
     draggedBlock,
@@ -401,17 +401,18 @@ class StackConnectCommit {
   ){
     ghostPreview.clear();
 
-    const detachedHead = StackChainGraph.findStackHeadBlock(
+    const detachedHead = StackChainGraph.find_StackHead_Block(
       blockRegistry,
       parentBlock
     );
-    const upperSegmentBlocks = StackChainGraph.collectChainFromHeadToInclusive(
-      blockRegistry,
-      detachedHead,
-      parentBlock
-    );
+    const upperSegmentBlocks =
+      StackChainGraph.collect_StackChain_FromHeadToInclusive(
+        blockRegistry,
+        detachedHead,
+        parentBlock
+      );
     const { x: splitOffsetX, y: splitOffsetY } =
-      MiddleChainSplit.getWorkspaceChainSegmentWorldOffsetPxAfterStartMiddleSplit();
+      MiddleChainSplit.calc_MiddleChainSplit_StartBlock_OffsetPx();
 
     parentBlock.nextUUID = null;
     draggedBlock.parentUUID = null;
@@ -430,15 +431,14 @@ class StackConnectCommit {
       );
     }
 
-    StackChainFollowLayout.repositionFollowingStackBlocks(draggedBlock, blockRegistry);
-    WorkspaceStructureDispatch.dispatchWorkspaceStructureChanged();
+    StackSnapWorldLayout.reposition_FollowingStackBlocks(
+      draggedBlock,
+      blockRegistry
+    );
+    dispatch_WorkspaceStructureChanged();
     return insertWorldPosition;
   }
 
-  /**
-   * Нижняя цепочка (child … tail) отцепляется; stop остаётся под родителем; «крышка» без преемника.
-   * Нижний сегмент сдвигается вправо/вниз.
-   */
   static #commitStopBlockMiddleChainSplit(
     parentBlock,
     draggedBlock,
@@ -449,23 +449,12 @@ class StackConnectCommit {
   ){
     ghostPreview.clear();
 
-    const lowerSegmentBlocks = [];
-    let currentBlock = childBlock;
-    const visitedUUIDs = new Set();
-    while (currentBlock && !visitedUUIDs.has(currentBlock.blockUUID)){
-      visitedUUIDs.add(currentBlock.blockUUID);
-      lowerSegmentBlocks.push(currentBlock);
-      let nextBlockInChain = null;
-      if (currentBlock.nextUUID){
-        const fetchedNext = blockRegistry.get(currentBlock.nextUUID);
-        if (fetchedNext != null){
-          nextBlockInChain = fetchedNext;
-        }
-      }
-      currentBlock = nextBlockInChain;
-    }
+    const lowerSegmentBlocks = StackChainDrag.collect_StackChain_BlocksFromHead(
+      blockRegistry,
+      childBlock
+    );
     const { x: splitOffsetX, y: splitOffsetY } =
-      MiddleChainSplit.getWorkspaceChainSegmentWorldOffsetPxAfterStopMiddleSplit();
+      MiddleChainSplit.calc_MiddleChainSplit_StopBlock_OffsetPx();
 
     parentBlock.nextUUID = draggedBlock.blockUUID;
     draggedBlock.parentUUID = parentBlock.blockUUID;
@@ -485,8 +474,11 @@ class StackConnectCommit {
       );
     }
 
-    StackChainFollowLayout.repositionFollowingStackBlocks(childBlock, blockRegistry);
-    WorkspaceStructureDispatch.dispatchWorkspaceStructureChanged();
+    StackSnapWorldLayout.reposition_FollowingStackBlocks(
+      childBlock,
+      blockRegistry
+    );
+    dispatch_WorkspaceStructureChanged();
     return insertWorldPosition;
   }
 }
@@ -509,8 +501,8 @@ export function tryCommitStackConnect(args){
   return result;
 }
 
-export { repositionFollowingStackBlocks } from '../layout/stackChainFollowLayout.js';
+export { reposition_FollowingStackBlocks as repositionFollowingStackBlocks } from './stackSnapWorldLayout.js';
 export {
-  layoutInnerStackUnderCBlock,
-  layoutAllCBlockInnerStacks,
-} from '../../c-block/cBlockInnerStackWorkspaceLayout.js';
+  layout_CblockInnerStack_Blocks as layoutInnerStackUnderCBlock,
+  layout_AllCblockInnerStacks as layoutAllCBlockInnerStacks,
+} from '../c-block/CBlockInnerStackLayout.js';

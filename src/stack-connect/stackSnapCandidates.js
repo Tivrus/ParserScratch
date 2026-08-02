@@ -1,16 +1,15 @@
-/** Мировые позиции для призрака и приоритеты snap. */
-
-import * as Global from '../../../../src/constants/Global.js';
-import * as SvgUtils from '../../infrastructure/svg/SvgUtils.js';
-import * as SnapLayout from './stackSnapLayout.js';
-import * as StackSnapGhostLayout from '../../calculations/stackSnapGhostLayout.js';
-import * as CBlockInnerGhostLayout from '../../c-block/innerGhostLayout.js';
+import * as Global from '../constants/Global.js';
+import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
+import * as StackSnapWorldLayout from './stackSnapWorldLayout.js';
+import * as StackSnapGhostLayout from '../calculations/StackSnapGhostMath.js';
+import * as CBlockInnerGhostPos from '../c-block/CBlockInnerGhostPos.js';
 import * as StackChainGraph from './stackChainGraph.js';
 
-/**
- * Мировые координаты под `#block-world-root` (смещение сетки накладывается позже в overlay).
- */
-export function workspacePositionForGhostSnap(snap, blockRegistry, draggedElement){
+export function calc_GhostSnap_WorldPosition(
+  snap,
+  blockRegistry,
+  draggedElement
+){
   if (snap.mode === 'topInner' || snap.mode === 'bottomInner'){
     const cBlock = blockRegistry.get(snap.snapUUID);
     if (!cBlock || !cBlock.element) return null;
@@ -18,17 +17,20 @@ export function workspacePositionForGhostSnap(snap, blockRegistry, draggedElemen
       const innerHead = blockRegistry.get(cBlock.innerStackHeadUUID);
       if (snap.mode === 'topInner'){
         if (innerHead && innerHead.element){
-          return CBlockInnerGhostLayout.calcTopInnerGhostWorldPosition(cBlock);
+          return CBlockInnerGhostPos.calc_CblockTopInnerGhost_WorldPos(cBlock);
         }
       } else {
         let innerTail;
         if (innerHead){
-          innerTail = StackChainGraph.stackTailBlock(blockRegistry, innerHead);
+          innerTail = StackChainGraph.find_StackTail_Block(
+            blockRegistry,
+            innerHead
+          );
         } else {
           innerTail = null;
         }
         if (innerTail && innerTail.element){
-          return SnapLayout.StackSnapLayout.translateInContainer(
+          return StackSnapWorldLayout.StackSnapWorldLayout.calc_BlockWorldPosition_ForSnap(
             innerTail,
             draggedElement,
             'below'
@@ -37,34 +39,35 @@ export function workspacePositionForGhostSnap(snap, blockRegistry, draggedElemen
       }
     }
     if (snap.mode === 'bottomInner') return null;
-    return CBlockInnerGhostLayout.calcTopInnerGhostWorldPosition(cBlock);
+    return CBlockInnerGhostPos.calc_CblockTopInnerGhost_WorldPos(cBlock);
   }
 
   if (snap.mode === 'middle'){
     const parentBlock = blockRegistry.get(snap.parentUUID);
     const childBlock = blockRegistry.get(snap.snapUUID);
-    if (!parentBlock || !parentBlock.element || !childBlock || !childBlock.element){
+    if (
+      !parentBlock ||
+      !parentBlock.element ||
+      !childBlock ||
+      !childBlock.element
+    ){
       return null;
     }
-    return SnapLayout.StackSnapLayout.translateMiddleInsert(
+    return StackSnapWorldLayout.StackSnapWorldLayout.calc_BlockWorldPosition_ForMiddleZoneInsert(
       parentBlock,
       draggedElement
     );
   }
-  console.log(1)
 
   if (snap.mode === 'prefixOnHead'){
     const anchorHeadBlock = blockRegistry.get(snap.snapUUID);
     if (!anchorHeadBlock || !anchorHeadBlock.element) return null;
 
-    const anchorHeadTranslate = SvgUtils.parseTranslateTransform(anchorHeadBlock.element);
-    let heldChainHeadHeight = Global.DEFAULT_BLOCK_HEIGHT;
-    try {
-      heldChainHeadHeight = draggedElement.getBBox().height;
-    } catch {
-      /* keep default */
-    }
-    return StackSnapGhostLayout.calcDragGhostTopLeftWorldXYForSnapChainPrefixOnStackHead(
+    const anchorHeadTranslate = SvgUtils.parseTranslateTransform(
+      anchorHeadBlock.element
+    );
+    const heldChainHeadHeight = SvgUtils.getElementBBoxHeight(draggedElement, Global.DEFAULT_BLOCK_HEIGHT);
+    return StackSnapGhostLayout.calc_StackSnapGhost_ChainPrefixOnStackHead_WorldPos(
       anchorHeadTranslate.x,
       anchorHeadTranslate.y,
       heldChainHeadHeight
@@ -75,15 +78,14 @@ export function workspacePositionForGhostSnap(snap, blockRegistry, draggedElemen
   if (!anchorBlock || !anchorBlock.element){
     return null;
   }
-  return SnapLayout.StackSnapLayout.translateInContainer(
+  return StackSnapWorldLayout.StackSnapWorldLayout.calc_BlockWorldPosition_ForSnap(
     anchorBlock,
     draggedElement,
     snap.mode
   );
 }
 
-/** Приоритет: middle → prepend к голове → ниже → выше. */
-export function pickStackSnapFromCandidates(candidates){
+export function pick_StackSnap_FromCandidates(candidates){
   const middleInsertCandidate = candidates.find(entry => entry.middle);
   if (middleInsertCandidate){
     return {

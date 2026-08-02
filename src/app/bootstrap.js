@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as CategoryFactory from '../Factories/CategoryFactory.js';
 import * as BlockFactory from '../Factories/BlockFactory.js';
 import * as GrabManagerModule from '../input/GrabManager.js';
@@ -7,7 +8,7 @@ import * as WorkspacePersistence from '../workspace/WorkspacePersistence.js';
 import * as Interactions from '../editor/index.js';
 import * as Grid from '../workspace/grid.js';
 import * as WorkspaceModeToggles from '../workspace/workspaceModeToggles.js';
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 
 function resolveScratchEditorDom(){
   const ids = Global.DOM_IDS;
@@ -63,19 +64,6 @@ class ScratchEditor {
     this.#toggleCameraInertiaEl = dom.toggleCameraInertiaEl;
     this.#toggleBlockGridSnapEl = dom.toggleBlockGridSnapEl;
 
-    //├─grid
-    //├─categories
-    //│ └─category-list
-    //├─sidebar
-    //│ └─block-templates
-    //├─workspace
-    //│ └─block-container
-    //│     ├─block-world-root
-    //│     └─workspace-top-actions
-    //│        ├─start-btn
-    //│        └─trash-can
-    //└─drag-overlay
-      
     this.#gridPan = Grid.attachWorkspaceGridPan(
       this.#workspaceEl,
       this.#gridEl,
@@ -235,10 +223,6 @@ class ScratchEditor {
     });
   }
 
-  /**
-   * Режим отладки (`window.__DEBUG__`), оверлей коннекторов и вспомогательные глобалы для E2E
-   * при `__SCRATCH_E2E_SUPPRESS_Zone__`.
-   */
   #exposeDebugApi(){
     const blockRegistry = this.#blockSpawner.blockRegistry;
     const blockContainerEl = this.#blockContainerEl;

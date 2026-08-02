@@ -1,10 +1,6 @@
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 
-/**
- * Экземпляр блока на полотне: `<g>` со стеком `parentUUID` / `nextUUID` (как в workspace.json).
- */
 export class Block {
-
   constructor(data, placement = {}){
     const { blockUUID = null, x = 0, y = 0 } = placement;
     this.blockKey = data.blockKey;
@@ -25,12 +21,10 @@ export class Block {
   }
 
   #buildElement(data){
-    const group = /** @type {SVGGElement} */ (
-      SvgUtils.createElement('g', {
-        transform: `translate(${this.x}, ${this.y})`,
-        class: 'workspace-block',
-      })
-    );
+    const group = SvgUtils.createElement('g', {
+      transform: `translate(${this.x}, ${this.y})`,
+      class: 'workspace-block',
+    });
 
     Block.fillContent(group, data);
     group.setAttribute(SvgUtils.ATTR_WORKSPACE_BLOCK_UUID, String(this.blockUUID));
@@ -41,16 +35,13 @@ export class Block {
     return group;
   }
 
-  /** Шаблон палитры: `<svg class="block-template">`. */
   static createLibrarySvg(data){
-    const svg = /** @type {SVGSVGElement} */ (
-      SvgUtils.createElement('svg', {
-        viewBox: data.viewBox,
-        width: String(data.width),
-        height: String(data.height),
-        class: 'block-template',
-      })
-    );
+    const svg = SvgUtils.createElement('svg', {
+      viewBox: data.viewBox,
+      width: String(data.width),
+      height: String(data.height),
+      class: 'block-template',
+    });
 
     Object.assign(svg.style, {
       userSelect: 'none',
@@ -67,7 +58,6 @@ export class Block {
     return svg;
   }
 
-  /** Путь и подписи для рабочего `<g>` и шаблона `<svg>`. */
   static fillContent(container, data){
     container.appendChild(
       SvgUtils.createElement('path', {

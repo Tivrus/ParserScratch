@@ -1,18 +1,8 @@
-/**
- * Рабочие стеки: связь `parentUUID` / `nextUUID`. Перетаскивание головы двигает цепочку;
- * перетаскивание другого блока разрезает стек (верх остаётся, низ уезжает) — после сплита
- * пересобрать зоны коннекторов, чтобы middle снова стал bottom/top.
- */
-
-export function isWorkspaceStackHead(block){
+export function is_WorkspaceStackHead(block){
   return Boolean(block && block.parentUUID == null);
 }
 
-/**
- * Разрыв связи parent → grabbed: верх заканчивается на `parent`, grabbed становится головой нижней части;
- * зона middle между ними исчезает до пересборки коннекторов.
- */
-export function splitWorkspaceStackAtGrabbed(blockRegistry, grabbedBlock){
+export function split_WorkspaceStack_AtGrabbed(blockRegistry, grabbedBlock){
   if (!grabbedBlock || !grabbedBlock.blockUUID || grabbedBlock.parentUUID == null){
     return null;
   }
@@ -44,12 +34,7 @@ export function splitWorkspaceStackAtGrabbed(blockRegistry, grabbedBlock){
   return null;
 }
 
-/**
- * Упорядоченная цепочка от головы к хвосту по `nextUUID`.
- * @param {Map<string, import('./Block.js').Block>} blockRegistry
- * @param {import('./Block.js').Block|string} headBlockOrId
- */
-export function collectChainBlocksFromHead(blockRegistry, headBlockOrId){
+export function collect_StackChain_BlocksFromHead(blockRegistry, headBlockOrId){
   const headBlock =
     typeof headBlockOrId === 'string'
       ? blockRegistry.get(headBlockOrId)
@@ -80,74 +65,20 @@ export function collectChainBlocksFromHead(blockRegistry, headBlockOrId){
   return blocksInOrder;
 }
 
-/**
- * Хвост вертикальной цепи (по `nextUUID`) имеет `type === 'stop-block'`.
- * @param {Map<string, import('./Block.js').Block>} blockRegistry
- * @param {import('./Block.js').Block|string} headBlockOrId
- */
-export function workspaceChainEndsWithStopBlock(blockRegistry, headBlockOrId){
-  const chain = collectChainBlocksFromHead(blockRegistry, headBlockOrId);
+export function is_WorkspaceChain_EndsWithStopBlock(blockRegistry, headBlockOrId){
+  const chain = collect_StackChain_BlocksFromHead(blockRegistry, headBlockOrId);
   const tail = chain[chain.length - 1];
   return Boolean(tail && tail.type === 'stop-block');
 }
 
-/**
- * Множество UUID всей цепочки (голова…хвост): middle-preview spread не трогает все блоки на overlay.
- */
-export function collectChainUuidSetFromHead(blockRegistry, headUUID){
-  const uuidList = collectChainBlocksFromHead(blockRegistry, headUUID).map(
+export function collect_StackChain_UuidSetFromHead(blockRegistry, headUUID){
+  const uuidList = collect_StackChain_BlocksFromHead(blockRegistry, headUUID).map(
     block => block.blockUUID
   );
   return new Set(uuidList);
 }
 
-/**
- * Внешний стек от `headBlockOrId` плюс каждый внутренний подстек у c-block в этом множестве (вложенность).
- * Нужно при удалении цепочки, чтобы вложенные блоки не остались в реестре.
- */
-export function collectBlocksToRemoveIncludingInnerTrees(
-  blockRegistry,
-  headBlockOrId
-){
-  const headBlock =
-    typeof headBlockOrId === 'string'
-      ? blockRegistry.get(headBlockOrId)
-      : headBlockOrId;
-  if (!headBlock){
-    return [];
-  }
-
-  const result = [];
-  const seen = new Set();
-  const queue = [headBlock];
-
-  while (queue.length > 0){
-    const chainStart = queue.shift();
-    if (!chainStart || !chainStart.blockUUID || seen.has(chainStart.blockUUID)){
-      continue;
-    }
-    for (const block of collectChainBlocksFromHead(blockRegistry, chainStart)){
-      if (seen.has(block.blockUUID)){
-        continue;
-      }
-      seen.add(block.blockUUID);
-      result.push(block);
-      if (block.type === 'c-block' && block.innerStackHeadUUID){
-        const innerHead = blockRegistry.get(block.innerStackHeadUUID);
-        if (innerHead && !seen.has(innerHead.blockUUID)){
-          queue.push(innerHead);
-        }
-      }
-    }
-  }
-  return result;
-}
-
-/**
- * Внешний стек (`nextUUID`) плюс внутренние подстеки у каждого c-block на цепочке (вложенные c-block тоже).
- * Порядок: каждый c-block сразу за ним — его внутренняя цепочка в порядке DFS.
- */
-export function collectChainBlocksFromHeadForWorkspaceDrag(
+export function collect_StackChain_BlocksIncludingInnerTrees(
   blockRegistry,
   headBlockOrId
 ){
@@ -170,7 +101,7 @@ export function collectChainBlocksFromHeadForWorkspaceDrag(
     if (!innerHead){
       return;
     }
-    for (const inner of collectChainBlocksFromHead(blockRegistry, innerHead)){
+    for (const inner of collect_StackChain_BlocksFromHead(blockRegistry, innerHead)){
       if (seen.has(inner.blockUUID)){
         continue;
       }
@@ -182,7 +113,7 @@ export function collectChainBlocksFromHeadForWorkspaceDrag(
     }
   }
 
-  for (const block of collectChainBlocksFromHead(blockRegistry, headBlock)){
+  for (const block of collect_StackChain_BlocksFromHead(blockRegistry, headBlock)){
     if (seen.has(block.blockUUID)){
       continue;
     }
@@ -195,9 +126,9 @@ export function collectChainBlocksFromHeadForWorkspaceDrag(
   return result;
 }
 
-export function collectChainUuidSetForWorkspaceDrag(blockRegistry, headUUID){
+export function collect_StackChain_UuidSetIncludingInnerTrees(blockRegistry, headUUID){
   return new Set(
-    collectChainBlocksFromHeadForWorkspaceDrag(blockRegistry, headUUID).map(
+    collect_StackChain_BlocksIncludingInnerTrees(blockRegistry, headUUID).map(
       b => b.blockUUID
     )
   );

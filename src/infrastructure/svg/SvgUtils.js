@@ -1,40 +1,28 @@
-import * as Global from '../../../../src/constants/Global.js';
+import * as Global from '../../constants/Global.js';
 
-/** @param {string} tag */
 export function createSVG(tag){
   return document.createElementNS(Global.SVG_NS, tag);
 }
 
-/** @param {Element} el */
 export function setAttributes(el, attrs){
   for (const [key, value] of Object.entries(attrs)){
     el.setAttribute(key, String(value));
   }
 }
 
-/**
- * @param {string} tag
- * @param {Record<string, string|number>} [attrs]
- */
 export function createElement(tag, attrs = {}){
   const el = createSVG(tag);
   setAttributes(el, attrs);
   return el;
 }
 
-/** Рабочий `<g.workspace-block>`: атрибут + getAttribute (у SVG dataset ненадёжно; UUID может содержать % и /). */
 export const ATTR_WORKSPACE_BLOCK_UUID = 'data-block-uuid';
 
-/** @param {Element|null|undefined} element */
 export function readWorkspaceBlockUUID(element){
   if (!element || typeof element.getAttribute !== 'function') return '';
   return element.getAttribute(ATTR_WORKSPACE_BLOCK_UUID) || '';
 }
 
-/**
- * Разбор `transform="translate(tx, ty)"` у SVG-элемента.
- * @param {Element} element
- */
 export function parseTranslateTransform(element){
   const match = (element.getAttribute('transform') || '').match(
     /translate\(\s*([+-]?\d*\.?\d+)[,\s]+([+-]?\d*\.?\d+)\s*\)/
@@ -45,10 +33,25 @@ export function parseTranslateTransform(element){
   return { x: 0, y: 0 };
 }
 
-/**
- * Client rect с целочисленными шириной/высотой (раскладка коннекторов).
- * @param {Element} element
- */
+export function getElementBBox(element){
+  if (!element || typeof element.getBBox !== 'function'){
+    return null;
+  }
+  try {
+    return element.getBBox();
+  } catch {
+    return null;
+  }
+}
+
+export function getElementBBoxHeight(element, fallback = 0){
+  const bbox = getElementBBox(element);
+  if (bbox && Number.isFinite(bbox.height)){
+    return bbox.height;
+  }
+  return fallback;
+}
+
 export function getBoundingClientRectRounded(element){
   const rect = element.getBoundingClientRect();
   const w = Math.floor(rect.width || 0);
@@ -71,12 +74,6 @@ export function getBoundingClientRectRounded(element){
   };
 }
 
-/**
- * Координаты viewport → локальная система элемента (обратное к getScreenCTM).
- * @param {SVGGraphicsElement} element
- * @param {number} clientX
- * @param {number} clientY
- */
 export function clientPointToElementLocal(element, clientX, clientY){
   const svg = element.ownerSVGElement;
   if (
@@ -99,10 +96,6 @@ export function clientPointToElementLocal(element, clientX, clientY){
   }
 }
 
-/**
- * Разбор строки SVG path в массив команд `{ command, args }[]`.
- * @param {string} pathString
- */
 export function parseSvgPath(pathString){
   const commands = [];
   const regex = /([a-zA-Z])([^a-zA-Z]*)/g;
@@ -119,9 +112,6 @@ export function parseSvgPath(pathString){
   return commands;
 }
 
-/**
- * @param {Array<{ command: string, args: number[] }>} commands
- */
 export function stringifyPath(commands){
   return commands
     .map(cmd =>
@@ -132,18 +122,12 @@ export function stringifyPath(commands){
     .join(' ');
 }
 
-/** @param {Array<{ command: string, args: number[] }>} commands */
 function findCommandsByType(commands, type){
   return commands
     .map((cmd, index) => ({ index, cmd }))
     .filter(({ cmd }) => cmd.command.toLowerCase() === type.toLowerCase());
 }
 
-/**
- * Изменение длины с сохранением знака (масштабирование сегментов path).
- * @param {number} value
- * @param {number} delta
- */
 export function adjustValue(value, delta){
   if (delta === 0) return value;
   const sign = Math.sign(value) || Math.sign(delta) || 1;
@@ -151,11 +135,6 @@ export function adjustValue(value, delta){
   return sign * magnitude;
 }
 
-/**
- * Правка горизонтальных/вертикальных сегментов path.
- * @param {string} pathString
- * @param {{ horizontal?: number, vertical?: number, hIndices?: number[], vIndices?: number[] }} [config]
- */
 export function resizePath(pathString, config = {}){
   const { horizontal = 0, vertical = 0, hIndices = [], vIndices = [] } = config;
   if (horizontal === 0 && vertical === 0) return pathString;
@@ -188,10 +167,6 @@ export function resizePath(pathString, config = {}){
   return stringifyPath(commands);
 }
 
-/**
- * Индексы команд для `resizePath` по типу блока (библиотека / `config.size`).
- * Вертикальные ноги **c-block** совпадают с растяжением **полости под inner stack** в path — см. `constants/constantsDefaults.js`.
- */
 export const PATH_RESIZE_CONFIGS = {
   'start-block': { hIndices: [0, 1] },
   'c-block': {
@@ -204,16 +179,10 @@ export const PATH_RESIZE_CONFIGS = {
   'sharp-block': { hIndices: [0, 1] },
 };
 
-/** @param {string} blockType */
 export function getResizeConfig(blockType){
   return PATH_RESIZE_CONFIGS[blockType] || PATH_RESIZE_CONFIGS['default-block'];
 }
 
-/**
- * @param {SVGPathElement} pathEl
- * @param {number} [horizontal]
- * @param {number} [vertical]
- */
 export function applyResizeToPathElement(pathEl, horizontal = 0, vertical = 0){
   const blockType = pathEl.dataset.blockType;
   const config = getResizeConfig(blockType);

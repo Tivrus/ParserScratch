@@ -1,67 +1,32 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as ScratchCallTrace from '../infrastructure/debug/scratchCallTrace.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
-import * as StackChainGraph from '../stack-connect/layout/stackChainGraph.js';
+import * as StackChainGraph from '../stack-connect/stackChainGraph.js';
 import * as StackChainDrag from './StackChainDrag.js';
 import * as ZoneModule from './ZoneModule.js';
-import * as CBlockBottomInnerZoneModule from '../c-block/bottomInnerZone.js';
-import * as CBlockTopInner from '../c-block/topInnerZone.js';
-import * as ChainSpreadMath from '../calculations/stackChainSpreadAndMiddleZone.js';
-import * as StackSeamClientMath from '../calculations/stackSeamClientMath.js';
-import * as StackSnapStartBlockOffsets from '../calculations/stackSnapStartBlockOffsets.js';
+import * as CBlockZoneBuild from '../c-block/CBlockZoneBuild.js';
+import * as ChainSpreadMath from '../calculations/StackChainSpreadMath.js';
+import * as StackSeamClientMath from '../calculations/StackSeamClientMath.js';
+import * as StackSnapStartBlockOffsets from '../calculations/StackSnapStartBlockMath.js';
+import * as ZoneClientRectMath from '../calculations/ZoneClientRectMath.js';
 
-function zoneToClientRect(blockGroup, zone){
-  const svg = blockGroup.ownerSVGElement;
-  if (!svg || typeof svg.createSVGPoint !== 'function' || typeof blockGroup.getScreenCTM !== 'function'){
-    return null;
-  }
-  const ctm = blockGroup.getScreenCTM();
-  if (!ctm) return null;
-  const pt = svg.createSVGPoint();
-  const corners = [
-    [zone.x, zone.y],
-    [zone.x + zone.width, zone.y],
-    [zone.x + zone.width, zone.y + zone.height],
-    [zone.x, zone.y + zone.height],
-  ];
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const [lx, ly] of corners){
-    pt.x = lx;
-    pt.y = ly;
-    try {
-      const p = pt.matrixTransform(ctm);
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    } catch {
-      return null;
-    }
-  }
-  return { left: minX, top: minY, right: maxX, bottom: maxY };
-}
-
-/** Шов между блоками в локальных координатах родительского `<g>` (вместо нижнего successor). */
 function jointSeamCenterLocalOnParent(
   parentEl,
   childEl,
   parentBottomZone,
   childTopZone
 ){
-  const rParent = zoneToClientRect(parentEl, parentBottomZone);
-  const rChild = zoneToClientRect(childEl, childTopZone);
+  const rParent = ZoneClientRectMath.calc_Zone_LocalRect_ToClientAABB(parentEl, parentBottomZone);
+  const rChild = ZoneClientRectMath.calc_Zone_LocalRect_ToClientAABB(childEl, childTopZone);
   if (!rParent || !rChild){
     return null;
   }
   const seamClientY =
-    StackSeamClientMath.calcVerticalSeamCenterClientYBetweenZoneRects(
+    StackSeamClientMath.calc_VerticalSeamCenter_ClientY(
       rParent,
       rChild
     );
-  const parentRect = parentEl.getBoundingClientRect();
+  const parentRect = SvgUtils.getBoundingClientRectRounded(parentEl);
   const seamClientX = (parentRect.left + parentRect.right) / 2;
   const pt = SvgUtils.clientPointToElementLocal(
     parentEl,
@@ -72,7 +37,7 @@ function jointSeamCenterLocalOnParent(
   return pt.y;
 }
 
-export function applyStackChainMiddles(blockRegistry, getDataForBlock){
+export function apply_StackChain_Middles(blockRegistry, getDataForBlock){
   for (const block of blockRegistry.values()){
     const data = getDataForBlock(block);
     if (!data || !block.element) continue;
@@ -82,12 +47,11 @@ export function applyStackChainMiddles(blockRegistry, getDataForBlock){
     );
   }
 
-  /* Внутренний стек c-block: у первого нет top, у последнего нет bottom; один блок — без обоих. */
   for (const cBlock of blockRegistry.values()){
     if (cBlock.type !== 'c-block' || !cBlock.innerStackHeadUUID) continue;
     const innerHead = blockRegistry.get(cBlock.innerStackHeadUUID);
     if (!innerHead || !Array.isArray(innerHead.Zones)) continue;
-    const innerTail = StackChainGraph.stackTailBlock(blockRegistry, innerHead);
+    const innerTail = StackChainGraph.find_StackTail_Block(blockRegistry, innerHead);
     if (!innerTail || !Array.isArray(innerTail.Zones)) continue;
 
     innerHead.Zones = innerHead.Zones.filter(
@@ -131,7 +95,7 @@ export function applyStackChainMiddles(blockRegistry, getDataForBlock){
     const data = getDataForBlock(cBlock);
     if (!data) continue;
     const g = ZoneModule.Zone.getLocalGeometry(data, cBlock.element);
-    const rect = CBlockTopInner.calcCBlockTopInner(
+    const rect = CBlockZoneBuild.build_CblockZone_TopInner_ForBlock(
       g,
       cBlock.element,
       innerHead.element
@@ -144,10 +108,9 @@ export function applyStackChainMiddles(blockRegistry, getDataForBlock){
     }
 
     cBlock.Zones = cBlock.Zones.filter(z => z.type !== 'bottom-inner');
-    const innerTail = StackChainGraph.stackTailBlock(blockRegistry, innerHead);
+    const innerTail = StackChainGraph.find_StackTail_Block(blockRegistry, innerHead);
     if (innerTail && innerTail.element && innerTail.type !== 'stop-block'){
-      // console.log(innerTail.element, innerTail.type,)
-      const bottomRect = CBlockBottomInnerZoneModule.calcCBlockBottomInnerRect(
+      const bottomRect = CBlockZoneBuild.build_CblockZone_BottomInner_ForBlock(
         cBlock.element,
         innerTail.element,
         innerTail.type,
@@ -185,8 +148,7 @@ function isSpreadExcluded(blockUUID, exclude){
   return false;
 }
 
-/** Сброс визуального spread: translate в модельные x/y; исключить UUID (например цепочка на overlay). */
-export function clearChainSpread(blockRegistry, excludeBlockUUID = null){
+export function clear_ChainSpread(blockRegistry, excludeBlockUUID = null){
   for (const workspaceBlock of blockRegistry.values()){
     if (!workspaceBlock.element) continue;
     if (isSpreadExcluded(workspaceBlock.blockUUID, excludeBlockUUID)) continue;
@@ -198,17 +160,17 @@ export function clearChainSpread(blockRegistry, excludeBlockUUID = null){
   }
 }
 
-export function setChainSpreadBelow(
+export function set_ChainSpread_Below(
   blockRegistry,
   pivotChildUUID,
   deltaY,
   excludeBlockUUID = null
 ){
   if (!deltaY){
-    clearChainSpread(blockRegistry, excludeBlockUUID);
+    clear_ChainSpread(blockRegistry, excludeBlockUUID);
     return;
   }
-  clearChainSpread(blockRegistry, excludeBlockUUID);
+  clear_ChainSpread(blockRegistry, excludeBlockUUID);
   for (const tailBlock of getChainTailFromBlock(
     blockRegistry,
     pivotChildUUID
@@ -217,7 +179,7 @@ export function setChainSpreadBelow(
       continue;
     }
     const spreadOffsetY =
-      ChainSpreadMath.applyMiddlePreviewTailWorldYDeltaForChainSpreadBelowSeam(
+      ChainSpreadMath.calc_StackChain_MiddlePreviewTail_WorldY(
         tailBlock.y,
         deltaY
       );
@@ -228,8 +190,7 @@ export function setChainSpreadBelow(
   }
 }
 
-/** Превью: сдвиг внутреннего стека вниз под призрак в первом слоте (модельные x/y не меняются). */
-export function setCBlockInnerStackPreviewSpread(
+export function set_CBlockInnerStack_PreviewSpread(
   blockRegistry,
   cBlock,
   deltaY,
@@ -238,7 +199,7 @@ export function setCBlockInnerStackPreviewSpread(
   if (!cBlock || !cBlock.innerStackHeadUUID || !deltaY || !blockRegistry) return;
   const innerHead = blockRegistry.get(cBlock.innerStackHeadUUID);
   if (!innerHead) return;
-  for (const b of StackChainDrag.collectChainBlocksFromHead(
+  for (const b of StackChainDrag.collect_StackChain_BlocksFromHead(
     blockRegistry,
     innerHead
   )){
@@ -251,11 +212,11 @@ export function setCBlockInnerStackPreviewSpread(
   }
 }
 
-export function clearCBlockInnerStackPreviewSpread(blockRegistry, cBlock){
+export function clear_CBlockInnerStack_PreviewSpread(blockRegistry, cBlock){
   if (!cBlock || !cBlock.innerStackHeadUUID || !blockRegistry) return;
   const innerHead = blockRegistry.get(cBlock.innerStackHeadUUID);
   if (!innerHead) return;
-  for (const b of StackChainDrag.collectChainBlocksFromHead(
+  for (const b of StackChainDrag.collect_StackChain_BlocksFromHead(
     blockRegistry,
     innerHead
   )){
@@ -264,18 +225,12 @@ export function clearCBlockInnerStackPreviewSpread(blockRegistry, cBlock){
   }
 }
 
-/** Доп. сдвиг хвоста при middle-preview: высота блока + зазор сокета для start/stop. */
-export function ghostSpreadDeltaY(draggedElement){
-  if (!draggedElement || typeof draggedElement.getBBox !== 'function') return 0;
-  try {
-    const bboxHeight = draggedElement.getBBox().height;
-    if (!Number.isFinite(bboxHeight) || bboxHeight <= 0) return 0;
-    return (
-      bboxHeight + StackSnapStartBlockOffsets.calc_StopBlockGhost_Pos(draggedElement)
-    );
-  } catch {
-    return 0;
-  }
+export function calc_GhostSpread_DeltaY(draggedElement){
+  const bboxHeight = SvgUtils.getElementBBoxHeight(draggedElement);
+  if (!bboxHeight) return 0;
+  return (
+    bboxHeight + StackSnapStartBlockOffsets.calc_StackSnap_StopBlockGhost_ExtraY(draggedElement)
+  );
 }
 
 function buildMiddleZone(parent, child, parentData, childData){
@@ -304,7 +259,7 @@ function buildMiddleZone(parent, child, parentData, childData){
   return new ZoneModule.Zone({
     type: 'middle',
     x: parentBottom.x,
-    y: ChainSpreadMath.calcMiddleZoneHitBandTopLocalYFromSeamMidline(
+    y: ChainSpreadMath.calc_MiddleZone_HitBandTopLocalY(
       seamY
     ),
     width: parentBottom.width,

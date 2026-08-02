@@ -1,13 +1,11 @@
-import * as CBlockTopInner from '../c-block/topInnerZone.js';
-import * as Global from '../../../src/constants/Global.js';
+import * as CBlockMath from '../calculations/CBlockMath.js';
+import * as Global from '../constants/Global.js';
 import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
 import * as ZoneLocalMath from '../calculations/ZoneLocalMath.js';
 
-/** Полосы попадания коннекторов в локальной системе координат группы `<g>` блока. */
 export class Zone{
   static zoneByType(zones, type){
     if (!zones || typeof zones.find !== 'function') return null;
-
     const zoneMatch = zones.find(z => z.type === type);
     if (zoneMatch === undefined) return null;
     return zoneMatch;
@@ -38,7 +36,6 @@ export class Zone{
     };
   }
 
-  /** Как во внутреннем чтении для `buildForBlock` (локальный фрейм коннектора под `<g>` блока). */
   static getLocalGeometry(data, blockElement){
     return Zone.#readLocalGeometry(data, blockElement);
   }
@@ -58,7 +55,7 @@ export class Zone{
           Zone.#makeBottomZone(ZoneX, width, bottomBaseY),
         ];
         zones.push(
-          new Zone(CBlockTopInner.calcCBlockTopInnerWhenIsEmpty(g))
+          new Zone(CBlockMath.build_CblockZone_TopInner_WhenInnerStackEmpty(g))
         );
         return zones;
       }
@@ -89,23 +86,10 @@ export class Zone{
   }
 
   static #readLocalGeometry(data, blockElement){
-    // Safe bbox fallback checks
     const fallback = Zone.#bboxFallback(data);
-    if (!blockElement || typeof blockElement.getBBox !== 'function'){
-      return fallback;
-    }
-    let b;
-    try{
-      b = blockElement.getBBox();
-    }
-    catch{
-      return fallback;
-    }
-    if (b.width <= 0 || b.height <= 0) return fallback;
+    const b = SvgUtils.getElementBBox(blockElement);
+    if (!b || b.width <= 0 || b.height <= 0) return fallback;
 
-
-
-    //
     const r = SvgUtils.getBoundingClientRectRounded(blockElement);
     const topLeft = SvgUtils.clientPointToElementLocal(blockElement, r.left, r.top);
     const topRight = SvgUtils.clientPointToElementLocal(blockElement, r.right, r.top);

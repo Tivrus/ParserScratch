@@ -1,30 +1,30 @@
-/** Вспомогательные функции c-block: вложенный стек, зоны, snap top-inner / bottom-inner, растяжение path. */
+export {
+  build_CblockZone_TopInner_ForBlock,
+  build_CblockZone_BottomInner_ForBlock,
+} from './CBlockZoneBuild.js';
 
-export { buildCBlockInnerStackStretchedPathD } from './cBlockInnerStackPathStretch.js';
 export {
-  applyWorkspaceCBlockInnerStretch,
-  buildStretchedCBlockPathD,
-  buildStretchedCBlockPathDFromGhostHeight,
-  cBlockTopInnerPrependInnerStackSpreadY,
-  cBlockTopInnerPrependPreviewShiftY,
-  cBlockTopInnerStretchDeltaY,
-  getWorkspaceBlockPathElement,
-  measureInnerStackNominalHeightPx,
-  measureInnerStackWorldHeightPx,
-} from './cBlockPathStretchPreview.js';
-export { calcTopInnerGhostWorldPosition } from './innerGhostLayout.js';
+  find_CblockTopInnerZone_Hit,
+  find_CblockBottomInnerZone_Hit,
+  is_CblockTopInnerSnap_Eligible,
+  resolve_CblockInnerSnap_WithTopInnerPriority,
+} from './CBlockInnerSnap.js';
+
+export { calc_CblockTopInnerGhost_WorldPos } from './CBlockInnerGhostPos.js';
+
 export {
-  layoutInnerStackUnderCBlock,
-  layoutAllCBlockInnerStacks,
-} from './cBlockInnerStackWorkspaceLayout.js';
-export { resolveGhostSnapWithTopInnerPriority } from './innerSnapPriorities.js';
-export { calcCBlockBottomInnerRect } from './bottomInnerZone.js';
-export { findCBlockBottomInnerHit } from './bottomInnerHit.js';
+  calc_CblockTopInner_PreviewPathStretchDeltaPx,
+  calc_CblockTopInner_PrependPreviewShiftPx,
+  calc_CblockTopInner_PrependInnerStackSpreadPx,
+  build_CblockInnerStack_PathD_WithNominalHeight,
+  build_CblockInnerStack_PathD_StretchedFromGhostHeight,
+  find_CblockWorkspace_PathElement,
+  measure_CblockInnerStack_NominalHeightPx,
+  measure_CblockInnerStack_WorldHeightPx,
+  apply_CblockWorkspace_InnerStackPathStretch,
+} from './CBlockPathStretch.js';
+
 export {
-  calcCBlockTopInnerWhenIsEmpty,
-  calcCBlockTopInner,
-} from './topInnerZone.js';
-export {
-  findCBlockTopInnerHit,
-  isTopInnerGhostEligible,
-} from './topInnerHit.js';
+  layout_CblockInnerStack_Blocks,
+  layout_AllCblockInnerStacks,
+} from './CBlockInnerStackLayout.js';

@@ -1,6 +1,6 @@
-import * as Global from '../../../src/constants/Global.js';
+import * as Global from '../constants/Global.js';
 import * as WorkspaceModeToggles from './workspaceModeToggles.js';
-import * as BlockStackConnect from '../stack-connect/commit/BlockStackConnect.js';
+import * as StackConnect from '../stack-connect/StackConnectCommit.js';
 import * as MathUtils from '../infrastructure/math/MathUtils.js';
 
 function serializeWorkspace(blockRegistry, camera){
@@ -257,7 +257,6 @@ export function attachWorkspacePersistence(
   });
 }
 
-
 export async function hydrateWorkspaceFromServer(blockSpawner, gridPan, modeToggleButtons){
   const doc = await loadWorkspaceDocument();
   WorkspaceModeToggles.applyWorkspaceModesFromDoc(doc);
@@ -279,7 +278,7 @@ export async function hydrateWorkspaceFromServer(blockSpawner, gridPan, modeTogg
   applyWorkspaceDocument(blockSpawner, doc);
   applyWorkspaceChainLinks(blockSpawner.blockRegistry, doc);
   blockSpawner.refreshWorkspaceZones();
-  BlockStackConnect.layoutAllCBlockInnerStacks(blockSpawner.blockRegistry);
+  StackConnect.layoutAllCBlockInnerStacks(blockSpawner.blockRegistry);
   blockSpawner.refreshWorkspaceZones();
   requestAnimationFrame(function(){
     blockSpawner.refreshWorkspaceZones();
