@@ -91,7 +91,7 @@ body {
 
 
 #sidebar {
-    width: 190px;
+    min-width: 190px;
     background-color: #2c3e50;
     border-right: 2px solid #34495e;
     padding: 20px 0;
@@ -196,14 +196,9 @@ textarea {
     transition: transform 0.2s ease;
 }
 
-#workspace-top-actions #start-btn:hover {
-    transform: scale(1.1);
-}
-
 .workspace-mode-toggle {
-    box-sizing: border-box;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 6px;
     border: 1px solid #34495e;
     background: #2c3e50;
@@ -227,6 +222,14 @@ textarea {
 
 .workspace-mode-toggle:not(.workspace-mode-toggle--active){
     opacity: 0.55;
+}
+
+#search-btn{
+    width: 25px;
+    cursor: pointer;
+}
+#search-btn svg{
+    fill: #b18f20;
 }
 
 #trash-can {

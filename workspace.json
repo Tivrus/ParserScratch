@@ -1,29 +1,29 @@
 {
   "blocks": {
-    "dWVWqLFE1O38sa8kCVLg": {
-      "opcode": "motion_move_steps",
-      "next": "7rQMOnQfjtHgGf0SC6H/",
+    "ynUqQ0gzWZGrMEg9zdps": {
+      "opcode": "turn_left_steps",
+      "next": null,
       "parent": null,
       "inputs": {},
       "fields": {},
       "topLevel": true,
-      "x": -926,
-      "y": -449
+      "x": 634,
+      "y": 292
     },
-    "7rQMOnQfjtHgGf0SC6H/": {
-      "opcode": "turn_right_steps",
+    "uKVEaYsIwXn7c2RLoS%e": {
+      "opcode": "control_stop",
       "next": null,
-      "parent": "dWVWqLFE1O38sa8kCVLg",
+      "parent": null,
       "inputs": {},
       "fields": {},
-      "topLevel": false,
-      "x": -926,
-      "y": -400
+      "topLevel": true,
+      "x": 393,
+      "y": 500
     }
   },
   "camera": {
-    "x": 1132,
-    "y": 613
+    "x": -224,
+    "y": 38
   },
   "modes": {
     "cameraInertia": false,

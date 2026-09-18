@@ -1,9 +1,9 @@
-import * as Global from '../constants/Global.js';
-import * as SvgUtils from '../infrastructure/svg/SvgUtils.js';
+ import * as Global from '../constants/Global.js'
+import * as SvgUtils from '../utils/SvgUtils.js'
 
 export class Ghost {
   constructor(){
-    this.element = null;
+    this.element = null
   }
 
   #appendGhostPath(group, pathD){
@@ -15,45 +15,45 @@ export class Ghost {
         'stroke-width': 2,
         'stroke-linejoin': 'round',
       })
-    );
+    )
   }
 
   createFromElement(sourceBlockGroup, x = 0, y = 0){
-    this.dispose();
-    if (!sourceBlockGroup) return this;
+    this.dispose()
+    if (!sourceBlockGroup) return this
 
-    const pathEl = sourceBlockGroup.querySelector(':scope > path');
-    let pathDataAttribute = null;
+    const pathEl = sourceBlockGroup.querySelector(':scope > path')
+    let pathDataAttribute = null
     if (pathEl && typeof pathEl.getAttribute === 'function'){
-      pathDataAttribute = pathEl.getAttribute('d');
+      pathDataAttribute = pathEl.getAttribute('d')
     }
-    if (!pathDataAttribute) return this;
+    if (!pathDataAttribute) return this
 
     const group = SvgUtils.createElement('g', {
       transform: `translate(${x}, ${y})`,
       class: 'ghost-block',
-    });
-    this.#appendGhostPath(group, pathDataAttribute);
-    this.element = group;
-    return this;
+    })
+    this.#appendGhostPath(group, pathDataAttribute)
+    this.element = group
+    return this
   }
 
   setPosition(x, y){
     if (this.element){
-      this.element.setAttribute('transform', `translate(${x}, ${y})`);
+      this.element.setAttribute('transform', `translate(${x}, ${y})`)
     }
   }
 
   attach(parent){
-    if (!this.element || !parent) return this;
-    parent.appendChild(this.element);
-    return this;
+    if (!this.element || !parent) return this
+    parent.appendChild(this.element)
+    return this
   }
 
   dispose(){
     if (this.element){
-      this.element.remove();
+      this.element.remove()
     }
-    this.element = null;
+    this.element = null
   }
 }
